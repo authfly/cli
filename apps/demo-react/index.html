@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- Document skeleton only (the codegen host apps do the same); the page is rendered by React from ui8kit primitives. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Authkit demo (React)</title>
+    <script>
+      (function () { var s = localStorage.getItem("authkit-theme"); var q = new URLSearchParams(location.search).get("theme");
+        var d = q ? q === "dark" : s ? s === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; document.documentElement.classList.toggle("dark", d); })();
+    </script>
+  </head>
+  <body class="min-h-screen bg-background text-foreground antialiased">
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

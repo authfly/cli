@@ -1,0 +1,51 @@
+# Authkit dev stack: Stalwart (mail server, OIDC provider, directory), the Authkit server (Go/templ hosted pages + API)
+# and the React demo app (OIDC relying party). Dev only: fixed secrets, plain HTTP, the Stalwart recovery admin as the
+# management credential. See docs/install.md for production.
+services:
+  stalwart:
+    image: stalwartlabs/stalwart:v0.16
+    environment:
+      # Pinned recovery admin (stalw.art/docs/configuration/recovery-mode); Authkit uses it for JMAP management in dev.
+      STALWART_RECOVERY_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
+      # Issuer and endpoints published in /.well-known/openid-configuration (stalw.art/docs/install/platform/docker)
+      STALWART_PUBLIC_URL: http://localhost:8080
+    volumes:
+      # A config.json holding only the DataStore skips the bootstrap wizard (declarative deployments)
+      - ./deploy/stalwart/config.json:/etc/stalwart/config.json:ro
+      - stalwart-data:/var/lib/stalwart
+    ports:
+      - "8080:8080"   # HTTP: JMAP, OAuth/OIDC, WebUI (/admin)
+      - "2525:25"     # SMTP (local delivery)
+      - "1143:143"    # IMAP
+  authkit:
+    build: { context: ., dockerfile: deploy/authkit.Dockerfile }
+    depends_on: [stalwart]
+    environment:
+      AUTHKIT_SECRET: ${AUTHKIT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      AUTHKIT_PUBLIC_URL: http://localhost:4000
+      AUTHKIT_DOMAIN: authkit.test
+      AUTHKIT_PRODUCT: Authkit
+      AUTHKIT_SOCIAL_STUBS: "false"
+      STALWART_URL: http://stalwart:8080
+      STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
+      SMTP_ADDR: stalwart:25
+      SMTP_FROM: noreply@authkit.test
+      AUTHKIT_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]}]'
+    volumes:
+      - authkit-data:/data
+    ports:
+      - "4000:4000"
+  demo-react:
+    build: { context: ., dockerfile: deploy/demo-react.Dockerfile }
+    depends_on: [authkit]
+    environment:
+      AUTHKIT_URL: http://localhost:4000
+      STALWART_URL: http://stalwart:8080
+      OIDC_CLIENT_ID: demo-react
+      OIDC_REDIRECT_URI: http://localhost:5173/callback
+      SESSION_SECRET: ${DEMO_SESSION_SECRET:-dev-only-demo-session-secret-0123456789}
+    ports:
+      - "5173:5173"
+volumes:
+  stalwart-data:
+  authkit-data:
