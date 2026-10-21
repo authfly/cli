@@ -153,3 +153,15 @@ func TestNFT(t *testing.T) {
 		}
 	}
 }
+
+func TestProvider(t *testing.T) {
+	c := &Config{}
+	c.Defaults()
+	if c.Provider != "stalwart" {
+		t.Fatal(c.Provider)
+	}
+	c.Provider = "supabase"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "not implemented") {
+		t.Fatal(err)
+	}
+}

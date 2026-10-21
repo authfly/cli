@@ -34,7 +34,10 @@ type Config struct {
 	Version int    `yaml:"version"`
 	Name    string `yaml:"name"`   // instance name: compose project / incus prefix
 	Target  string `yaml:"target"` // docker | incus
-	App     struct {
+	// Provider is the @authfly/core provider adapter (authfly/authfly) the deployment runs. Only "stalwart" is
+	// implemented; "supabase" and "authjs" are contract stubs and are refused.
+	Provider string `yaml:"provider"`
+	App      struct {
 		Runtime string   `yaml:"runtime"` // widget runtime
 		Adapter string   `yaml:"adapter"` // server adapter
 		Clients []Client `yaml:"clients"` // OIDC relying parties
@@ -109,6 +112,7 @@ func (c *Config) Defaults() {
 			*p = v
 		}
 	}
+	def(&c.Provider, "stalwart")
 	defi := func(p *int, v int) {
 		if *p == 0 {
 			*p = v
@@ -151,7 +155,7 @@ func (c *Config) Defaults() {
 	defi(&c.Ports.Management, 8080)
 	defi(&c.Ports.Console, 4500)
 	def(&c.Channel.Name, "stable")
-	def(&c.Channel.Manifest, "https://github.com/authfly/authfly/releases/latest/download/channel.json")
+	def(&c.Channel.Manifest, "https://github.com/authfly/cli/releases/latest/download/channel.json")
 	def(&c.Incus.Network, "authfly0")
 	def(&c.Incus.Subnet, "10.118.42.1/24")
 	def(&c.Incus.Pool, "default")
@@ -169,6 +173,13 @@ func (c *Config) Validate() error {
 	bad := func(f string, a ...any) { errs = append(errs, fmt.Errorf(f, a...)) }
 	if c.Version != 1 {
 		bad("version: only 1 is supported")
+	}
+	switch c.Provider {
+	case "stalwart":
+	case "supabase", "authjs":
+		bad("provider: %s is a stub in authfly/authfly (@authfly/provider-%s, not implemented); use stalwart", c.Provider, c.Provider)
+	default:
+		bad("provider: stalwart (supabase and authjs are not implemented yet)")
 	}
 	if !nameRe.MatchString(c.Name) {
 		bad("name: 2-31 chars, lowercase letters, digits, dash")

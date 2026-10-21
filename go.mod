@@ -1,4 +1,4 @@
-module github.com/authfly/authfly
+module github.com/authfly/cli
 
 go 1.26.0
 
@@ -16,4 +16,4 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-replace github.com/ui8kit/codegen/packages/templ/ui => ./packages/ui/templ
+replace github.com/ui8kit/codegen/packages/templ/ui => ./.deps/authkit/packages/ui/templ

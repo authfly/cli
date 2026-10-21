@@ -3,7 +3,7 @@ package main
 import (
 	"reflect"
 
-	"github.com/authfly/authfly/server/deploy"
+	"github.com/authfly/cli/server/deploy"
 	"gopkg.in/yaml.v3"
 )
 

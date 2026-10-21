@@ -2,7 +2,7 @@ package web
 
 import (
 	"github.com/a-h/templ"
-	"github.com/authfly/authfly/server/ext"
+	"github.com/authfly/cli/server/ext"
 	blocks "github.com/ui8kit/codegen/packages/templ/ui/blocks"
 )
 

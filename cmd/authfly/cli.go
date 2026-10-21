@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/authfly/authfly/server/deploy"
+	"github.com/authfly/cli/server/deploy"
 	"golang.org/x/term"
 )
 
@@ -135,6 +135,7 @@ func initCmd(fs *flag.FlagSet, file *string, args []string) {
 	s(&c.Target, "target", "docker | incus")
 	s(&c.App.Runtime, "runtime", strings.Join(deploy.Runtimes, " | "))
 	s(&c.App.Adapter, "adapter", strings.Join(deploy.Adapters, " | "))
+	s(&c.Provider, "provider", "stalwart (supabase | authjs: contract stubs, refused)")
 	s(&c.Domain, "domain", "mail domain of the users")
 	s(&c.PublicURL, "public-url", "public URL of Authfly (OIDC issuer)")
 	s(&c.HTTP.TLS, "tls", "acme | manual | off")

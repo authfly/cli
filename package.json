@@ -1,21 +1,17 @@
 {
-  "name": "authfly-monorepo",
+  "name": "authfly-cli",
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/adapters/ts",
     "apps/demo-react"
   ],
   "scripts": {
-    "gen:ui": "bash tools/gen-ui.sh",
-    "check:ui": "bash tools/gen-ui.sh --check",
     "css": "tailwindcss -i server/web/app.css -o server/web/assets/app.css --minify",
     "lint:px": "ui8px lint",
-    "e2e": "bun e2e/flow.test.ts",
-    "site": "go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate -path site && tailwindcss -i site/app.css -o site/dist/assets/app.css --minify && go run ./site",
-    "site:serve": "bun run site && python3 -m http.server 4100 -d site/dist",
-    "console:css": "tailwindcss -i apps/console/app.css -o apps/console/assets/app.css --minify",
-    "console": "go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate -path apps/console && tailwindcss -i apps/console/app.css -o apps/console/assets/app.css --minify && go run ./apps/console"
+    "deps": "bash tools/deps.sh",
+    "build": "bash tools/deps.sh && go build ./... && go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate -path server/web",
+    "test": "bash tools/deps.sh && go vet ./... && go test ./... && npx ui8px@latest lint",
+    "e2e": "bash tools/e2e-deploy.sh"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.0",

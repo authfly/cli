@@ -1,4 +1,4 @@
-@import "../../../packages/ui/react/src/styles/index.css";
+@import "../../../.deps/authkit/packages/ui/react/src/styles/index.css";
 @source "./";
 
 /* page body: full height, smoothed text (plain CSS, kept out of class lists) */

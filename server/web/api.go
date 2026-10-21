@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/authfly/authfly/server/core"
+	"github.com/authfly/cli/server/core"
 )
 
 // APIKey, when set, is required in the X-Authfly-Key header of every JSON API call (adapters call from servers).

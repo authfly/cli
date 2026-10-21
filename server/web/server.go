@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/authfly/authfly/server/core"
-	"github.com/authfly/authfly/server/ext"
+	"github.com/authfly/cli/server/core"
+	"github.com/authfly/cli/server/ext"
 	"github.com/ui8kit/codegen/packages/templ/ui/blocks"
 )
 

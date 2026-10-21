@@ -5,3 +5,4 @@ dist/
 .env
 /site/dist/
 __pycache__/
+.deps/

@@ -8,7 +8,7 @@
     "dev": "vite build && bun server.ts"
   },
   "dependencies": {
-    "@authfly/node": "workspace:*",
+    "@authfly/node": "file:../../.deps/authfly/sdk/ts",
     "clsx": "^2.1.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -1,9 +1,0 @@
-/* Authfly Console styles: the generated ui8kit theme (shadcn tokens, dark class) and kit, scanned over the templ set and the console. */
-@import "../../packages/ui/react/src/styles/theme.css";
-@import "../../packages/ui/react/src/styles/kit.css";
-@source "../../packages/ui/templ/ui";
-@source "./";
-
-/* page body: full height, smoothed text (plain CSS, kept out of class lists) */
-body { min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-pre { white-space: pre-wrap; word-break: break-word; }

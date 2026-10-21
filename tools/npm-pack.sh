@@ -15,7 +15,7 @@ for p in linux/amd64/linux-x64 linux/arm64/linux-arm64 darwin/amd64/darwin-x64 d
   os=${np%-*}; cpu=${np#*-}
   cat > "$d/package.json" <<JSON
 { "name": "@authfly/cli-$np", "version": "$v", "description": "authfly binary for $np (used by the authfly package)", "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/authfly/authfly.git" }, "os": ["$os"], "cpu": ["$cpu"], "files": ["bin"] }
+  "repository": { "type": "git", "url": "git+https://github.com/authfly/cli.git" }, "os": ["$os"], "cpu": ["$cpu"], "files": ["bin"] }
 JSON
   sums[$np]=$(sha256sum "$d/bin/$exe" | cut -d' ' -f1)
   (cd "$out" && npm pack --silent "$d" >/dev/null)

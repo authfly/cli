@@ -1,14 +1,14 @@
 // The React demo: a relying party of Authfly. Signed out: a notice with "Sign in with Authfly" (OIDC + PKCE through the
 // Authfly hosted sign-in on Stalwart). Signed in: the account widget. Everything is ui8kit primitives and Authfly widgets.
 import { useEffect, useState } from "react";
-import { Block } from "../../../packages/ui/react/src/primitives/block/block";
-import { Container } from "../../../packages/ui/react/src/primitives/container/container";
-import { Group } from "../../../packages/ui/react/src/primitives/group/group";
-import { Inline } from "../../../packages/ui/react/src/primitives/inline/inline";
-import { LinkPlain } from "../../../packages/ui/react/src/primitives/link-plain/link-plain";
-import { LucideIcon } from "../../../packages/ui/react/src/primitives/lucide-icon/lucide-icon";
-import { ThemeToggle } from "../../../packages/ui/react/src/primitives/themetoggle/themetoggle";
-import { AuthflyAccount, AuthflyNotice } from "../../../packages/ui/react/src/authfly";
+import { Block } from "../../../.deps/authkit/packages/ui/react/src/primitives/block/block";
+import { Container } from "../../../.deps/authkit/packages/ui/react/src/primitives/container/container";
+import { Group } from "../../../.deps/authkit/packages/ui/react/src/primitives/group/group";
+import { Inline } from "../../../.deps/authkit/packages/ui/react/src/primitives/inline/inline";
+import { LinkPlain } from "../../../.deps/authkit/packages/ui/react/src/primitives/link-plain/link-plain";
+import { LucideIcon } from "../../../.deps/authkit/packages/ui/react/src/primitives/lucide-icon/lucide-icon";
+import { ThemeToggle } from "../../../.deps/authkit/packages/ui/react/src/primitives/themetoggle/themetoggle";
+import { AuthflyAccount, AuthflyNotice } from "../../../.deps/authkit/packages/ui/react/src/authfly";
 
 type User = { sub: string; email: string; name: string; username: string; amr: string };
 const methods = [

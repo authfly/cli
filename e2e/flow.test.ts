@@ -202,7 +202,7 @@ async function run(cmd: string[], input: unknown): Promise<any> {
   assert(code === 0, `${cmd.join(" ")} failed: ${err || out}`);
   return JSON.parse(out);
 }
-for (const [lang, cmd] of [["Python", ["python3", "adapters.py"]], ["PHP", ["php", "adapters.php"]]] as const) {
+for (const [lang, cmd] of [["Python", ["python3", "../.deps/authfly/sdk/python/tests/oidc_helper.py"]], ["PHP", ["php", "../.deps/authfly/sdk/php/tests/oidc-helper.php"]]] as const) {
   await step(`${lang} adapter: OIDC (authorize URL, hosted sign-in, consent, code exchange at Stalwart) and JSON API`, async () => {
     const cfg = { authfly: AUTHFLY, stalwart: AUTHFLY /* OIDC endpoints through the Authfly proxy */, client: "adapters", redirect: "http://localhost:9999/callback", identifier: addr, password };
     const { url, pending } = await run([...cmd, "authorize"], cfg);

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/authfly/authfly/server/core"
-	"github.com/authfly/authfly/server/ext"
-	"github.com/authfly/authfly/server/web"
+	"github.com/authfly/cli/server/core"
+	"github.com/authfly/cli/server/ext"
+	"github.com/authfly/cli/server/web"
 )
 
 // env reads a setting; K_FILE (a mounted secret file, docker/incus secrets) wins over K so secrets never sit in the

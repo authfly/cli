@@ -13,10 +13,10 @@ var widgetSet = map[string]string{
 	"vue":    "npm i @authfly/vue        # .vue blocks under @authfly/vue/blocks",
 	"svelte": "npm i @authfly/svelte     # .svelte blocks under @authfly/svelte/blocks",
 	"solid":  "npm i @authfly/solid      # .tsx blocks under @authfly/solid/blocks",
-	"templ":  "go get github.com/authfly/authfly/packages/ui/templ   # templ blocks: blocks.AuthflySignIn(...)",
-	"twig":   "copy packages/ui/twig (blocks/authfly-*.html.twig + ui/) into your templates path",
-	"latte":  "copy packages/ui/latte (blocks/authfly-*.latte + ui/) into your templates path",
-	"jinja2": "copy packages/ui/jinja2 (blocks/authfly-*.html.j2 + ui/) into your templates folder",
+	"templ":  "authfly/authkit packages/ui/templ: require github.com/ui8kit/codegen/packages/templ/ui + replace it with your checkout   # blocks.AuthflySignIn(...)",
+	"twig":   "copy authfly/authkit packages/ui/twig (blocks/authfly-*.html.twig + ui/) into your templates path",
+	"latte":  "copy authfly/authkit packages/ui/latte (blocks/authfly-*.latte + ui/) into your templates path",
+	"jinja2": "copy authfly/authkit packages/ui/jinja2 (blocks/authfly-*.html.j2 + ui/) into your templates folder",
 }
 
 func adapterSnippet(c *Config, cl Client) string {
@@ -36,14 +36,14 @@ export const auth = new Authfly({
 // GET /callback -> const { user } = await auth.callback(new URL(req.url).searchParams, pending);
 `, c.PublicURL, c.PublicURL, cl.ID, redirect)
 	case "php":
-		return fmt.Sprintf(`<?php // composer: packages/adapters/php
+		return fmt.Sprintf(`<?php // composer: authfly/authfly (sdk/php)
 require 'vendor/autoload.php';
 $auth = new \Authfly\Authfly(%q, %q, %q, %q);
 // /login: [$url, $pending] = $auth->authorizeUrl(); $_SESSION['pending'] = $pending; header("Location: $url");
 // /callback: $user = $auth->callback($_GET, $_SESSION['pending']);
 `, c.PublicURL, c.PublicURL, cl.ID, redirect)
 	case "python":
-		return fmt.Sprintf(`# pip install ./packages/adapters/python
+		return fmt.Sprintf(`# pip install authfly (authfly/authfly sdk/python)
 from authfly import Authfly
 auth = Authfly(%q, %q, %q, %q)
 # /login: url, pending = auth.authorize_url(); session["pending"] = pending; redirect(url)

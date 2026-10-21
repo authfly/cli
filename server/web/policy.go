@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/authfly/authfly/server/core"
+	"github.com/authfly/cli/server/core"
 )
 
 // Policy is set from authfly.yaml (the policy pack) through the environment: AUTHFLY_POLICY, AUTHFLY_LEGAL_DIR,
