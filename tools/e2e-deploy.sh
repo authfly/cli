@@ -23,7 +23,7 @@ trap 'kill $demo 2>/dev/null' EXIT
 for i in $(seq 30); do curl -s -o /dev/null localhost:5173 && break; sleep 1; done
 cd "$root"
 fail=0
-for t in flow security gdpr; do
+for t in ${E2E_SUITES:-flow security gdpr}; do
   echo "== $t ($name, $target)"
   bun "e2e/$t.test.ts" 2>&1 | tail -${E2E_TAIL:-40} || fail=1
 done

@@ -157,7 +157,7 @@ func initCmd(fs *flag.FlagSet, file *string, args []string) {
 	s(&c.Incus.Network, "incus-network", "private bridge name")
 	signin := fs.String("signin", "", "comma list: magic,password,username")
 	states := fs.String("us-states", "", "comma list of US states in scope (us-pii)")
-	clients := fs.String("client", "", "OIDC client: id=redirect_uri[,redirect_uri] (repeatable with ;)")
+	clients := fs.String("client", "", "OIDC client: id[:Display name]=redirect_uri[,redirect_uri]; separate clients with ;")
 	encrypt := fs.Bool("encryption-at-rest", false, "require encrypted storage")
 	firewall := fs.Bool("firewall", false, "incus: load the generated nftables rules")
 	verify := fs.String("require-verify", "true", "require email verification")
@@ -178,7 +178,11 @@ func initCmd(fs *flag.FlagSet, file *string, args []string) {
 	}
 	for _, cl := range strings.Split(*clients, ";") {
 		if id, uris, ok := strings.Cut(cl, "="); ok {
-			c.App.Clients = append(c.App.Clients, deploy.Client{ID: id, Name: id, RedirectURIs: strings.Split(uris, ",")})
+			id, name, named := strings.Cut(id, ":")
+			if !named {
+				name = id
+			}
+			c.App.Clients = append(c.App.Clients, deploy.Client{ID: id, Name: name, RedirectURIs: strings.Split(uris, ",")})
 		}
 	}
 	c.Mail.EncryptionAtRest = c.Mail.EncryptionAtRest || *encrypt
