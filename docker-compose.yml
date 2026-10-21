@@ -1,46 +1,84 @@
-# Authkit dev stack: Stalwart (mail server, OIDC provider, directory), the Authkit server (Go/templ hosted pages + API)
-# and the React demo app (OIDC relying party). Dev only: fixed secrets, plain HTTP, the Stalwart recovery admin as the
-# management credential. See docs/stalwart.md for production.
+# Authkit dev stack. Network design (docs/security.md):
+#   public    : Authkit :4000 (hosted pages, JSON API, the OIDC endpoints it proxies), the React demo :5173, and the
+#               Stalwart mail ports (SMTP 2525->25, submissions 4465->465, IMAPS 9993->993)
+#   localhost : Stalwart HTTP (management JMAP, /api) on 127.0.0.1:8080 only; the Authkit Console on 127.0.0.1:4500 only
+#               (reach both from your machine with `ssh -L`)
+#   internal  : everything else talks over the compose network (authkit -> stalwart:8080, stalwart:25)
+# Dev only: fixed secrets and plain HTTP. See docs/stalwart.md and docs/security.md for production.
 services:
   stalwart:
     image: stalwartlabs/stalwart:v0.16
     environment:
-      # Pinned recovery admin (stalw.art/docs/configuration/recovery-mode); Authkit uses it for JMAP management in dev.
+      # Pinned recovery admin (stalw.art/docs/configuration/recovery-mode). Used only by stalwart-init and the Console.
       STALWART_RECOVERY_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
-      # Issuer and endpoints published in /.well-known/openid-configuration (stalw.art/docs/install/platform/docker)
-      STALWART_PUBLIC_URL: http://localhost:8080
+      # Public URL = the OIDC issuer. Relying parties reach the OIDC endpoints through Authkit, so it is Authkit's URL.
+      STALWART_PUBLIC_URL: http://localhost:4000
     volumes:
       # A config.json holding only the DataStore skips the bootstrap wizard (declarative deployments)
       - ./deploy/stalwart/config.json:/etc/stalwart/config.json:ro
       - stalwart-data:/var/lib/stalwart
     ports:
-      - "8080:8080"   # HTTP: JMAP, OAuth/OIDC, WebUI (/admin)
-      - "2525:25"     # SMTP (local delivery)
-      - "1143:143"    # IMAP
-  authkit:
+      - "127.0.0.1:8080:8080"   # HTTP (JMAP, /api, OAuth): localhost only, never public
+      - "2525:25"               # SMTP
+      - "4465:465"              # SMTP submissions (implicit TLS)
+      - "9993:993"              # IMAPS
+  # One-shot hardening with the bootstrap admin: least-privilege service role and account, web UI off, OIDC clients
+  # registered, anonymous client registration off (server/core/harden.go).
+  stalwart-init:
     build: { context: ., dockerfile: deploy/authkit.Dockerfile }
+    command: ["init-stalwart"]
     depends_on: [stalwart]
-    environment:
-      AUTHKIT_SECRET: ${AUTHKIT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
-      AUTHKIT_PUBLIC_URL: http://localhost:4000
-      AUTHKIT_DOMAIN: authkit.test
-      AUTHKIT_PRODUCT: Authkit
-      AUTHKIT_SOCIAL_STUBS: "false"
+    restart: "no"
+    environment: &authkit-common
       STALWART_URL: http://stalwart:8080
       STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
+      AUTHKIT_DOMAIN: authkit.test
+      AUTHKIT_PUBLIC_URL: http://localhost:4000
+      AUTHKIT_SERVICE_PASSWORD: ${AUTHKIT_SERVICE_PASSWORD:-dev-only-service-password-0123}
+      AUTHKIT_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]},{"id":"adapters","name":"Adapter test","redirect_uris":["http://localhost:9999/callback"]}]'
+  authkit:
+    build: { context: ., dockerfile: deploy/authkit.Dockerfile }
+    depends_on:
+      stalwart-init: { condition: service_completed_successfully }
+    environment:
+      <<: *authkit-common
+      # least privilege: the service account created by stalwart-init, not the admin
+      STALWART_ADMIN: authkit-svc@authkit.test:${AUTHKIT_SERVICE_PASSWORD:-dev-only-service-password-0123}
+      AUTHKIT_SECRET: ${AUTHKIT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      AUTHKIT_PRODUCT: Authkit
+      AUTHKIT_SOCIAL_STUBS: "false"
       SMTP_ADDR: stalwart:25
       SMTP_FROM: noreply@authkit.test
-      AUTHKIT_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]},{"id":"adapters","name":"Adapter test","redirect_uris":["http://localhost:9999/callback"]}]'
     volumes:
       - authkit-data:/data
     ports:
       - "4000:4000"
+  console:
+    build: { context: ., dockerfile: deploy/console.Dockerfile }
+    depends_on:
+      stalwart-init: { condition: service_completed_successfully }
+    environment:
+      CONSOLE_ADDR: ":4500"
+      STALWART_URL: http://stalwart:8080
+      STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
+      AUTHKIT_STORE: /authkit-data/store.json
+      AUTHKIT_DOMAIN: authkit.test
+      AUTHKIT_PUBLIC_URL: http://localhost:4000
+      CONSOLE_ADMIN: ${CONSOLE_ADMIN:-console:dev-only-console-password}
+      CONSOLE_SECRET: ${CONSOLE_SECRET:-dev-only-console-secret-0123456789abcdef}
+      CONSOLE_DATA: /data
+    volumes:
+      - console-data:/data
+      - authkit-data:/authkit-data
+    ports:
+      - "127.0.0.1:4500:4500"   # localhost only: open with ssh -L 4500:127.0.0.1:4500 host
   demo-react:
     build: { context: ., dockerfile: deploy/demo-react.Dockerfile }
     depends_on: [authkit]
     environment:
       AUTHKIT_URL: http://localhost:4000
-      STALWART_URL: http://stalwart:8080
+      # OIDC endpoints through Authkit's proxy (server side, compose network)
+      STALWART_URL: http://authkit:4000
       OIDC_CLIENT_ID: demo-react
       OIDC_REDIRECT_URI: http://localhost:5173/callback
       SESSION_SECRET: ${DEMO_SESSION_SECRET:-dev-only-demo-session-secret-0123456789}
@@ -49,3 +87,4 @@ services:
 volumes:
   stalwart-data:
   authkit-data:
+  console-data:

@@ -204,7 +204,7 @@ async function run(cmd: string[], input: unknown): Promise<any> {
 }
 for (const [lang, cmd] of [["Python", ["python3", "adapters.py"]], ["PHP", ["php", "adapters.php"]]] as const) {
   await step(`${lang} adapter: OIDC (authorize URL, hosted sign-in, consent, code exchange at Stalwart) and JSON API`, async () => {
-    const cfg = { authkit: AUTHKIT, stalwart: STALWART, client: "adapters", redirect: "http://localhost:9999/callback", identifier: addr, password };
+    const cfg = { authkit: AUTHKIT, stalwart: AUTHKIT /* OIDC endpoints through the Authkit proxy */, client: "adapters", redirect: "http://localhost:9999/callback", identifier: addr, password };
     const { url, pending } = await run([...cmd, "authorize"], cfg);
     const d = new Browser();
     const signin = await d.follow(url);

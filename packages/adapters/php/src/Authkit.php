@@ -96,7 +96,7 @@ final class Authkit
     {
         if (!empty($params['error'])) throw new AuthkitException(400, (string) $params['error'], (string) ($params['error_description'] ?? ''));
         if (($params['state'] ?? '') !== $pending['state']) throw new AuthkitException(400, 'invalid_state', 'state mismatch');
-        $tokens = request('POST', $this->discovery()['token_endpoint'], http_build_query(['grant_type' => 'authorization_code', 'code' => $params['code'] ?? '',
+        $tokens = request('POST', $this->stalwartUrl . '/auth/token', http_build_query(['grant_type' => 'authorization_code', 'code' => $params['code'] ?? '',
             'redirect_uri' => $this->redirectUri, 'client_id' => $this->clientId, 'code_verifier' => $pending['verifier']]), ['Content-Type: application/x-www-form-urlencoded']);
         $claims = json_decode(base64_decode(strtr(explode('.', $tokens['id_token'])[1], '-_', '+/')), true);
         $aud = $claims['aud'] ?? null;

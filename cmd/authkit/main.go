@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -21,7 +22,48 @@ func env(k, d string) string {
 	return d
 }
 
+// initStalwart hardens Stalwart for Authkit (see core.Harden), with the bootstrap admin credential in STALWART_ADMIN.
+func initStalwart() {
+	admin := strings.SplitN(env("STALWART_ADMIN", ""), ":", 2)
+	sw := &core.Stalwart{BaseURL: env("STALWART_URL", "http://localhost:8080"), AdminUser: admin[0], AdminPass: admin[len(admin)-1], AdminToken: env("STALWART_ADMIN_TOKEN", "")}
+	pw := env("AUTHKIT_SERVICE_PASSWORD", "")
+	if len(pw) < 16 {
+		log.Fatal("AUTHKIT_SERVICE_PASSWORD must have at least 16 characters")
+	}
+	public := strings.TrimRight(env("AUTHKIT_PUBLIC_URL", "http://localhost:4000"), "/")
+	clients := []core.OAuthClient{{ID: env("AUTHKIT_CLIENT_ID", "authkit"), Name: "Authkit", RedirectURIs: []string{public + "/auth/callback"}}}
+	var rps []web.Client
+	if c := env("AUTHKIT_CLIENTS", ""); c != "" {
+		if err := json.Unmarshal([]byte(c), &rps); err != nil {
+			log.Fatalf("AUTHKIT_CLIENTS: %v", err)
+		}
+	}
+	for _, c := range rps {
+		clients = append(clients, core.OAuthClient{ID: c.ID, Name: c.Name, RedirectURIs: c.RedirectURIs})
+	}
+	var lines []string
+	var err error
+	for i := 0; i < 30; i++ { // Stalwart may still be starting
+		if lines, err = sw.Harden(context.Background(), core.HardenOptions{Domain: env("AUTHKIT_DOMAIN", "authkit.test"), ServiceName: env("AUTHKIT_SERVICE_NAME", "authkit-svc"),
+			ServicePassword: pw, KeepWebUI: env("STALWART_KEEP_WEBUI", "") == "true", Clients: clients}); err == nil {
+			break
+		}
+		log.Printf("init-stalwart: %v (retrying)", err)
+		time.Sleep(2 * time.Second)
+	}
+	for _, l := range lines {
+		log.Println("init-stalwart:", l)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "init-stalwart" {
+		initStalwart()
+		return
+	}
 	secret := env("AUTHKIT_SECRET", "")
 	if len(secret) < 32 {
 		log.Fatal("AUTHKIT_SECRET must have at least 32 characters")

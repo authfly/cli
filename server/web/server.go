@@ -97,6 +97,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("POST /oauth/authorize", s.authorizePost)
 	m.HandleFunc("POST /oauth/consent", s.consentPost)
 	s.api(m)
+	s.oidcProxy(m)
 	return logRequests(m)
 }
 

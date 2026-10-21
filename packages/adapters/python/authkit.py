@@ -88,7 +88,7 @@ class Authkit:
             raise AuthkitError(400, "invalid_state", "state mismatch")
         body = urllib.parse.urlencode({"grant_type": "authorization_code", "code": params.get("code", ""), "redirect_uri": self.redirect_uri,
                                        "client_id": self.client_id, "code_verifier": pending["verifier"]}).encode()
-        tokens = _request("POST", self.discovery()["token_endpoint"], body, {"Content-Type": "application/x-www-form-urlencoded"})
+        tokens = _request("POST", f"{self.stalwart_url}/auth/token", body, {"Content-Type": "application/x-www-form-urlencoded"})
         claims = json.loads(base64.urlsafe_b64decode(tokens["id_token"].split(".")[1] + "=="))
         aud = claims.get("aud")
         if claims.get("iss") != self.discovery()["issuer"] or (aud != self.client_id and self.client_id not in (aud or [])) \
