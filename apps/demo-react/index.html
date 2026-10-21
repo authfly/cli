@@ -10,7 +10,7 @@
         var d = q ? q === "dark" : s ? s === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; document.documentElement.classList.toggle("dark", d); })();
     </script>
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased">
+  <body class="bg-background text-foreground">
     <div id="app"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

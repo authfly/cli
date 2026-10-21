@@ -1,0 +1,25 @@
+{
+  "defaultScope": "layout",
+  "scopes": [
+    {
+      "name": "controls",
+      "files": [
+        "src/ui/**",
+        "src/components/**",
+        "ui/**",
+        "components/**"
+      ],
+      "spacing": "control"
+    },
+    {
+      "name": "layout",
+      "files": [
+        "src/views/**",
+        "src/pages/**",
+        "examples/**",
+        "internal/site/views/**"
+      ],
+      "spacing": "layout"
+    }
+  ]
+}

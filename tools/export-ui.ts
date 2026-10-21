@@ -63,3 +63,20 @@ for (const rt of RT) {
   }
   console.log(`${rt.padEnd(7)} ${[...seen].length} block files -> ${relative(process.cwd(), dst)}`);
 }
+
+// ui8px policy fixes on the exported copies (the upstream build is untouched):
+// - Go unit tests of the cn helper hold deliberately conflicting class lists; they are not part of the widget set.
+// - shadcn's base layer applies `outline-ring/50`, which ui8px does not know; the same rule as plain CSS.
+function walk(dir: string, fn: (f: string) => void) {
+  for (const e of readdirSync(dir)) { const p = join(dir, e); statSync(p).isDirectory() ? walk(p, fn) : fn(p); }
+}
+// - templ only: the parity harness (cmd/) and the two primitives the Authkit set never renders (sheet, disclosure) use
+//   variant modifiers ui8px has no grammar for (group-open, in-aria-expanded); they stay in codegen, not in the export.
+for (const d of ["cmd", "ui/sheet", "ui/disclosure"]) rmSync(join(out, "templ", d), { recursive: true, force: true });
+walk(out, (f) => {
+  if (f.endsWith("_test.go")) rmSync(f);
+  else if (f.endsWith("/styles/theme.css")) {
+    const t = readFileSync(f, "utf8");
+    writeFileSync(f, t.replace("@apply border-border outline-ring/50;", "@apply border-border;\n    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);"));
+  }
+});

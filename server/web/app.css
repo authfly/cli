@@ -4,3 +4,6 @@
 @source "../../packages/ui/templ/ui";
 @source "../../packages/ui/templ/blocks";
 @source "./";
+
+/* page body: full height, smoothed text (plain CSS, kept out of class lists) */
+body { min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
