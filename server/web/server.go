@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/ui8kit/authfly/server/core"
-	"github.com/ui8kit/authfly/server/ext"
+	"github.com/authfly/authfly/server/core"
+	"github.com/authfly/authfly/server/ext"
 	"github.com/ui8kit/codegen/packages/templ/ui/blocks"
 )
 
@@ -63,6 +63,9 @@ func (s *Server) lab(page string) map[string]any {
 			m[k] = v
 		}
 	}
+	if page == "signup" && Policy.TermsLabel != "" {
+		m["terms"] = Policy.TermsLabel
+	}
 	return m
 }
 
@@ -70,6 +73,7 @@ func (s *Server) lab(page string) map[string]any {
 func (s *Server) Handler() http.Handler {
 	m := http.NewServeMux()
 	m.Handle("GET /assets/", http.FileServerFS(assets))
+	m.HandleFunc("GET /legal/{doc}", s.legalDoc)
 	m.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		if s.user(r) != nil {
 			http.Redirect(w, r, "/account", http.StatusSeeOther)
@@ -274,6 +278,7 @@ func (s *Server) signUpPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Svc.Store.AddConsent(u.Address, core.Consent{Kind: "terms", Version: TermsVersion, Granted: true})
+	s.policyConsents(u.Address, TermsVersion)
 	s.notice(w, r, 200, "check", "default", "mail-check", u.Address, map[string]any{"secondary": "", "secondaryHref": ""})
 }
 

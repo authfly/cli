@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/ui8kit/authfly/server/core"
+	"github.com/authfly/authfly/server/core"
 )
 
 //go:embed assets

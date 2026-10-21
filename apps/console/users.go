@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ui8kit/authfly/server/core"
+	"github.com/authfly/authfly/server/core"
 )
 
 func (c *Console) userFields(r *http.Request, vals map[string]string) []Field {

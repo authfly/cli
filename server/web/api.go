@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ui8kit/authfly/server/core"
+	"github.com/authfly/authfly/server/core"
 )
 
 // APIKey, when set, is required in the X-Authfly-Key header of every JSON API call (adapters call from servers).
@@ -54,6 +54,7 @@ func (s *Server) api(m *http.ServeMux) {
 		}
 		if in["terms"] != "" { // the relying party passes terms=<version> when its form collected the acceptance
 			s.Svc.Store.AddConsent(u.Address, core.Consent{Kind: "terms", Version: in["terms"], Granted: true})
+			s.policyConsents(u.Address, in["terms"])
 		}
 		return 201, map[string]any{"user": u}
 	})

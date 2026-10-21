@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
-	"github.com/ui8kit/authfly/server/core"
-	"github.com/ui8kit/authfly/server/ext"
-	"github.com/ui8kit/authfly/server/web"
+	"github.com/authfly/authfly/server/core"
+	"github.com/authfly/authfly/server/ext"
+	"github.com/authfly/authfly/server/web"
 )
 
 type Page struct{ Slug, Title, Blurb, File string }

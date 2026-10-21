@@ -9,7 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ui8kit/authfly/server/web"
+	"github.com/authfly/authfly/server/web"
 	"github.com/ui8kit/codegen/packages/templ/ui/ui/badge"
 	"github.com/ui8kit/codegen/packages/templ/ui/ui/block"
 	"github.com/ui8kit/codegen/packages/templ/ui/ui/box"

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ui8kit/authfly/server/core"
+	"github.com/authfly/authfly/server/core"
 )
 
 // TermsVersion is recorded with the terms consent of hosted sign-up.

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ui8kit/authfly/server/core"
-	"github.com/ui8kit/authfly/server/ext"
-	"github.com/ui8kit/authfly/server/web"
+	"github.com/authfly/authfly/server/core"
+	"github.com/authfly/authfly/server/ext"
+	"github.com/authfly/authfly/server/web"
 )
 
 // env reads a setting; K_FILE (a mounted secret file, docker/incus secrets) wins over K so secrets never sit in the
@@ -118,6 +118,13 @@ func main() {
 		reg.Social = []ext.SocialProvider{ext.StubSocial{IDValue: "github", NameValue: "Continue with GitHub"}, ext.StubSocial{IDValue: "google", NameValue: "Continue with Google"}}
 	}
 	web.APIKey = env("AUTHFLY_API_KEY", "")
+	web.Policy.Pack, web.Policy.LegalDir, web.Policy.TermsLabel = env("AUTHFLY_POLICY", ""), env("AUTHFLY_LEGAL_DIR", ""), env("AUTHFLY_TERMS_LABEL", "")
+	if v := env("AUTHFLY_EXTRA_CONSENTS", ""); v != "" {
+		web.Policy.ExtraConsents = strings.Split(v, ",")
+	}
+	if v := env("AUTHFLY_CONSENT_VERSION", ""); v != "" {
+		web.TermsVersion = v
+	}
 	srv := web.New(svc, reg, clients, strings.HasPrefix(svc.Cfg.PublicURL, "https://"))
 	addr := env("AUTHFLY_ADDR", ":4000")
 	log.Printf("authfly listening on %s (public %s, domain %s, stalwart %s)", addr, svc.Cfg.PublicURL, svc.Cfg.Domain, sw.BaseURL)
@@ -129,7 +136,7 @@ func main() {
 		go func() { log.Fatal(http.ListenAndServe(a, srv.AdminHandler(key))) }()
 		log.Printf("authfly admin API on %s (internal)", a)
 	}
-	log.Fatal(serveTLS(addr, srv.Handler()))
+	log.Fatal(serveTLS(addr, gateMethods(env("AUTHFLY_METHODS", "magic,password"), srv.Handler())))
 }
 
 // serveTLS: AUTHFLY_TLS_MODE=acme (Let's Encrypt via autocert: HTTP-01 on AUTHFLY_HTTP_ADDR, TLS-ALPN-01 on addr),
@@ -149,4 +156,33 @@ func serveTLS(addr string, h http.Handler) error {
 		s := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 		return s.ListenAndServe()
 	}
+}
+
+// gateMethods turns off the endpoints of sign-in methods not enabled in authfly.yaml (AUTHFLY_METHODS=magic,password):
+// a disabled method answers 404 on both the hosted pages and the JSON API.
+func gateMethods(list string, h http.Handler) http.Handler {
+	on := map[string]bool{}
+	for _, m := range strings.Split(list, ",") {
+		on[strings.TrimSpace(m)] = true
+	}
+	off := []string{}
+	if !on["magic"] {
+		off = append(off, "/auth/magic", "/api/v1/magic-link")
+	}
+	if !on["password"] {
+		off = append(off, "/api/v1/sign-in", "/api/v1/forgot", "/api/v1/reset", "/auth/forgot", "/auth/reset")
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, p := range off {
+			if strings.HasPrefix(r.URL.Path, p) {
+				http.NotFound(w, r)
+				return
+			}
+		}
+		if !on["password"] && r.Method == http.MethodPost && r.URL.Path == "/auth/sign-in" {
+			http.NotFound(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }

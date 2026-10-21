@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ui8kit/authfly/server/core"
+	"github.com/authfly/authfly/server/core"
 )
 
 func auditTable(events []core.AuditEvent) *Table {
