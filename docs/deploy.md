@@ -62,7 +62,7 @@ delegation. Incus 6.3 or later can run OCI images, but this target does not need
 | Combo | Deploy | e2e flow / security / gdpr | Upgrade 0.3.0→0.3.1 | Rollback |
 |---|---|---|---|---|
 | React + GDPR + docker | ok | 15/15, 11/11, 11/11 | ok (44 s, digests verified) | ok (43 s; data from after the upgrade gone; doctor 0 FAIL) |
-| templ/Go + 152-FZ + incus | ok (46 s, doctor 0 FAIL) | 15/15, 11/11, 11/11 | see PROGRESS.md | see PROGRESS.md |
+| templ/Go + 152-FZ + incus | ok (46 s, doctor 0 FAIL) | 15/15, 11/11, 11/11 | ok (15 s, digests verified). The first try hit "text file busy" and auto-rolled back; fixed with an atomic push | ok (12 s; data from after the upgrade gone; doctor 0 FAIL) |
 
 ## Not wired / stubbed
 
