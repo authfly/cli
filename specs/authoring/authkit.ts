@@ -2,14 +2,17 @@
 // commit by tools/gen-ui.sh (copied to xgen/screens/src/authoring/blocks/authkit.ts), generated for all eight runtimes.
 // Every widget is a real HTML form (method post) so it works without JavaScript in every runtime; the names of the controls
 // are the Authkit form contract (docs/contract.md): identifier, password, email, name, username, token, code, csrf, return_to.
-import { cn, cond, each, eq, ref, text, tpl, use, when } from "../../build";
+import { cn, cond, each, eq, organism, ref, text, tpl, use, when } from "../../build";
 import type { OrganismSpec, ViewNode, Value } from "../../ir";
 import { groupFields, rec, requireFields, spec } from "../kit";
 import { id, tsOf } from "../props";
-import { checkRow, inputField } from "../forms";
+import { checkRow, fid, inputField, kids } from "../forms";
 import { muted } from "../ux";
 
 const O = "organism.authkit-";
+/** inputField of ../forms with a computed input type (email or text by the identifier axis) */
+const typedField = (name: string, type: Value, label: Value, auto: Value): ViewNode =>
+  organism("Field", { label, htmlFor: fid(name) }, kids(use("Input", { props: { Type: type, Name: name, Autocomplete: auto }, attrs: { id: fid(name), "data-testid": "field" } })));
 const panel = "mx-auto flex w-full max-w-sm flex-col gap-6 rounded bg-card p-6 inset-ring inset-ring-border";
 
 /** the section and heading every widget shares */
@@ -66,7 +69,7 @@ const signIn = spec(`${O}sign-in`, "AuthkitSignIn", "Authkit sign-in. Axes: meth
       each(ref("providers"), "p", ref("p.id"), use("Button", { props: { Variant: "outline", Size: "default", Href: tpl("{0}/{1}", ref("labels.socialUrl"), ref("p.id")), Class: "w-full" }, attrs: { "data-provider": ref("p.id") } },
         use("LucideIcon", { props: { Name: ref("p.icon"), Size: 16 } }), text(ref("p.title")))))]),
     form("authkit-form",
-      inputField("identifier", cond(eq(ref("identifier"), "email"), "email", "text"), ref("labels.identifier"), cond(eq(ref("identifier"), "email"), "email", "username")),
+      typedField("identifier", cond(eq(ref("identifier"), "email"), "email", "text"), ref("labels.identifier"), cond(eq(ref("identifier"), "email"), "email", "username")),
       when(eq(ref("method"), "password"), [inputField("password", "password", ref("labels.password"), "current-password"),
         use("Link", { props: { Href: ref("labels.forgotHref"), Variant: "default", Class: "w-fit text-sm" }, attrs: { "data-testid": "forgot" } }, text(ref("labels.forgot")))]),
       submit(ref("labels.submit"))),
@@ -97,7 +100,7 @@ const signUp = spec(`${O}sign-up`, "AuthkitSignUp", "Authkit sign-up: name, user
     when(ref("labels.signinLink"), [footLink(ref("labels.signinText"), ref("labels.signinLink"), ref("labels.signinHref"), "signin-link")]))],
 });
 
-const RequestLabels = requireFields(groupFields(["field", "string", "label of the field"], ["confirm", "string", "label of the repeat field (kind password)"], ["submit", "string"], ["back", "string"], ["backHref", "string"]), "field", "submit");
+const RequestLabels = requireFields(groupFields(["field", "string", "label of the field"], ["confirm", "string", "label of the repeat field (kind password)"], ["submit", "string"], ["back", "string"], ["backHref", "string"]), "field", "confirm", "submit");
 const request = spec(`${O}request`, "AuthkitRequest", "Authkit one-field forms. Axes: kind (email: magic-link request and forgot password, password: a new password and its repeat with the reset token, code: a one-time code, the TOTP extension point).", {
   records: { RequestLabels },
   props: [...common, { name: "labels", type: rec("RequestLabels"), required: true }, { name: "token", type: "string", default: "", docs: "the reset token, sent back as token" },

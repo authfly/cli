@@ -5,7 +5,7 @@ export type RequestLabels = {
   /** label of the field */
   field: string;
   /** label of the repeat field (kind password) */
-  confirm?: string;
+  confirm: string;
   submit: string;
   back?: string;
   backHref?: string;

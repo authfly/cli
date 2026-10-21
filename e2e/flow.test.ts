@@ -37,7 +37,7 @@ class Browser {
     return r;
   }
   /** submit the form of a page: hidden fields (csrf, token, decision) kept, fields overridden */
-  async submit(page: { body: string; url: string }, fields: Record<string, string>, testid = "authkit-form") {
+  async submit(page: { body: string; url: string }, fields: Record<string, string>, testid = "authkit-form", follow = true) {
     const forms = [...page.body.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/g)];
     const form = forms.find((f) => f[1]!.includes(`data-testid="${testid}"`));
     assert(form, `no form ${testid} on ${page.url}`);
@@ -48,7 +48,8 @@ class Browser {
       if (name) data.set(name, value.replace(/&amp;/g, "&"));
     }
     for (const [k, v] of Object.entries(fields)) data.set(k, v);
-    return this.follow(action, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: data.toString() });
+    const init = { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: data.toString() };
+    return follow ? this.follow(action, init) : this.go(action, init);
   }
 }
 
@@ -193,5 +194,29 @@ await step("JSON API for adapters: sign-in token and /me", async () => {
   const me = (await (await fetch(`${AUTHKIT}/api/v1/me`, { headers: { Authorization: `Bearer ${j.token}` } })).json()) as { user: { email: string } };
   assert(me.user.email === addr, "me mismatch");
 });
+
+/** run an adapter script (Python or PHP) that prints JSON */
+async function run(cmd: string[], input: unknown): Promise<any> {
+  const p = Bun.spawn(cmd, { stdin: new Blob([JSON.stringify(input)]), stdout: "pipe", stderr: "pipe", cwd: import.meta.dir });
+  const [out, err, code] = [await new Response(p.stdout).text(), await new Response(p.stderr).text(), await p.exited];
+  assert(code === 0, `${cmd.join(" ")} failed: ${err || out}`);
+  return JSON.parse(out);
+}
+for (const [lang, cmd] of [["Python", ["python3", "adapters.py"]], ["PHP", ["php", "adapters.php"]]] as const) {
+  await step(`${lang} adapter: OIDC (authorize URL, hosted sign-in, consent, code exchange at Stalwart) and JSON API`, async () => {
+    const cfg = { authkit: AUTHKIT, stalwart: STALWART, client: "adapters", redirect: "http://localhost:9999/callback", identifier: addr, password };
+    const { url, pending } = await run([...cmd, "authorize"], cfg);
+    const d = new Browser();
+    const signin = await d.follow(url);
+    const consent = await d.submit(signin, { identifier: addr, password });
+    has(consent.body, "Adapter test");
+    const back = await d.submit(consent, {}, "approve", false);
+    const loc = back.res.headers.get("location") ?? "";
+    assert(loc.startsWith(cfg.redirect + "?"), `redirect ${loc}`);
+    const params = Object.fromEntries(new URL(loc).searchParams);
+    const r = await run([...cmd, "callback"], { ...cfg, params, pending });
+    assert(r.user.email === addr && r.user.aud && r.me.email === addr, `adapter result ${JSON.stringify(r)}`);
+  });
+}
 
 console.log(`\n${passed} steps passed`);

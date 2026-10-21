@@ -30,7 +30,7 @@ services:
       STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
       SMTP_ADDR: stalwart:25
       SMTP_FROM: noreply@authkit.test
-      AUTHKIT_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]}]'
+      AUTHKIT_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]},{"id":"adapters","name":"Adapter test","redirect_uris":["http://localhost:9999/callback"]}]'
     volumes:
       - authkit-data:/data
     ports:

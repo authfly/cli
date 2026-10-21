@@ -1,0 +1,276 @@
+package main
+
+import (
+	"github.com/ui8kit/authkit/server/web"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/badge"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/block"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/box"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/container"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/grid"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/group"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/inline"
+	linkplain "github.com/ui8kit/codegen/packages/templ/ui/ui/link-plain"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/list"
+	lucideicon "github.com/ui8kit/codegen/packages/templ/ui/ui/lucide-icon"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/stack"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/text"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/themetoggle"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/title"
+	uiutils "github.com/ui8kit/codegen/packages/templ/ui/utils"
+)
+
+// siteDocument is the document skeleton of the static site (the one place with html, head and body, as in server/web).
+templ siteDocument(pageTitle string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ pageTitle }</title>
+			<link rel="stylesheet" href="assets/app.css"/>
+			<script src="assets/theme.js"></script>
+		</head>
+		<body class="bg-background text-foreground">
+			{ children... }
+		</body>
+	</html>
+}
+
+templ siteHeader() {
+	@block.Block(block.BlockProps{Tag: "header", Class: "sticky top-0 z-10 w-full border-b border-border bg-background"}) {
+		@container.Container(container.ContainerProps{Class: "mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4"}) {
+			@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "index.html", Class: "flex items-center gap-2 font-semibold"}) {
+				@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "shield-check", Size: 20})
+				@inline.Inline(inline.InlineProps{}) {
+					Authkit
+				}
+			}
+			@group.Group(group.GroupProps{Gap: "4", Align: "center"}) {
+				@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "getting-started.html", Class: "text-sm text-muted-foreground hover:text-foreground"}) {
+					Docs
+				}
+				@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "widgets.html", Class: "text-sm text-muted-foreground hover:text-foreground"}) {
+					Widgets
+				}
+				@themetoggle.ThemeToggle(themetoggle.ThemeToggleProps{Variant: "ghost", Size: "default", Attrs: templ.Attributes{"data-testid": "theme-toggle"}})
+			}
+		}
+	}
+}
+
+templ sidebar(nav []Section, current string) {
+	@block.Block(block.BlockProps{Tag: "nav", Class: "flex flex-col gap-6", Attrs: templ.Attributes{"aria-label": "Documentation"}}) {
+		for _, sec := range nav {
+			@stack.Stack(stack.StackProps{Gap: "2"}) {
+				@text.Text(text.TextProps{Size: "xs", Weight: "semibold", Class: "uppercase text-muted-foreground"}) {
+					{ sec.Title }
+				}
+				@list.List(list.ListProps{Class: "flex flex-col gap-2"}) {
+					for _, p := range sec.Pages {
+						@list.ListItem(list.ListItemProps{}) {
+							@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: p.Slug + ".html", Class: navClass(p.Slug == current), Attrs: currentAttr(p.Slug == current)}) {
+								{ p.Title }
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ docPage(nav []Section, page Page, nodes []Node, previews map[string]web.Preview) {
+	@siteDocument(page.Title + " - Authkit") {
+		@siteHeader()
+		@container.Container(container.ContainerProps{Tag: "main", Class: "mx-auto w-full max-w-6xl px-4 py-8"}) {
+			@grid.Grid(grid.GridProps{Cols: "1-4", Class: "gap-8"}) {
+				@grid.GridCol(grid.GridColProps{Class: "order-last md:order-first"}) {
+					@sidebar(nav, page.Slug)
+				}
+				@grid.GridCol(grid.GridColProps{Class: "min-w-0 md:col-span-3"}) {
+					@block.Block(block.BlockProps{Tag: "article", Class: "flex min-w-0 flex-col gap-4"}) {
+						for _, n := range nodes {
+							@mdNode(n, previews)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ mdNode(n Node, previews map[string]web.Preview) {
+	switch n.Kind {
+		case "h1":
+			@title.Title(title.TitleProps{As: uiutils.H1, Size: "3xl", Weight: "bold", Attrs: templ.Attributes{"id": n.Text}}) {
+				@spans(n.Spans)
+			}
+		case "h2":
+			@title.Title(title.TitleProps{As: uiutils.H2, Size: "2xl", Weight: "semibold", Class: "pt-6", Attrs: templ.Attributes{"id": n.Text}}) {
+				@spans(n.Spans)
+			}
+		case "h3":
+			@title.Title(title.TitleProps{As: uiutils.H3, Size: "lg", Weight: "semibold", Class: "pt-2", Attrs: templ.Attributes{"id": n.Text}}) {
+				@spans(n.Spans)
+			}
+		case "p":
+			@text.Text(text.TextProps{Class: "leading-7 text-muted-foreground"}) {
+				@spans(n.Spans)
+			}
+		case "note":
+			@box.Box(box.BoxProps{Class: "flex gap-2 rounded bg-muted p-4 text-sm"}) {
+				@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "info", Size: 16})
+				@text.Text(text.TextProps{Size: "sm"}) {
+					@spans(n.Spans)
+				}
+			}
+		case "ul", "ol":
+			@list.List(list.ListProps{Tag: map[bool]string{true: "ol", false: "ul"}[n.Kind == "ol"], Class: listClass(n.Kind)}) {
+				for _, it := range n.Items {
+					@list.ListItem(list.ListItemProps{Class: "leading-7"}) {
+						@spans(it)
+					}
+				}
+			}
+		case "code":
+			@text.Text(text.TextProps{Tag: "pre", Size: "sm", Class: "overflow-auto rounded bg-muted p-4", Attrs: templ.Attributes{"data-lang": n.Lang}}) {
+				@text.Text(text.TextProps{Tag: "code", Size: "inherit"}) {
+					{ n.Text }
+				}
+			}
+		case "preview":
+			if p, ok := previews[n.Text]; ok {
+				@previewFrame(p)
+			}
+	}
+}
+
+templ spans(xs []Inline) {
+	for _, x := range xs {
+		switch x.Kind {
+			case "code":
+				@text.Text(text.TextProps{Tag: "code", Size: "sm", Class: "rounded bg-muted px-1 text-foreground"}) {
+					{ x.Text }
+				}
+			case "strong":
+				@text.Text(text.TextProps{Tag: "strong", Size: "inherit", Weight: "semibold", Class: "text-foreground"}) {
+					{ x.Text }
+				}
+			case "link":
+				@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: x.Href, External: isExternal(x.Href), Class: "font-medium text-primary underline underline-offset-4"}) {
+					{ x.Text }
+				}
+			default:
+				{ x.Text }
+		}
+	}
+}
+
+// previewFrame shows a widget rendered live by the generated templ set, framed like the docs examples of ui8kit.
+templ previewFrame(p web.Preview) {
+	@block.Block(block.BlockProps{Tag: "figure", Class: "flex flex-col overflow-hidden rounded inset-ring inset-ring-border", Attrs: templ.Attributes{"data-preview": p.Slug, "id": "preview-" + p.Slug}}) {
+		@box.Box(box.BoxProps{Class: "flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2"}) {
+			@text.Text(text.TextProps{Size: "sm", Weight: "semibold"}) {
+				{ p.Name }
+			}
+			@badge.Badge(badge.BadgeProps{Variant: "secondary"}) {
+				Live, templ
+			}
+		}
+		@box.Box(box.BoxProps{Class: "bg-background px-4 py-8"}) {
+			@p.Widget
+		}
+		@text.Text(text.TextProps{Tag: "figcaption", Size: "sm", Class: "border-t border-border px-4 py-2 text-muted-foreground"}) {
+			{ p.Note }
+		}
+	}
+}
+
+templ widgetsPage(nav []Section, page Page, intro []Node, all []web.Preview) {
+	@siteDocument("Widgets - Authkit") {
+		@siteHeader()
+		@container.Container(container.ContainerProps{Tag: "main", Class: "mx-auto w-full max-w-6xl px-4 py-8"}) {
+			@grid.Grid(grid.GridProps{Cols: "1-4", Class: "gap-8"}) {
+				@grid.GridCol(grid.GridColProps{Class: "order-last md:order-first"}) {
+					@sidebar(nav, page.Slug)
+				}
+				@grid.GridCol(grid.GridColProps{Class: "min-w-0 md:col-span-3"}) {
+					@block.Block(block.BlockProps{Tag: "article", Class: "flex min-w-0 flex-col gap-4"}) {
+						for _, n := range intro {
+							@mdNode(n, nil)
+						}
+						for _, p := range all {
+							@previewFrame(p)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ homePage(nav []Section, runtimes []Page, hero web.Preview) {
+	@siteDocument("Authkit - self-hosted sign-in on Stalwart") {
+		@siteHeader()
+		@container.Container(container.ContainerProps{Tag: "main", Class: "mx-auto flex w-full max-w-6xl flex-col gap-16 px-4 py-12"}) {
+			@grid.Grid(grid.GridProps{Cols: "1-2", Class: "items-center gap-12"}) {
+				@stack.Stack(stack.StackProps{Gap: "6", Align: "start"}) {
+					@badge.Badge(badge.BadgeProps{Variant: "outline"}) {
+						Self-hosted, MIT
+					}
+					@title.Title(title.TitleProps{As: uiutils.H1, Size: "4xl", Weight: "bold"}) {
+						Sign-in widgets for your own mail server
+					}
+					@text.Text(text.TextProps{Size: "lg", Class: "text-muted-foreground"}) {
+						Authkit puts hosted sign-in, sign-up, magic links, password reset and an OpenID Connect handoff in front of Stalwart, the mail server with a built-in directory and OIDC provider. The widgets are generated by ui8kit/codegen for eight runtimes with the same DOM.
+					}
+					@group.Group(group.GroupProps{Gap: "4", Align: "center", Class: "flex-wrap"}) {
+						@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "getting-started.html", Class: "inline-flex h-10 items-center rounded bg-primary px-4 text-sm font-medium text-primary-foreground"}) {
+							Get started
+						}
+						@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "widgets.html", Class: "inline-flex h-10 items-center rounded px-4 text-sm font-medium inset-ring inset-ring-border"}) {
+							See the widgets
+						}
+					}
+				}
+				@box.Box(box.BoxProps{Class: "rounded bg-muted px-4 py-8"}) {
+					@hero.Widget
+				}
+			}
+			@stack.Stack(stack.StackProps{Gap: "6"}) {
+				@title.Title(title.TitleProps{As: uiutils.H2, Size: "2xl", Weight: "semibold"}) {
+					Pick your runtime
+				}
+				@grid.Grid(grid.GridProps{Cols: "2-4", Class: "gap-4"}) {
+					for _, r := range runtimes {
+						@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: r.Slug + ".html", Class: "flex flex-col gap-2 rounded p-4 inset-ring inset-ring-border hover:bg-muted"}) {
+							@text.Text(text.TextProps{Tag: "span", Weight: "semibold"}) {
+								{ r.Title }
+							}
+							@text.Text(text.TextProps{Tag: "span", Size: "sm", Class: "text-muted-foreground"}) {
+								{ r.Blurb }
+							}
+						}
+					}
+				}
+			}
+			@grid.Grid(grid.GridProps{Cols: "1-3", Class: "gap-4"}) {
+				@feature("mail", "Stalwart does the identity", "Accounts, passwords and OIDC tokens live in Stalwart. Authkit adds the flows and mails through Stalwart SMTP.")
+				@feature("layers", "One DOM, eight runtimes", "React, Svelte, Vue, Solid, templ, Twig, Latte and Jinja2 widgets, checked by the codegen parity gate.")
+				@feature("plug", "Adapters", "A Go core with hosted pages, a JSON API and a Node adapter; OIDC with PKCE for your apps.")
+			}
+		}
+	}
+}
+
+templ feature(icon, head, body string) {
+	@stack.Stack(stack.StackProps{Gap: "2", Class: "rounded p-6 inset-ring inset-ring-border"}) {
+		@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: icon, Size: 20})
+		@text.Text(text.TextProps{Weight: "semibold"}) {
+			{ head }
+		}
+		@text.Text(text.TextProps{Size: "sm", Class: "text-muted-foreground"}) {
+			{ body }
+		}
+	}
+}
