@@ -7,7 +7,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 
 const [cg, out] = [resolve(process.argv[2]!), resolve(process.argv[3]!)];
 const RT = ["react", "svelte", "vue", "solid", "templ", "twig", "latte", "jinja2"] as const;
-const skipTop = new Set(["node_modules", "vendor", "blocks", "components", "presets", "bin", "README.md", "index.ts", "composer.lock", "package.json"]);
+const skipTop = new Set([".venv", ".xgen-manifest.json", "__pycache__", "node_modules", "vendor", "blocks", "components", "presets", "bin", "README.md", "index.ts", "composer.lock", "package.json"]);
 
 function copyTree(from: string, to: string) {
   for (const e of readdirSync(from)) {
