@@ -1,0 +1,541 @@
+package main
+
+import (
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/alert"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/badge"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/block"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/box"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/button"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/card"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/checkbox"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/container"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/form"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/grid"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/group"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/inline"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/input"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/label"
+	linkplain "github.com/ui8kit/codegen/packages/templ/ui/ui/link-plain"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/list"
+	lucideicon "github.com/ui8kit/codegen/packages/templ/ui/ui/lucide-icon"
+	selectx "github.com/ui8kit/codegen/packages/templ/ui/ui/select"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/stack"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/table"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/text"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/textarea"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/themetoggle"
+	"github.com/ui8kit/codegen/packages/templ/ui/ui/title"
+	uiutils "github.com/ui8kit/codegen/packages/templ/ui/utils"
+)
+
+// document is the one place with html, head and body (no ui8kit primitive exists for the document root).
+templ document(pageTitle string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ pageTitle } - Authkit Console</title>
+			<link rel="stylesheet" href="/assets/app.css"/>
+			<script src="/assets/theme.js"></script>
+		</head>
+		<body class="bg-background text-foreground">
+			{ children... }
+		</body>
+	</html>
+}
+
+templ brand() {
+	@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "/", Class: "flex items-center gap-2 font-semibold"}) {
+		@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "terminal", Size: 20})
+		@inline.Inline(inline.InlineProps{}) {
+			Authkit Console
+		}
+	}
+}
+
+templ loginView(csrf, errMsg string) {
+	@document("Sign in") {
+		@block.Block(block.BlockProps{Tag: "main", Class: "flex min-h-screen w-full items-center justify-center px-4 py-8"}) {
+			@card.Card(card.CardProps{Class: "w-full max-w-sm"}) {
+				@card.CardHeader(card.CardHeaderProps{}) {
+					@group.Group(group.GroupProps{Gap: "2", Align: "center", Justify: "between"}) {
+						@brand()
+						@themetoggle.ThemeToggle(themetoggle.ThemeToggleProps{Variant: "ghost", Size: "default", Attrs: templ.Attributes{"data-testid": "theme-toggle"}})
+					}
+					@card.CardDescription(card.CardDescriptionProps{}) {
+						Private configurator for Stalwart and Authkit. Reachable on localhost only.
+					}
+				}
+				@card.CardContent(card.CardContentProps{}) {
+					@form.Form(form.FormProps{Action: "/login", Method: "post", Class: "flex flex-col gap-4", Attrs: templ.Attributes{"data-testid": "login-form"}}) {
+						@input.Input(input.InputProps{Type: "hidden", Name: "csrf", Value: csrf})
+						if errMsg != "" {
+							@alert.Alert(alert.AlertProps{Variant: "destructive", Role: "alert"}) {
+								@text.Text(text.TextProps{Size: "sm"}) {
+									{ errMsg }
+								}
+							}
+						}
+						@stack.Stack(stack.StackProps{Gap: "2"}) {
+							@label.Label(label.LabelProps{HTMLFor: "username"}) {
+								Username
+							}
+							@input.Input(input.InputProps{ID: "username", Name: "username", Required: true, Autocomplete: "username"})
+						}
+						@stack.Stack(stack.StackProps{Gap: "2"}) {
+							@label.Label(label.LabelProps{HTMLFor: "password"}) {
+								Password
+							}
+							@input.Input(input.InputProps{ID: "password", Name: "password", Type: "password", Required: true, Autocomplete: "current-password"})
+						}
+						@button.Button(button.ButtonProps{Type: "submit", Class: "w-full"}) {
+							Sign in
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func navLinkClass(on bool) string {
+	if on {
+		return "block rounded-md bg-muted px-2 py-2 text-sm font-medium text-foreground"
+	}
+	return "block rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+}
+
+templ navTree(p PageVM) {
+	@stack.Stack(stack.StackProps{Gap: "6"}) {
+		for _, g := range p.Nav {
+			@stack.Stack(stack.StackProps{Gap: "2"}) {
+				@group.Group(group.GroupProps{Gap: "2", Align: "center"}) {
+					@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: iconOr(g.Icon), Size: 16, Class: "text-muted-foreground"})
+					@text.Text(text.TextProps{Size: "xs", Weight: "semibold", Class: "uppercase text-muted-foreground"}) {
+						{ g.Title }
+					}
+				}
+				@list.List(list.ListProps{Class: "flex flex-col gap-1"}) {
+					for _, it := range g.Items {
+						@list.ListItem(list.ListItemProps{}) {
+							@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: it.View, Class: navLinkClass(it.View == p.Current)}) {
+								{ it.Label }
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ layout(p PageVM) {
+	@document(p.Title) {
+		@block.Block(block.BlockProps{Tag: "header", Class: "sticky top-0 z-10 w-full border-b border-border bg-background"}) {
+			@container.Container(container.ContainerProps{Class: "mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4"}) {
+				@brand()
+				@group.Group(group.GroupProps{Gap: "2", Align: "center"}) {
+					@badge.Badge(badge.BadgeProps{Variant: "outline", Class: "hidden md:inline-flex"}) {
+						{ p.User }
+					}
+					@themetoggle.ThemeToggle(themetoggle.ThemeToggleProps{Variant: "ghost", Size: "default", Attrs: templ.Attributes{"data-testid": "theme-toggle"}})
+					@form.Form(form.FormProps{Action: "/logout", Method: "post"}) {
+						@input.Input(input.InputProps{Type: "hidden", Name: "csrf", Value: p.Csrf})
+						@button.Button(button.ButtonProps{Type: "submit", Variant: "ghost", Size: "sm", Attrs: templ.Attributes{"data-testid": "logout"}}) {
+							@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "log-out", Size: 16})
+							@inline.Inline(inline.InlineProps{Class: "sr-only md:not-sr-only"}) {
+								Sign out
+							}
+						}
+					}
+				}
+			}
+		}
+		@container.Container(container.ContainerProps{Class: "mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 lg:flex-row"}) {
+			@block.Block(block.BlockProps{Tag: "aside", Class: "hidden w-64 lg:block"}) {
+				@block.Block(block.BlockProps{Tag: "nav", Class: "sticky top-20 max-h-screen overflow-auto pb-24", Attrs: templ.Attributes{"aria-label": "Console"}}) {
+					@navTree(p)
+				}
+			}
+			@block.Block(block.BlockProps{Tag: "main", Class: "flex min-w-0 flex-1 flex-col gap-6"}) {
+				@block.Block(block.BlockProps{Tag: "nav", Class: "lg:hidden", Attrs: templ.Attributes{"aria-label": "Console sections"}}) {
+					@form.Form(form.FormProps{Action: "/go", Method: "get", Class: "flex gap-2"}) {
+						@selectx.Select(selectx.SelectProps{Name: "to", Value: p.Current, Options: mobileNav(p.Nav), AriaLabel: "Go to", Class: "w-full"})
+						@button.Button(button.ButtonProps{Type: "submit", Variant: "outline"}) {
+							Go
+						}
+					}
+				}
+				@stack.Stack(stack.StackProps{Gap: "2"}) {
+					if len(p.Crumbs) > 0 {
+						@group.Group(group.GroupProps{Gap: "2", Align: "center", Class: "flex-wrap text-sm text-muted-foreground"}) {
+							for i, cr := range p.Crumbs {
+								if i > 0 {
+									@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "chevron-right", Size: 16})
+								}
+								@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: cr.Href, Class: "hover:text-foreground"}) {
+									{ cr.Label }
+								}
+							}
+						}
+					}
+					@title.Title(title.TitleProps{As: uiutils.H1, Size: "2xl", Weight: "semibold", Class: "break-words"}) {
+						{ p.Title }
+					}
+					if p.Subtitle != "" {
+						@text.Text(text.TextProps{Class: "text-muted-foreground"}) {
+							{ p.Subtitle }
+						}
+					}
+				}
+				@blocks(p.Blocks, p.Csrf)
+			}
+		}
+	}
+}
+
+templ blocks(bs []Block, csrf string) {
+	for _, b := range bs {
+		@oneBlock(b, csrf)
+	}
+}
+
+func toneVariant(t string) string {
+	if t == "destructive" {
+		return "destructive"
+	}
+	return "default"
+}
+
+func stepIcon(s string) string {
+	switch s {
+	case "ok":
+		return "circle-check"
+	case "fail":
+		return "circle-x"
+	case "warn":
+		return "triangle-alert"
+	}
+	return "circle-dashed"
+}
+
+func stepClass(s string) string {
+	switch s {
+	case "ok":
+		return "text-primary"
+	case "fail":
+		return "text-destructive"
+	}
+	return "text-muted-foreground"
+}
+
+templ cardHead(b Block) {
+	if b.Title != "" || b.Text != "" {
+		@card.CardHeader(card.CardHeaderProps{}) {
+			if b.Title != "" {
+				@group.Group(group.GroupProps{Gap: "2", Align: "center", Class: "flex-wrap"}) {
+					if b.Icon != "" {
+						@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: b.Icon, Size: 20, Class: "text-muted-foreground"})
+					}
+					@card.CardTitle(card.CardTitleProps{}) {
+						{ b.Title }
+					}
+					if b.Badge != "" {
+						@badge.Badge(badge.BadgeProps{Variant: "secondary"}) {
+							{ b.Badge }
+						}
+					}
+				}
+			}
+			if b.Text != "" {
+				@card.CardDescription(card.CardDescriptionProps{}) {
+					{ b.Text }
+				}
+			}
+		}
+	}
+}
+
+templ oneBlock(b Block, csrf string) {
+	switch b.Kind {
+		case "alert":
+			@alert.Alert(alert.AlertProps{Variant: toneVariant(b.Tone), Role: alertRole(b.Tone), Attrs: templ.Attributes{"data-testid": "alert-" + b.Tone}}) {
+				@stack.Stack(stack.StackProps{Gap: "2"}) {
+					@group.Group(group.GroupProps{Gap: "2", Align: "center"}) {
+						@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: iconOr(b.Icon), Size: 16})
+						@text.Text(text.TextProps{Size: "sm", Weight: "semibold"}) {
+							{ b.Title }
+						}
+					}
+					if b.Text != "" {
+						@text.Text(text.TextProps{Size: "sm"}) {
+							{ b.Text }
+						}
+					}
+					if len(b.Items) > 0 {
+						@list.List(list.ListProps{Class: "flex flex-col gap-1"}) {
+							for _, it := range b.Items {
+								@list.ListItem(list.ListItemProps{Class: "text-sm"}) {
+									{ "- " + it }
+								}
+							}
+						}
+					}
+				}
+			}
+		case "grid":
+			@grid.Grid(grid.GridProps{Cols: "1-3", Class: "gap-4"}) {
+				for _, ch := range b.Children {
+					@oneBlock(ch, csrf)
+				}
+			}
+		case "stat":
+			@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: b.Code, Class: "block"}) {
+				@card.Card(card.CardProps{Class: "h-full hover:bg-muted"}) {
+					@card.CardContent(card.CardContentProps{Class: "flex items-center gap-4 pt-6"}) {
+						@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: iconOr(b.Icon), Size: 24, Class: "text-muted-foreground"})
+						@stack.Stack(stack.StackProps{Gap: "0"}) {
+							@text.Text(text.TextProps{Size: "2xl", Weight: "semibold"}) {
+								{ b.Badge }
+							}
+							@text.Text(text.TextProps{Size: "sm", Class: "text-muted-foreground"}) {
+								{ b.Title }
+							}
+						}
+					}
+				}
+			}
+		default:
+			@card.Card(card.CardProps{Class: "min-w-0", Attrs: templ.Attributes{"data-block": b.Kind}}) {
+				@cardHead(b)
+				@card.CardContent(card.CardContentProps{Class: "flex min-w-0 flex-col gap-4"}) {
+					@blockBody(b, csrf)
+				}
+			}
+	}
+}
+
+templ blockBody(b Block, csrf string) {
+	if len(b.Items) > 0 {
+		@list.List(list.ListProps{Class: "flex flex-col gap-2"}) {
+			for _, it := range b.Items {
+				@list.ListItem(list.ListItemProps{Class: "flex gap-2 text-sm"}) {
+					@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "dot", Size: 16, Class: "text-muted-foreground"})
+					@inline.Inline(inline.InlineProps{Class: "min-w-0 break-words"}) {
+						{ it }
+					}
+				}
+			}
+		}
+	}
+	if len(b.KV) > 0 {
+		@group.Group(group.GroupProps{Tag: "dl", Class: "grid grid-cols-1 gap-2 md:grid-cols-3"}) {
+			for _, kv := range b.KV {
+				@list.ListItem(list.ListItemProps{Tag: "dt", Class: "text-sm text-muted-foreground"}) {
+					{ kv[0] }
+				}
+				@list.ListItem(list.ListItemProps{Tag: "dd", Class: "break-words text-sm md:col-span-2"}) {
+					{ kv[1] }
+				}
+			}
+		}
+	}
+	if len(b.Steps) > 0 {
+		@list.List(list.ListProps{Class: "flex flex-col gap-4", Attrs: templ.Attributes{"data-testid": "steps"}}) {
+			for _, st := range b.Steps {
+				@list.ListItem(list.ListItemProps{Class: "flex gap-2", Attrs: templ.Attributes{"data-status": st.Status}}) {
+					@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: stepIcon(st.Status), Size: 20, Class: stepClass(st.Status)})
+					@stack.Stack(stack.StackProps{Gap: "0", Class: "min-w-0"}) {
+						@text.Text(text.TextProps{Size: "sm", Weight: "medium"}) {
+							{ st.Title }
+						}
+						if st.Detail != "" {
+							@text.Text(text.TextProps{Size: "sm", Class: "break-words text-muted-foreground"}) {
+								{ st.Detail }
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(b.Links) > 0 {
+		@list.List(list.ListProps{Class: "flex flex-col gap-2"}) {
+			for _, l := range b.Links {
+				@list.ListItem(list.ListItemProps{}) {
+					@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: l.Href, Class: "flex items-start gap-2 rounded-md p-2 hover:bg-muted"}) {
+						@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: iconOr(l.Icon), Size: 16, Class: "text-muted-foreground"})
+						@stack.Stack(stack.StackProps{Gap: "0", Class: "min-w-0"}) {
+							@group.Group(group.GroupProps{Gap: "2", Align: "center"}) {
+								@text.Text(text.TextProps{Size: "sm", Weight: "medium"}) {
+									{ l.Label }
+								}
+								if l.Badge != "" {
+									@badge.Badge(badge.BadgeProps{Variant: "outline", Size: "sm"}) {
+										{ l.Badge }
+									}
+								}
+							}
+							if l.Text != "" {
+								@text.Text(text.TextProps{Size: "sm", Class: "text-muted-foreground"}) {
+									{ l.Text }
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if b.Table != nil {
+		@dataTable(*b.Table)
+	}
+	if b.Code != "" {
+		@box.Box(box.BoxProps{Class: "max-h-screen overflow-auto rounded-md border border-border bg-muted p-4"}) {
+			@text.Text(text.TextProps{Tag: "pre", Size: "xs", Class: "font-mono", Attrs: templ.Attributes{"data-testid": "code"}}) {
+				{ b.Code }
+			}
+		}
+	}
+	if b.Form != nil {
+		@formView(*b.Form, csrf)
+	}
+	if len(b.Forms) > 0 {
+		@group.Group(group.GroupProps{Gap: "2", Class: "flex-wrap"}) {
+			for _, f := range b.Forms {
+				@formView(f, csrf)
+			}
+		}
+	}
+}
+
+templ dataTable(t Table) {
+	if len(t.Rows) == 0 {
+		@text.Text(text.TextProps{Size: "sm", Class: "text-muted-foreground"}) {
+			{ t.Empty }
+		}
+	} else {
+		@box.Box(box.BoxProps{Class: "w-full overflow-auto"}) {
+			@table.Table(table.TableProps{Attrs: templ.Attributes{"data-testid": "table"}}) {
+				@table.TableHead(table.TableHeadProps{}) {
+					@table.TableRow(table.TableRowProps{}) {
+						for _, c := range t.Cols {
+							@table.TableHeadCell(table.TableHeadCellProps{}) {
+								{ c }
+							}
+						}
+					}
+				}
+				@table.TableBody(table.TableBodyProps{}) {
+					for _, r := range t.Rows {
+						@table.TableRow(table.TableRowProps{}) {
+							for i, c := range r.Cells {
+								@table.TableCell(table.TableCellProps{Class: "max-w-xs truncate"}) {
+									if i == 0 && r.Href != "" {
+										@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: r.Href, Class: "font-medium underline-offset-4 hover:underline"}) {
+											{ nonEmpty(c, "(open)") }
+										}
+									} else {
+										{ c }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ formView(f FormVM, csrf string) {
+	@form.Form(form.FormProps{ID: f.ID, Action: f.Action, Method: "post", Class: formClass(f.Inline), NoValidate: false, Attrs: templ.Attributes{"data-testid": "form-" + f.ID}}) {
+		@input.Input(input.InputProps{Type: "hidden", Name: "csrf", Value: csrf})
+		for _, h := range f.Hidden {
+			@input.Input(input.InputProps{Type: "hidden", Name: h[0], Value: h[1]})
+		}
+		for _, fl := range f.Fields {
+			@fieldView(fl)
+		}
+		if f.Note != "" {
+			@text.Text(text.TextProps{Size: "sm", Class: "text-muted-foreground"}) {
+				{ f.Note }
+			}
+		}
+		@group.Group(group.GroupProps{Gap: "2"}) {
+			@button.Button(button.ButtonProps{Type: "submit", Variant: nonEmpty(f.Variant, "default"), Attrs: templ.Attributes{"data-testid": "submit-" + f.ID}}) {
+				{ f.Submit }
+			}
+		}
+	}
+}
+
+func formClass(inline bool) string {
+	if inline {
+		return "flex flex-wrap items-end gap-2"
+	}
+	return "flex flex-col gap-4"
+}
+
+templ fieldView(f Field) {
+	switch f.Kind {
+		case "bool":
+			@group.Group(group.GroupProps{Gap: "2", Align: "start"}) {
+				@checkbox.Checkbox(checkbox.CheckboxProps{ID: "f-" + f.Name, Name: f.Name, Value: "true", Checked: f.Value == "true", Attrs: templ.Attributes{"aria-describedby": "d-" + f.Name}})
+				@stack.Stack(stack.StackProps{Gap: "0"}) {
+					@label.Label(label.LabelProps{HTMLFor: "f-" + f.Name}) {
+						{ f.Label }
+					}
+					@fieldHelp(f)
+				}
+			}
+		default:
+			@stack.Stack(stack.StackProps{Gap: "2", Class: "min-w-0"}) {
+				@group.Group(group.GroupProps{Gap: "2", Align: "center", Class: "flex-wrap"}) {
+					@label.Label(label.LabelProps{HTMLFor: "f-" + f.Name}) {
+						{ f.Label }
+					}
+					if f.Required {
+						@badge.Badge(badge.BadgeProps{Variant: "outline", Size: "sm"}) {
+							required
+						}
+					}
+					if f.Ref != "" {
+						@badge.Badge(badge.BadgeProps{Variant: "secondary", Size: "sm"}) {
+							{ "→ " + trimX(f.Ref) }
+						}
+					}
+					if f.Format != "" && f.Format != "string" {
+						@badge.Badge(badge.BadgeProps{Variant: "secondary", Size: "sm"}) {
+							{ f.Format }
+						}
+					}
+				}
+				switch f.Kind {
+					case "enum", "ref", "select":
+						@selectx.Select(selectx.SelectProps{ID: "f-" + f.Name, Name: f.Name, Value: f.Value, Options: selOpts(f), Required: f.Required, Attrs: templ.Attributes{"aria-describedby": "d-" + f.Name}})
+					case "json", "textarea":
+						@textarea.Textarea(textarea.TextareaProps{ID: "f-" + f.Name, Name: f.Name, Value: f.Value, Rows: rowsFor(f), Class: "font-mono text-xs", Placeholder: jsonPlaceholder(f), Attrs: templ.Attributes{"aria-describedby": "d-" + f.Name, "spellcheck": "false"}})
+					case "readonly":
+						@input.Input(input.InputProps{ID: "f-" + f.Name, Value: f.Value, Disabled: true})
+					default:
+						@input.Input(input.InputProps{ID: "f-" + f.Name, Name: f.Name, Type: inputType(f), Value: f.Value, Required: f.Required, Placeholder: placeholder(f), Autocomplete: autoc(f), Attrs: inputAttrs(f)})
+				}
+				@fieldHelp(f)
+			}
+	}
+}
+
+templ fieldHelp(f Field) {
+	if f.Err != "" {
+		@text.Text(text.TextProps{Size: "sm", Class: "text-destructive", Attrs: templ.Attributes{"data-testid": "field-error", "role": "alert"}}) {
+			{ f.Err }
+		}
+	}
+	if f.Desc != "" {
+		@text.Text(text.TextProps{Size: "xs", Class: "text-muted-foreground", Attrs: templ.Attributes{"id": "d-" + f.Name}}) {
+			{ f.Desc }
+		}
+	}
+}
