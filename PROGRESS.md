@@ -17,3 +17,4 @@ Times are Europe/Moscow (UTC+3).
 - 04:00 Codegen fixes for `bun run verify`: typed identifier field, required confirm label, organism id prefix, codex status (tools/codex-status.py). `tools/gen-ui.sh --verify` → check ok (parity templ/solid/twig/jinja2/latte vs React), codex validate ok, typecheck ok, 839 tests pass, 0 fail.
 - 04:05 Docs (docs/*.md, 8 runtime guides) and the static site (site/, Go templ → site/dist, 18 pages + index, 14 live previews). `bun run site`.
 - NEXT: screenshots (390/1440, light/dark) into /workspace/authkit-shots, README, final report.
+- 04:15 Rebuilt the stack with the regenerated widgets; e2e 15/15 again. e2e/screenshots.mjs: 44 screenshots (11 pages × light/dark × 390/1440) in /workspace/authkit-shots. README.

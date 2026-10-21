@@ -219,4 +219,6 @@ for (const [lang, cmd] of [["Python", ["python3", "adapters.py"]], ["PHP", ["php
   });
 }
 
+// E2E_CREDS_OUT: leave the verified test account for e2e/screenshots.mjs
+if (process.env.E2E_CREDS_OUT) await Bun.write(process.env.E2E_CREDS_OUT, JSON.stringify({ addr, password }));
 console.log(`\n${passed} steps passed`);
