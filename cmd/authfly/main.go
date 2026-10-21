@@ -177,6 +177,12 @@ func gateMethods(list string, h http.Handler) http.Handler {
 		off = append(off, "/api/v1/sign-in", "/api/v1/forgot", "/api/v1/reset", "/auth/forgot", "/auth/reset")
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/capabilities" {
+			// the @authfly/core capability flags for this deployment
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"magicLink":%t,"password":%t,"social":false,"twoFactor":false,"webauthn":false}`, on["magic"], on["password"])
+			return
+		}
 		for _, p := range off {
 			if strings.HasPrefix(r.URL.Path, p) {
 				http.NotFound(w, r)

@@ -47,7 +47,8 @@ await step("self-service export: account, Authfly records, audit trail, mailbox;
   assert(e.format === "authfly-export/1" && e.subject === addr, "header");
   assert(e.account?.emailAddress === addr && e.account.description === "Gdpr Person", "account record");
   assert(!("credentials" in e.account) && !JSON.stringify(e).includes(password), "credentials leaked");
-  assert(e.authfly.email_verified_at && e.authfly.consents.length === 1, "authfly records");
+  // terms, plus pd_processing under the ru-152fz pack (AUTHFLY_EXTRA_CONSENTS)
+  assert(e.authfly.email_verified_at && e.authfly.consents.some((c: any) => c.kind === "terms"), "authfly records");
   const actions = e.audit.map((x: any) => x.action);
   for (const a of ["sign_up", "verify_email", "sign_in"]) assert(actions.includes(a), `audit lacks ${a}`);
   assert(e.mailbox.mailboxes.length >= 1 && e.mailbox.emails.length >= 1, "mailbox empty");
