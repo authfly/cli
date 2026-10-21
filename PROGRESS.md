@@ -18,3 +18,12 @@ Times are Europe/Moscow (UTC+3).
 - 04:05 Docs (docs/*.md, 8 runtime guides) and the static site (site/, Go templ → site/dist, 18 pages + index, 14 live previews). `bun run site`.
 - NEXT: screenshots (390/1440, light/dark) into /workspace/authkit-shots, README, final report.
 - 04:15 Rebuilt the stack with the regenerated widgets; e2e 15/15 again. e2e/screenshots.mjs: 44 screenshots (11 pages × light/dark × 390/1440) in /workspace/authkit-shots. README.
+
+## Phase 2: API audit, lock-down, Authkit Console, GDPR
+
+- 09:50 tools/stalwart-audit.py + tools/stalwart-api-doc.py → docs/stalwart-api.md: 117 x: objects (109 verified live with get/query, 8 restricted and explained), 29 HTTP endpoints probed, JMAP data methods, GDPR map. There is no REST management API in v0.16 (`/api/principal` gives 404); management is JMAP `x:*`.
+- 10:05 Lock-down: Stalwart HTTP on 127.0.0.1:8080 only; Authkit proxies only the OIDC endpoints (discovery rewritten); `authkit init-stalwart` (compose stalwart-init): least-privilege role + service account, web UI off (UpdateApps), OIDC registration locked, clients registered. e2e/security.test.ts. Commit 4137ee0.
+- 10:20 GDPR core: hash-chained audit log (server/core/audit.go), consent records, per-address session revocation, Export/Erase, retention, self-service API, internal admin API :4001. Commit 93c5ce3.
+- 10:35 Authkit Console (apps/console): schema-driven smart configurator (143 views), users, request builder, scenarios, GDPR, logs; e2e/console.test.ts 19/19. Commit 9052555.
+- 10:45 Finding: after x:Account destroy, Email/get gives notFound and searches find nothing, but an unfiltered Email/query can return a dangling id. Erasure now verifies the sampled messages are unreadable and schedules StoreMaintenance purgeBlob (service role + sysTaskCreate, taskStoreMaintenance). Failed sign-ins for non-accounts are logged under a pseudonym. e2e/gdpr.test.ts 11/11; security 11/11; flow 15/15. Commit 12f143d.
+- 10:55 Console screenshots: 44 in /workspace/authkit-shots/console-*.png. Docs: security.md, gdpr.md, console.md, getting-started/stalwart/README updated, site nav (22 pages).

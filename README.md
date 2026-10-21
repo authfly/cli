@@ -4,12 +4,16 @@ Self-hosted sign-in in the spirit of WorkOS AuthKit, on [Stalwart](https://stalw
 
 Methods: email + password, username + password, magic link. Flows: sign up (creates the Stalwart account), email verification, magic link, forgot/reset password, sign out, account, OIDC consent. Social, TOTP and WebAuthn are documented stubs.
 
+Private by design: Stalwart's management API and web UI are never public (Authkit proxies only the OIDC endpoints), Authkit uses a least-privilege service account, and GDPR is built in (JSON export, verified erasure, consent records, hash-chained audit log, retention). The **Authkit Console** is a schema-driven configurator for the whole Stalwart management surface.
+
 ## Run
 
 ```sh
-docker compose up -d --build        # Stalwart :8080, Authkit :4000, React demo :5173
+docker compose up -d --build        # Authkit :4000, React demo :5173, mail ports; Stalwart HTTP and the Console on 127.0.0.1 only
 bun install
 bun e2e/flow.test.ts                # 15-step end-to-end test against the stack
+bun e2e/security.test.ts            # lock-down (11), then e2e/console.test.ts (19) and e2e/gdpr.test.ts (11)
+ssh -N -L 4500:127.0.0.1:4500 host  # Authkit Console on http://localhost:4500 (docs/console.md)
 bun run site:serve                  # docs site on :4100 (static HTML in site/dist)
 npx ui8px@latest lint               # class policy
 tools/gen-ui.sh --verify            # regenerate widgets, run every codegen gate (parity included)

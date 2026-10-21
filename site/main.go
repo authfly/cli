@@ -29,6 +29,9 @@ var nav = []Section{
 		{"stalwart", "Install Stalwart", "", "docs/stalwart.md"},
 		{"oidc", "Configure OIDC", "", "docs/oidc.md"},
 		{"architecture", "Architecture", "", "docs/architecture.md"},
+		{"security", "Security and lock-down", "", "docs/security.md"},
+		{"gdpr", "GDPR", "", "docs/gdpr.md"},
+		{"console", "Authkit Console", "", "docs/console.md"},
 	}},
 	{"Reference", []Page{
 		{"widgets", "Widgets", "", "docs/widgets.md"},
@@ -37,6 +40,7 @@ var nav = []Section{
 		{"extensions", "Extensions", "", "docs/extensions.md"},
 		{"codegen", "Codegen and parity", "", "docs/codegen.md"},
 		{"verification", "Verified and unverified", "", "docs/verification.md"},
+		{"stalwart-api", "Stalwart API audit", "", "docs/stalwart-api.md"},
 	}},
 	{"Runtimes", []Page{
 		{"runtime-react", "React", "Vite or any bundler, BFF with @authkit/node", "docs/runtimes/react.md"},

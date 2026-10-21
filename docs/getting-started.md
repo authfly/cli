@@ -12,15 +12,16 @@ You need Docker with Compose. From the repository root:
 docker compose up -d --build
 ```
 
-This starts three services:
+This starts these services:
 
-- **stalwart** on `http://localhost:8080` (JMAP, OAuth/OIDC, web admin), SMTP on `localhost:2525`, IMAP on `localhost:1143`.
+- **stalwart**: HTTP (JMAP management, OAuth internals) on `127.0.0.1:8080` only, SMTP on `localhost:2525`, submissions on `4465`, IMAPS on `9993`. The web admin is disabled. A one-shot **stalwart-init** hardens it first ([Security](security.md)).
 - **authkit** on `http://localhost:4000`: the Go server with the hosted pages (templ), the JSON API and the OIDC handoff.
 - **demo-react** on `http://localhost:5173`: a React app that signs in with OpenID Connect (authorization code + PKCE) through Authkit.
+- **console** on `http://127.0.0.1:4500`: the private [Authkit Console](console.md) (`console` / `dev-only-console-password`).
 
-Open `http://localhost:4000/auth/sign-up`, create an account, then read the verification email in the new mailbox (any IMAP client on port 1143, or JMAP). Then open `http://localhost:5173` and sign in.
+Open `http://localhost:4000/auth/sign-up`, create an account, then read the verification email in the new mailbox (any IMAP client on port 9993 with TLS, or JMAP). Then open `http://localhost:5173` and sign in.
 
-> Dev only: the compose file pins secrets and uses Stalwart's recovery admin as the management credential. See [Install Stalwart](stalwart.md) for production settings.
+> Dev only: the compose file pins secrets. Authkit uses the least-privilege service account `authkit-svc`; the recovery admin is used only by stalwart-init and the console. See [Install Stalwart](stalwart.md) for production settings.
 
 ## Run the end-to-end test
 
@@ -32,6 +33,8 @@ bun e2e/flow.test.ts
 ```
 
 Steps: stack up, sign up (account created in Stalwart), refused before verification, verification email and link, magic link, sign out, username + password, email + password, wrong password, password reset, OIDC SSO into the React demo with consent, deny, JSON API.
+
+More tests: `bun e2e/security.test.ts` (lock-down, 11 steps), `bun e2e/console.test.ts` (19), `bun e2e/gdpr.test.ts` (11).
 
 ## What is where
 

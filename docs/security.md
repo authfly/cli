@@ -1,0 +1,59 @@
+# Security and lock-down
+
+Authkit runs Stalwart as a private back end. The public internet sees the mail ports and Authkit, nothing else. Everything here is checked by `bun e2e/security.test.ts` (11 steps) against the compose stack.
+
+## What is reachable from where
+
+| Surface | Where | Why |
+| --- | --- | --- |
+| Authkit `:4000` | public | Hosted pages, JSON API, and the OIDC endpoints it proxies |
+| SMTP `25`, submissions `465`, IMAPS `993` (dev: 2525, 4465, 9993) | public | Mail. There is no plain IMAP listener |
+| Stalwart HTTP `:8080` (JMAP management, `/api/*`, OAuth internals) | `127.0.0.1` and the compose network only | Management must never be public |
+| Authkit Console `:4500` | `127.0.0.1` only | Private configurator, opened through an SSH tunnel |
+| Authkit admin API `:4001` | compose network only, not published | Used by the console for GDPR actions and Authkit state |
+
+## OIDC through an Authkit proxy, not Stalwart directly
+
+Stalwart has one HTTP listener. The same port serves the OIDC endpoints, JMAP management (`/jmap` with `urn:stalwart:jmap`), `/api/*`, the device flow, dynamic client registration and introspection. Publishing it, even behind a path filter in a generic reverse proxy, exposes all of that. Authkit therefore publishes an allowlist and nothing more (`server/web/oidcproxy.go`):
+
+- `GET /.well-known/openid-configuration` and `/.well-known/oauth-authorization-server`, rewritten: `authorization_endpoint` points to Authkit's hosted sign-in (`/oauth/authorize`); the device, registration and introspection endpoints are removed.
+- `GET /auth/jwks.json`, `POST /auth/token`, `GET`/`POST /auth/userinfo`.
+
+`STALWART_PUBLIC_URL` is Authkit's public URL, so the issuer in tokens and discovery is Authkit. Every other path, such as `/jmap`, `/api/*`, `/admin`, `/auth/register`, `/auth/device` or `/auth/introspect`, returns 404 or 405 on Authkit (tested).
+
+## Hardening applied by `authkit init-stalwart`
+
+The one-shot `stalwart-init` service runs with the bootstrap admin before Authkit starts (`server/core/harden.go`, idempotent):
+
+1. Ensures the mail domain exists.
+2. Creates or updates the **least-privilege role `authkit-service`**: the built-in User role plus `sysAccountGet/Query/Create/Update/Destroy`, `sysDomainGet/Query`, `impersonate` and `fetchAnyBlob` (GDPR export of the mailbox), and `sysTaskCreate` with `taskStoreMaintenance` (blob purge after erasure). Stalwart refuses to grant permissions the caller lacks, so the role inherits User in order to create users.
+3. Creates or updates the service account `authkit-svc@DOMAIN` with that role. Authkit uses this account, never the admin.
+4. Disables the web admin and account apps (`x:Application.enabled=false`, then the `UpdateApps` action: `ReloadSettings` alone does not apply it).
+5. Locks OIDC: `x:OidcProvider.anonymousClientRegistration=false`, `requireClientRegistration=true`, and registers the clients (`AUTHKIT_CLIENTS` plus Authkit itself) as `x:OAuthClient`.
+
+Tested: the service account can manage accounts but gets errors for `x:Http`, `x:Role`, `x:QueuedMessage`, `x:OidcProvider` and `x:Application`; creating an Admin account with it is refused; anonymous registration returns an error; an unregistered client id gets no code; `/admin/` and `/account/` return 404 even on localhost.
+
+## Opening the private surfaces: SSH tunnel
+
+On the server, the console and Stalwart HTTP listen on `127.0.0.1`. From your machine:
+
+```sh
+ssh -N -L 4500:127.0.0.1:4500 -L 8080:127.0.0.1:8080 you@your-server
+```
+
+Then open `http://localhost:4500` (Authkit Console). `http://localhost:8080` reaches Stalwart's JMAP API for curl commands exported by the console. Close the tunnel and both are gone again.
+
+## Console protections
+
+- Admin session: `CONSOLE_ADMIN=user:password` (password at least 12 characters), signed cookie (`CONSOLE_SECRET`), HttpOnly, SameSite=Strict, 8 h. Five failed logins lock the user for 15 minutes.
+- CSRF: a per-session HMAC token in every form, and cross-site requests refused when the browser sends `Sec-Fetch-Site`. The login form uses a double-submit cookie.
+- Headers: CSP `default-src 'self'` (no inline scripts), `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `no-store`.
+- Every action is written to a hash-chained audit log (`CONSOLE_DATA/console-audit.jsonl`), including refused CSRF attempts and failed logins.
+- Typed confirmation before destructive and GDPR actions. Secrets are masked in responses and in curl exports.
+
+## Production checklist
+
+- Replace every `dev-only-*` secret: `STALWART_ADMIN_PASSWORD`, `AUTHKIT_SERVICE_PASSWORD`, `AUTHKIT_SECRET`, `AUTHKIT_ADMIN_KEY`, `CONSOLE_ADMIN`, `CONSOLE_SECRET`.
+- Put TLS in front of Authkit (`AUTHKIT_PUBLIC_URL=https://...`, which also sets Secure cookies) and use the real mail ports.
+- Keep `127.0.0.1` in the console and 8080 port mappings, and do not add a mapping for 4001.
+- Remove `STALWART_RECOVERY_ADMIN` from the stalwart service after the first `stalwart-init` run if you create a separate admin; the console needs an admin credential.

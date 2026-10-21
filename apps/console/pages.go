@@ -100,7 +100,7 @@ func (c *Console) lockdownChecks(ctx context.Context) []Step {
 	}
 	if apps, _, err := c.list(ctx, c.Schema.Views["x:Application"], 20, nil); err == nil && c.Schema.Views["x:Application"] != nil {
 		for _, a := range apps {
-			st = append(st, boolStep(fmt.Sprintf("Web app %v is disabled", a["urlPrefix"]), a["enabled"] == false, "x:Application"))
+			st = append(st, boolStep(fmt.Sprintf("Web app %s is disabled", cell(a["urlPrefix"])), a["enabled"] == false, "x:Application"))
 		}
 	}
 	if d, err := c.getOne(ctx, "x:DataRetention", "singleton"); err == nil {

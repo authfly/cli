@@ -153,6 +153,10 @@ func (c *Console) userView(w http.ResponseWriter, r *http.Request, status int, i
 	}
 	addr := cell(acc["emailAddress"])
 	bl := append([]Block{}, top...)
+	if cell(acc["name"]) == env("AUTHKIT_SERVICE_NAME", "authkit-svc") {
+		bl = append(bl, Block{Kind: "alert", Tone: "destructive", Icon: "shield-alert", Title: "Authkit service account",
+			Text: "Authkit signs in to Stalwart with this account (role authkit-service). Changing its password, deleting or erasing it stops every sign-in until you update AUTHKIT_SERVICE_PASSWORD and re-run stalwart-init."})
+	}
 	bl = append(bl, Block{Kind: "card", Title: "Account", Icon: "user", KV: [][2]string{
 		{"Address", addr}, {"Id", id}, {"Full name", cell(acc["description"])}, {"Role", cell(acc["roles"])},
 		{"Created", cell(acc["createdAt"])}, {"Disk used", cell(acc["usedDiskQuota"]) + " bytes"}, {"Encryption at rest", cell(acc["encryptionAtRest"])},
