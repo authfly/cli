@@ -73,6 +73,10 @@ func main() {
 		initStalwart()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] != "serve" {
+		cliMain(os.Args[1], os.Args[2:])
+		return
+	}
 	secret := env("AUTHFLY_SECRET", "")
 	if len(secret) < 32 {
 		log.Fatal("AUTHFLY_SECRET must have at least 32 characters")
