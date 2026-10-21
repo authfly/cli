@@ -1,0 +1,153 @@
+{
+  "signin": {
+    "title": "Sign in",
+    "text": "Use your mail account to continue.",
+    "labels": {
+      "identifier": "Email or username",
+      "password": "Password",
+      "submit": "Sign in",
+      "forgot": "Forgot password?",
+      "forgotHref": "/auth/forgot",
+      "magic": "Email me a sign-in link",
+      "magicHref": "/auth/magic",
+      "signupText": "No account yet?",
+      "signupLink": "Create one",
+      "signupHref": "/auth/sign-up",
+      "providers": "Sign in with a provider",
+      "socialUrl": "/auth/social"
+    }
+  },
+  "magic": {
+    "title": "Sign in with a link",
+    "text": "We email you a link that signs you in. No password needed.",
+    "labels": {
+      "identifier": "Email",
+      "password": "Password",
+      "submit": "Send the link",
+      "forgot": "",
+      "forgotHref": "",
+      "magic": "Use a password instead",
+      "magicHref": "/auth/sign-in",
+      "signupText": "No account yet?",
+      "signupLink": "Create one",
+      "signupHref": "/auth/sign-up",
+      "providers": "Sign in with a provider",
+      "socialUrl": "/auth/social"
+    }
+  },
+  "signup": {
+    "title": "Create your account",
+    "text": "You get a mailbox and one sign-in for every app.",
+    "labels": {
+      "name": "Full name",
+      "username": "Username",
+      "domain": "@example.com",
+      "password": "Password",
+      "hint": "At least 10 characters.",
+      "terms": "I accept the terms of use",
+      "submit": "Create account",
+      "signinText": "Already have an account?",
+      "signinLink": "Sign in",
+      "signinHref": "/auth/sign-in"
+    }
+  },
+  "forgot": {
+    "title": "Forgot your password?",
+    "text": "Enter your address and we email you a reset link.",
+    "labels": {
+      "field": "Email",
+      "confirm": "",
+      "submit": "Send reset link",
+      "back": "Back to sign in",
+      "backHref": "/auth/sign-in"
+    }
+  },
+  "reset": {
+    "title": "Choose a new password",
+    "text": "The new password replaces the old one everywhere.",
+    "labels": {
+      "field": "New password",
+      "confirm": "Repeat the password",
+      "submit": "Save password",
+      "back": "Back to sign in",
+      "backHref": "/auth/sign-in"
+    }
+  },
+  "code": {
+    "title": "Two-step verification",
+    "text": "Enter the six-digit code from your authenticator app.",
+    "labels": {
+      "field": "Code",
+      "confirm": "",
+      "submit": "Verify",
+      "back": "Use another method",
+      "backHref": "/auth/sign-in"
+    }
+  },
+  "check": {
+    "title": "Check your email",
+    "text": "We sent a link to the address below. It expires in 15 minutes.",
+    "labels": {
+      "cta": "Back to sign in",
+      "ctaHref": "/auth/sign-in",
+      "secondary": "Send it again",
+      "secondaryHref": "/auth/magic"
+    }
+  },
+  "verified": {
+    "title": "Email verified",
+    "text": "Your address is confirmed. You can sign in now.",
+    "labels": {
+      "cta": "Continue",
+      "ctaHref": "/account",
+      "secondary": "",
+      "secondaryHref": ""
+    }
+  },
+  "signout": {
+    "title": "Sign out?",
+    "text": "You will be signed out of this browser.",
+    "labels": {
+      "cta": "Sign out",
+      "ctaHref": "",
+      "secondary": "Stay signed in",
+      "secondaryHref": "/account"
+    }
+  },
+  "linkerror": {
+    "title": "This link does not work",
+    "text": "It was already used or it expired. Ask for a new one.",
+    "labels": {
+      "cta": "Get a new link",
+      "ctaHref": "/auth/magic",
+      "secondary": "Back to sign in",
+      "secondaryHref": "/auth/sign-in"
+    }
+  },
+  "consent": {
+    "title": "Allow access",
+    "text": "An application wants to sign you in with your mail account.",
+    "labels": {
+      "account": "Signed in as",
+      "scopes": "It will see",
+      "approve": "Allow",
+      "deny": "Deny"
+    }
+  },
+  "account": {
+    "title": "Your account",
+    "text": "Profile and sign-in methods.",
+    "labels": {
+      "name": "Name",
+      "email": "Email",
+      "verified": "Verified",
+      "unverified": "Not verified",
+      "security": "Sign-in methods",
+      "signout": "Sign out"
+    }
+  },
+  "errors": {
+    "credentials": "The address or the password is wrong.",
+    "taken": "This username is taken."
+  }
+}

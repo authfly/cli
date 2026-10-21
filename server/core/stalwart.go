@@ -1,0 +1,445 @@
+// Package core is the shared Authkit logic: the Stalwart client (OIDC authorization code + PKCE, JMAP management of
+// accounts), SMTP mail through Stalwart, one-time tokens and sessions. Every runtime family talks to it, directly (Go)
+// or over the Authkit HTTP API (TypeScript, PHP, Python adapters).
+package core
+
+import (
+	"bytes"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha256"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+)
+
+// Stalwart talks to one Stalwart server (v0.16). Endpoints verified against stalw.art/docs and a live v0.16.27 server:
+//   POST /jmap                 JMAP, capability urn:stalwart:jmap: x:Domain/*, x:Account/* (docs show POST /api; the live server answers on /jmap)
+//   POST /api/auth             {type:"authCode", accountName, accountSecret, clientId, redirectUri, codeChallenge, ...} -> {type:"authenticated", client_code}
+//   POST /auth/token           standard OAuth token endpoint (authorization_code + code_verifier, refresh_token)
+//   GET  /auth/userinfo        OIDC userinfo
+//   GET  /.well-known/openid-configuration, /auth/jwks.json
+type Stalwart struct {
+	BaseURL    string // internal URL Authkit uses to reach Stalwart, e.g. http://stalwart:8080
+	AdminUser  string // management credential (dev: STALWART_RECOVERY_ADMIN; production: an API key as AdminToken)
+	AdminPass  string
+	AdminToken string
+	HTTP       *http.Client
+
+	mu       sync.Mutex
+	disco    *Discovery
+	jwks     map[string]*ecdsa.PublicKey
+	domainID map[string]string
+}
+
+type Discovery struct {
+	Issuer                string `json:"issuer"`
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	TokenEndpoint         string `json:"token_endpoint"`
+	UserinfoEndpoint      string `json:"userinfo_endpoint"`
+	JWKSURI               string `json:"jwks_uri"`
+}
+
+var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrMFARequired = errors.New("multi-factor authentication required")
+var ErrAccountExists = errors.New("account exists")
+var ErrNotFound = errors.New("not found")
+
+func (s *Stalwart) client() *http.Client {
+	if s.HTTP != nil {
+		return s.HTTP
+	}
+	return &http.Client{Timeout: 15 * time.Second}
+}
+
+func (s *Stalwart) do(ctx context.Context, method, path string, body io.Reader, ctype string, admin bool) ([]byte, int, error) {
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(s.BaseURL, "/")+path, body)
+	if err != nil {
+		return nil, 0, err
+	}
+	if ctype != "" {
+		req.Header.Set("Content-Type", ctype)
+	}
+	if admin {
+		if s.AdminToken != "" {
+			req.Header.Set("Authorization", "Bearer "+s.AdminToken)
+		} else {
+			req.SetBasicAuth(s.AdminUser, s.AdminPass)
+		}
+	}
+	res, err := s.client().Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer res.Body.Close()
+	b, err := io.ReadAll(res.Body)
+	return b, res.StatusCode, err
+}
+
+// JMAP runs management method calls with the admin credential and returns the responses in order.
+func (s *Stalwart) JMAP(ctx context.Context, calls ...[]any) ([][]json.RawMessage, error) {
+	body, _ := json.Marshal(map[string]any{"using": []string{"urn:ietf:params:jmap:core", "urn:stalwart:jmap"}, "methodCalls": calls})
+	b, code, err := s.do(ctx, "POST", "/jmap", bytes.NewReader(body), "application/json", true)
+	if err != nil {
+		return nil, err
+	}
+	if code != 200 {
+		return nil, fmt.Errorf("stalwart jmap: http %d: %s", code, b)
+	}
+	var out struct {
+		MethodResponses [][]json.RawMessage `json:"methodResponses"`
+	}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	for _, r := range out.MethodResponses {
+		var name string
+		_ = json.Unmarshal(r[0], &name)
+		if name == "error" {
+			return nil, fmt.Errorf("stalwart jmap error: %s", r[1])
+		}
+	}
+	return out.MethodResponses, nil
+}
+
+// EnsureDomain returns the id of a domain, creating it when missing (x:Domain/query, x:Domain/set).
+func (s *Stalwart) EnsureDomain(ctx context.Context, name string) (string, error) {
+	s.mu.Lock()
+	if id, ok := s.domainID[name]; ok {
+		s.mu.Unlock()
+		return id, nil
+	}
+	s.mu.Unlock()
+	r, err := s.JMAP(ctx, []any{"x:Domain/query", map[string]any{"filter": map[string]any{}}, "q"},
+		[]any{"x:Domain/get", map[string]any{"#ids": map[string]any{"resultOf": "q", "name": "x:Domain/query", "path": "/ids"}, "properties": []string{"name"}}, "g"})
+	if err != nil {
+		return "", err
+	}
+	var got struct {
+		List []struct{ ID, Name string } `json:"list"`
+	}
+	_ = json.Unmarshal(r[1][1], &got)
+	id := ""
+	for _, d := range got.List {
+		if strings.EqualFold(d.Name, name) {
+			id = d.ID
+		}
+	}
+	if id == "" {
+		r, err = s.JMAP(ctx, []any{"x:Domain/set", map[string]any{"create": map[string]any{"d": map[string]any{"name": name}}}, "c"})
+		if err != nil {
+			return "", err
+		}
+		var set struct {
+			Created    map[string]struct{ ID string } `json:"created"`
+			NotCreated map[string]any                 `json:"notCreated"`
+		}
+		_ = json.Unmarshal(r[0][1], &set)
+		if set.Created["d"].ID == "" {
+			return "", fmt.Errorf("stalwart: domain not created: %v", set.NotCreated)
+		}
+		id = set.Created["d"].ID
+	}
+	s.mu.Lock()
+	if s.domainID == nil {
+		s.domainID = map[string]string{}
+	}
+	s.domainID[name] = id
+	s.mu.Unlock()
+	return id, nil
+}
+
+// Account is the part of a Stalwart Account (variant User) Authkit reads.
+type Account struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	EmailAddress string `json:"emailAddress"`
+	Description  string `json:"description"`
+	DomainID     string `json:"domainId"`
+}
+
+// FindAccount looks an account up by local part in a domain (x:Account/query filter name, then exact match).
+func (s *Stalwart) FindAccount(ctx context.Context, domain, name string) (*Account, error) {
+	did, err := s.EnsureDomain(ctx, domain)
+	if err != nil {
+		return nil, err
+	}
+	r, err := s.JMAP(ctx, []any{"x:Account/query", map[string]any{"filter": map[string]any{"name": name, "domainId": did}}, "q"},
+		[]any{"x:Account/get", map[string]any{"#ids": map[string]any{"resultOf": "q", "name": "x:Account/query", "path": "/ids"}, "properties": []string{"name", "emailAddress", "description", "domainId"}}, "g"})
+	if err != nil {
+		return nil, err
+	}
+	var got struct {
+		List []Account `json:"list"`
+	}
+	_ = json.Unmarshal(r[1][1], &got)
+	for _, a := range got.List {
+		if strings.EqualFold(a.Name, name) && a.DomainID == did {
+			a := a
+			return &a, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+// CreateAccount creates a User account with a password credential (x:Account/set create; fields per stalw.art/docs/ref/object/account).
+func (s *Stalwart) CreateAccount(ctx context.Context, domain, name, password, fullName string) (*Account, error) {
+	if _, err := s.FindAccount(ctx, domain, name); err == nil {
+		return nil, ErrAccountExists
+	}
+	did, err := s.EnsureDomain(ctx, domain)
+	if err != nil {
+		return nil, err
+	}
+	acc := map[string]any{
+		"@type": "User", "name": name, "domainId": did, "description": fullName,
+		"credentials":      map[string]any{"0": map[string]any{"@type": "Password", "secret": password}},
+		"roles":            map[string]any{"@type": "User"},
+		"permissions":      map[string]any{"@type": "Inherit"},
+		"encryptionAtRest": map[string]any{"@type": "Disabled"},
+	}
+	r, err := s.JMAP(ctx, []any{"x:Account/set", map[string]any{"create": map[string]any{"a": acc}}, "c"})
+	if err != nil {
+		return nil, err
+	}
+	var set struct {
+		Created    map[string]struct{ ID string } `json:"created"`
+		NotCreated map[string]json.RawMessage     `json:"notCreated"`
+	}
+	_ = json.Unmarshal(r[0][1], &set)
+	if set.Created["a"].ID == "" {
+		return nil, fmt.Errorf("stalwart: account not created: %s", set.NotCreated["a"])
+	}
+	return &Account{ID: set.Created["a"].ID, Name: name, EmailAddress: name + "@" + domain, Description: fullName, DomainID: did}, nil
+}
+
+// SetPassword replaces the credentials of an account with one password (x:Account/set update credentials).
+func (s *Stalwart) SetPassword(ctx context.Context, id, password string) error {
+	r, err := s.JMAP(ctx, []any{"x:Account/set", map[string]any{"update": map[string]any{id: map[string]any{
+		"credentials": map[string]any{"0": map[string]any{"@type": "Password", "secret": password}}}}}, "u"})
+	if err != nil {
+		return err
+	}
+	var set struct {
+		NotUpdated map[string]json.RawMessage `json:"notUpdated"`
+	}
+	_ = json.Unmarshal(r[0][1], &set)
+	if len(set.NotUpdated) > 0 {
+		return fmt.Errorf("stalwart: password not updated: %s", set.NotUpdated[id])
+	}
+	return nil
+}
+
+// Discovery reads /.well-known/openid-configuration (cached).
+func (s *Stalwart) Discovery(ctx context.Context) (*Discovery, error) {
+	s.mu.Lock()
+	d := s.disco
+	s.mu.Unlock()
+	if d != nil {
+		return d, nil
+	}
+	b, code, err := s.do(ctx, "GET", "/.well-known/openid-configuration", nil, "", false)
+	if err != nil || code != 200 {
+		return nil, fmt.Errorf("stalwart discovery: %v %d", err, code)
+	}
+	d = &Discovery{}
+	if err := json.Unmarshal(b, d); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.disco = d
+	s.mu.Unlock()
+	return d, nil
+}
+
+// AuthCodeRequest is the body of POST /api/auth (type authCode).
+type AuthCodeRequest struct {
+	AccountName, AccountSecret, ClientID, RedirectURI, Scope, Nonce, State, CodeChallenge, MFAToken string
+}
+
+// Authorize checks a password with Stalwart and returns an OAuth authorization code bound to the client, the redirect URI and the PKCE challenge.
+func (s *Stalwart) Authorize(ctx context.Context, a AuthCodeRequest) (string, error) {
+	body := map[string]any{"type": "authCode", "accountName": a.AccountName, "accountSecret": a.AccountSecret, "clientId": a.ClientID,
+		"redirectUri": a.RedirectURI, "codeChallenge": a.CodeChallenge, "codeChallengeMethod": "S256"}
+	for k, v := range map[string]string{"scope": a.Scope, "nonce": a.Nonce, "state": a.State, "mfaToken": a.MFAToken} {
+		if v != "" {
+			body[k] = v
+		}
+	}
+	bb, _ := json.Marshal(body)
+	b, code, err := s.do(ctx, "POST", "/api/auth", bytes.NewReader(bb), "application/json", false)
+	if err != nil {
+		return "", err
+	}
+	var out struct {
+		Type       string `json:"type"`
+		ClientCode string `json:"client_code"` // live v0.16.27 answers client_code (the docs say clientCode)
+		ClientCode2 string `json:"clientCode"`
+	}
+	_ = json.Unmarshal(b, &out)
+	switch out.Type {
+	case "authenticated":
+		if out.ClientCode == "" {
+			out.ClientCode = out.ClientCode2
+		}
+		return out.ClientCode, nil
+	case "mfaRequired":
+		return "", ErrMFARequired
+	}
+	if code == 429 {
+		return "", fmt.Errorf("stalwart: rate limited")
+	}
+	return "", ErrInvalidCredentials
+}
+
+// Tokens is the token endpoint response.
+type Tokens struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+	Scope        string `json:"scope"`
+	Error        string `json:"error"`
+}
+
+// Exchange trades an authorization code and its PKCE verifier for tokens at /auth/token.
+func (s *Stalwart) Exchange(ctx context.Context, clientID, clientSecret, code, redirectURI, verifier string) (*Tokens, error) {
+	f := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {clientID}, "redirect_uri": {redirectURI}, "code_verifier": {verifier}}
+	if clientSecret != "" {
+		f.Set("client_secret", clientSecret)
+	}
+	b, status, err := s.do(ctx, "POST", "/auth/token", strings.NewReader(f.Encode()), "application/x-www-form-urlencoded", false)
+	if err != nil {
+		return nil, err
+	}
+	t := &Tokens{}
+	_ = json.Unmarshal(b, t)
+	if status != 200 || t.AccessToken == "" {
+		return nil, fmt.Errorf("stalwart token: http %d %s", status, b)
+	}
+	return t, nil
+}
+
+// UserInfo calls the OIDC userinfo endpoint with an access token.
+func (s *Stalwart) UserInfo(ctx context.Context, accessToken string) (map[string]any, error) {
+	req, _ := http.NewRequestWithContext(ctx, "GET", strings.TrimRight(s.BaseURL, "/")+"/auth/userinfo", nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	res, err := s.client().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	var m map[string]any
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("userinfo: http %d", res.StatusCode)
+	}
+	return m, json.NewDecoder(res.Body).Decode(&m)
+}
+
+// VerifyIDToken checks the signature (ES256 keys of /auth/jwks.json; Stalwart's default signing key on v0.16 is ES256),
+// issuer, audience, expiry and nonce of an ID token, and returns its claims.
+func (s *Stalwart) VerifyIDToken(ctx context.Context, idToken, audience, nonce string) (map[string]any, error) {
+	parts := strings.Split(idToken, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("id_token: malformed")
+	}
+	var hdr struct{ Alg, Kid string }
+	hb, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	_ = json.Unmarshal(hb, &hdr)
+	if hdr.Alg != "ES256" {
+		return nil, fmt.Errorf("id_token: alg %s not supported by this verifier (configure ES256)", hdr.Alg)
+	}
+	key, err := s.key(ctx, hdr.Kid)
+	if err != nil {
+		return nil, err
+	}
+	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(sig) != 64 {
+		return nil, errors.New("id_token: bad signature encoding")
+	}
+	h := sha256.Sum256([]byte(parts[0] + "." + parts[1]))
+	if !ecdsa.Verify(key, h[:], new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:])) {
+		return nil, errors.New("id_token: bad signature")
+	}
+	pb, _ := base64.RawURLEncoding.DecodeString(parts[1])
+	var c map[string]any
+	if err := json.Unmarshal(pb, &c); err != nil {
+		return nil, err
+	}
+	d, err := s.Discovery(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if c["iss"] != d.Issuer {
+		return nil, fmt.Errorf("id_token: issuer %v", c["iss"])
+	}
+	if c["aud"] != audience {
+		return nil, fmt.Errorf("id_token: audience %v", c["aud"])
+	}
+	if exp, _ := c["exp"].(float64); int64(exp) < time.Now().Unix() {
+		return nil, errors.New("id_token: expired")
+	}
+	if nonce != "" && c["nonce"] != nonce {
+		return nil, errors.New("id_token: nonce mismatch")
+	}
+	return c, nil
+}
+
+func (s *Stalwart) key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
+	s.mu.Lock()
+	k := s.jwks[kid]
+	s.mu.Unlock()
+	if k != nil {
+		return k, nil
+	}
+	b, code, err := s.do(ctx, "GET", "/auth/jwks.json", nil, "", false)
+	if err != nil || code != 200 {
+		return nil, fmt.Errorf("jwks: %v %d", err, code)
+	}
+	var set struct {
+		Keys []struct{ Kty, Crv, Kid, X, Y string } `json:"keys"`
+	}
+	_ = json.Unmarshal(b, &set)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.jwks == nil {
+		s.jwks = map[string]*ecdsa.PublicKey{}
+	}
+	for _, j := range set.Keys {
+		if j.Kty != "EC" || j.Crv != "P-256" {
+			continue
+		}
+		x, _ := base64.RawURLEncoding.DecodeString(j.X)
+		y, _ := base64.RawURLEncoding.DecodeString(j.Y)
+		s.jwks[j.Kid] = &ecdsa.PublicKey{Curve: elliptic.P256(), X: new(big.Int).SetBytes(x), Y: new(big.Int).SetBytes(y)}
+	}
+	if s.jwks[kid] == nil {
+		return nil, fmt.Errorf("jwks: no key %q", kid)
+	}
+	return s.jwks[kid], nil
+}
+
+// PKCE returns a fresh verifier and its S256 challenge.
+func PKCE() (verifier, challenge string) {
+	verifier = RandomString(32)
+	h := sha256.Sum256([]byte(verifier))
+	return verifier, base64.RawURLEncoding.EncodeToString(h[:])
+}
+
+// RandomString returns n random bytes, base64url.
+func RandomString(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}

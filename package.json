@@ -1,0 +1,17 @@
+{
+  "name": "authkit",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/adapters/ts", "apps/demo-react"],
+  "scripts": {
+    "gen:ui": "bash tools/gen-ui.sh",
+    "check:ui": "bash tools/gen-ui.sh --check",
+    "css": "tailwindcss -i server/web/app.css -o server/web/assets/app.css --minify",
+    "lint:px": "ui8px lint",
+    "e2e": "bun e2e/flow.test.ts"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  }
+}
