@@ -160,6 +160,7 @@ func initCmd(fs *flag.FlagSet, file *string, args []string) {
 	clients := fs.String("client", "", "OIDC client: id[:Display name]=redirect_uri[,redirect_uri]; separate clients with ;")
 	encrypt := fs.Bool("encryption-at-rest", false, "require encrypted storage")
 	firewall := fs.Bool("firewall", false, "incus: load the generated nftables rules")
+	noLimits := fs.Bool("incus-no-limits", false, "incus: no memory/process limits (hosts without cgroup memory delegation)")
 	verify := fs.String("require-verify", "true", "require email verification")
 	fs.Parse(args)
 	if *from != "" {
@@ -187,6 +188,7 @@ func initCmd(fs *flag.FlagSet, file *string, args []string) {
 	}
 	c.Mail.EncryptionAtRest = c.Mail.EncryptionAtRest || *encrypt
 	c.Incus.Firewall = c.Incus.Firewall || *firewall
+	c.Incus.NoLimits = c.Incus.NoLimits || *noLimits
 	c.SignIn.RequireVerify = *verify == "true"
 	if _, err := os.Stat(*file); err == nil && !*force {
 		die(*file + " exists: edit it and run `authfly deploy`, or pass --force")

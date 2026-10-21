@@ -91,7 +91,14 @@ func (x Incus) infra() error {
 		incus("profile", "device", "add", prof, "root", "disk", "path=/", "pool="+c.Incus.Pool)
 		incus("profile", "device", "add", prof, "eth0", "nic", "network="+c.Incus.Network, "name=eth0")
 	}
-	for k, v := range map[string]string{"boot.autostart": "true", "security.privileged": "false", "security.nesting": "false", "limits.memory": "1GiB", "limits.processes": "2000"} {
+	set := map[string]string{"boot.autostart": "true", "security.privileged": "false", "security.nesting": "false", "limits.memory": "1GiB", "limits.processes": "2000"}
+	if c.Incus.NoLimits {
+		delete(set, "limits.memory")
+		delete(set, "limits.processes")
+		incus("profile", "unset", prof, "limits.memory")
+		incus("profile", "unset", prof, "limits.processes")
+	}
+	for k, v := range set {
 		if _, err := incus("profile", "set", prof, k, v); err != nil {
 			return err
 		}

@@ -90,8 +90,9 @@ type Config struct {
 		Network  string `yaml:"network"` // private bridge
 		Subnet   string `yaml:"subnet"`  // e.g. 10.118.42.1/24
 		Pool     string `yaml:"pool"`
-		Image    string `yaml:"image"`    // base system image
-		Firewall bool   `yaml:"firewall"` // write and load /etc/nftables.d/authfly-<name>.nft
+		Image    string `yaml:"image"`               // base system image
+		Firewall bool   `yaml:"firewall"`            // write and load /etc/nftables.d/authfly-<name>.nft
+		NoLimits bool   `yaml:"no_limits,omitempty"` // skip memory/process limits (hosts without cgroup memory delegation)
 	} `yaml:"incus"`
 	Backup struct {
 		Dir  string `yaml:"dir"`
