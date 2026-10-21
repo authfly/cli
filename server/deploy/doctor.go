@@ -254,7 +254,7 @@ func (c *Config) verifyRunning(rel *Release) []Finding {
 		ok := false
 		if err == nil {
 			cid := strings.TrimSpace(id)
-			out, _ := run("docker", "image", "inspect", "-f", "{{.Id}} {{join .RepoDigests \" \"}}", cid)
+			out, _ := run("docker", "image", "inspect", "-f", "{{.Id}} {{range .RepoDigests}}{{.}} {{end}}", cid)
 			ok = strings.Contains(out, digest)
 		}
 		if ok {

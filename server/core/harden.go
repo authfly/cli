@@ -187,6 +187,11 @@ func (s *Stalwart) Harden(ctx context.Context, o HardenOptions) ([]string, error
 		return log, err
 	}
 	log = append(log, "http redirectRoot off; oidc: anonymous registration off, registered clients required")
+	// privacy: Pyzor sends a digest of every incoming message to public.pyzor.org (a third party). Off by default; it
+	// also makes ReloadSettings independent of outbound DNS.
+	if r, err := s.JMAP(ctx, []any{"x:SpamPyzor/set", map[string]any{"update": map[string]any{"singleton": map[string]any{"enable": false}}}, "p"}); err == nil && setOK(r, "pyzor") == nil {
+		log = append(log, "spam filter: Pyzor (external digest lookups) off")
+	}
 	// apply without a restart: UpdateApps reloads the web applications (a disabled one stops being served, verified
 	// live: /admin/ 200 -> 404), ReloadSettings the settings
 	r, err = s.JMAP(ctx, []any{"x:Action/set", map[string]any{"create": map[string]any{"a": map[string]any{"@type": "UpdateApps"}, "s": map[string]any{"@type": "ReloadSettings"}}}, "a"})

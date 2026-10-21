@@ -27,7 +27,7 @@ func verifyImage(spec string) (string, error) {
 		return "", fmt.Errorf("image %q is not pinned by sha256 digest", spec)
 	}
 	check := func() bool {
-		out, err := run("docker", "image", "inspect", "-f", "{{.Id}} {{join .RepoDigests \" \"}}", ref)
+		out, err := run("docker", "image", "inspect", "-f", "{{.Id}} {{range .RepoDigests}}{{.}} {{end}}", ref)
 		if err != nil {
 			return false
 		}
@@ -120,7 +120,7 @@ services:
   stalwart:
     image: %s
     env_file: [run/stalwart.env]   # Stalwart reads the recovery admin from the environment only (no *_FILE support)
-    sysctls: { net.ipv4.ip_unprivileged_port_start: 0 }  # bind 25/465/993 as the unprivileged stalwart user, no capabilities
+    environment: { STALWART_PUBLIC_URL: %s }   # the OIDC issuer = Authfly's public URL (Authfly proxies the OIDC endpoints)
     volumes:
       - ./stalwart/config.json:/etc/stalwart/config.json:ro
       - stalwart-data:/var/lib/stalwart
@@ -130,6 +130,7 @@ services:
       - "%d:465"
       - "%d:993"
     mem_limit: 1g
+    cap_add: [NET_BIND_SERVICE]   # the stalwart binary carries this file capability; nothing else is granted
 %s    networks: [edge]
   stalwart-init:
     image: %s
@@ -168,7 +169,7 @@ volumes:
   console-data:
 secrets:
 `, c.Path(), rel.Version, c.Ports.Management, c.Ports.Console, d.project(),
-		imgs["stalwart"], c.Ports.Management, c.Mail.Ports.SMTP, c.Mail.Ports.Submissions, c.Mail.Ports.IMAPS, hardening,
+		imgs["stalwart"], yq(c.PublicURL), c.Ports.Management, c.Mail.Ports.SMTP, c.Mail.Ports.Submissions, c.Mail.Ports.IMAPS, hardening,
 		imgs["authfly"], envBlock(c.initEnv("http://stalwart:8080", sd), "      "), sec("stalwart_admin", "service_password"),
 		imgs["authfly"], envBlock(ae, "      "), sec("stalwart_service", "authfly_secret", "admin_key"), httpPorts, hardening,
 		imgs["console"], envBlock(c.consoleEnv("http://stalwart:8080", "http://authfly:4001", sd, "/data"), "      "), sec("stalwart_admin", "admin_key", "console_admin", "console_secret"), c.Ports.Console, hardening)

@@ -84,7 +84,7 @@ type Config struct {
 	Channel struct {
 		Name     string `yaml:"name"`     // stable
 		Manifest string `yaml:"manifest"` // URL or file of channel.json
-		Version  string `yaml:"version"`  // pinned release; empty = latest in channel
+		Version  string `yaml:"version"`  // release of the first deploy (empty = newest); later moves are `authfly upgrade`
 	} `yaml:"channel"`
 	Incus struct {
 		Network  string `yaml:"network"` // private bridge

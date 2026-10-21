@@ -13,9 +13,9 @@ func (c *Config) Deploy() error {
 		return err
 	}
 	st := c.LoadState()
-	v := c.Channel.Version
+	v := st.Current // re-deploys keep the running release; `authfly upgrade` moves forward
 	if v == "" {
-		v = st.Current // re-deploys keep the running release; `authfly upgrade` moves forward
+		v = c.Channel.Version // first deploy: the pinned release, or the newest when empty
 	}
 	rel, err := m.Find(v)
 	if err != nil {

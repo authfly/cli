@@ -15,9 +15,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -60,7 +62,7 @@ func (s *Stalwart) client() *http.Client {
 	if s.HTTP != nil {
 		return s.HTTP
 	}
-	return &http.Client{Timeout: 15 * time.Second}
+	return &http.Client{Timeout: 60 * time.Second} // ReloadSettings can take a while (it re-validates every setting)
 }
 
 func (s *Stalwart) do(ctx context.Context, method, path string, body io.Reader, ctype string, admin bool) ([]byte, int, error) {
@@ -95,6 +97,11 @@ func (s *Stalwart) JMAP(ctx context.Context, calls ...[]any) ([][]json.RawMessag
 // JMAPUsing posts method calls with the given capabilities; a method error fails the call.
 func (s *Stalwart) JMAPUsing(ctx context.Context, using []string, calls ...[]any) ([][]json.RawMessage, error) {
 	body, _ := json.Marshal(map[string]any{"using": using, "methodCalls": calls})
+	if os.Getenv("AUTHFLY_DEBUG_JMAP") != "" { // method names only, never arguments (they can carry passwords)
+		for _, c := range calls {
+			log.Printf("jmap: %v", c[0])
+		}
+	}
 	b, code, err := s.do(ctx, "POST", "/jmap", bytes.NewReader(body), "application/json", true)
 	if err != nil {
 		return nil, err
