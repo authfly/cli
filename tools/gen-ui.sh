@@ -17,6 +17,6 @@ python3 "$ROOT/tools/overlay.py" "$CG"
 ESC="python3 $ROOT/tools/escape-cyrillic.py xgen/content/ui/en.json"
 ( cd "$CG" && bun xgen/screens/tools/author-block-texts.ts >/dev/null && bun xgen/screens/tools/author-theme-texts.ts >/dev/null && $ESC )
 ( cd "$CG" && bun run build && $ESC )
-( cd "$CG" && bun run codex:manifest >/dev/null && bun run codex:blocks >/dev/null && bun run rules:baseline >/dev/null )
+( cd "$CG" && bun run codex:manifest >/dev/null && bun run codex:blocks >/dev/null && python3 "$ROOT/tools/codex-status.py" . && bun run codex:blocks >/dev/null && bun run rules:baseline >/dev/null )
 bun "$ROOT/tools/export-ui.ts" "$CG" "$ROOT/packages/ui"
 case "${1:-}" in --check) ( cd "$CG" && bun run check ) ;; --verify) ( cd "$CG" && bun run verify ) ;; esac

@@ -1,0 +1,12 @@
+/* Docs site styles: the generated ui8kit theme (shadcn tokens, dark class) and kit, scanned over the templ set and the site. */
+@import "../packages/ui/react/src/styles/theme.css";
+@import "../packages/ui/react/src/styles/kit.css";
+@source "../packages/ui/templ/ui";
+@source "../packages/ui/templ/blocks";
+@source "./";
+
+/* page body: full height, smoothed text (plain CSS, kept out of class lists) */
+body { min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* list markers of the docs (plain CSS: ui8px has no list-style utilities) */
+article ul { list-style: disc; } article ol { list-style: decimal; }

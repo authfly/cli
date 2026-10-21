@@ -9,7 +9,7 @@ import { id, tsOf } from "../props";
 import { checkRow, fid, inputField, kids } from "../forms";
 import { muted } from "../ux";
 
-const O = "organism.authkit-";
+const O = "organism.";
 /** inputField of ../forms with a computed input type (email or text by the identifier axis) */
 const typedField = (name: string, type: Value, label: Value, auto: Value): ViewNode =>
   organism("Field", { label, htmlFor: fid(name) }, kids(use("Input", { props: { Type: type, Name: name, Autocomplete: auto }, attrs: { id: fid(name), "data-testid": "field" } })));
@@ -55,7 +55,7 @@ const SignInLabels = requireFields(groupFields(
   ["providers", "string", "accessible name of the social provider list (extension point)"], ["socialUrl", "string", "base URL of the social login routes"]), "identifier", "password", "submit");
 const featureType = [{ from: "FeatureGrid", names: ["Feature"] }];
 
-const signIn = spec(`${O}sign-in`, "AuthkitSignIn", "Authkit sign-in. Axes: method (password: identifier and password, magic: identifier only, the server emails a link), identifier (email, username, any: what the identifier field accepts), social (none, show: provider buttons, an extension point).", {
+const signIn = spec(`${O}authkit-sign-in`, "AuthkitSignIn", "Authkit sign-in. Axes: method (password: identifier and password, magic: identifier only, the server emails a link), identifier (email, username, any: what the identifier field accepts), social (none, show: provider buttons, an extension point).", {
   records: { SignInLabels }, typeImports: featureType,
   props: [...common.filter((p) => p.name !== "info"),
     { name: "labels", type: rec("SignInLabels"), required: true },
@@ -82,7 +82,7 @@ const SignUpLabels = requireFields(groupFields(
   ["name", "string"], ["username", "string"], ["domain", "string", "the mail domain shown after the username, e.g. @example.com"], ["password", "string"],
   ["hint", "string", "password rules"], ["terms", "string"], ["submit", "string"], ["signinText", "string"], ["signinLink", "string"], ["signinHref", "string"]),
   "name", "username", "domain", "password", "submit");
-const signUp = spec(`${O}sign-up`, "AuthkitSignUp", "Authkit sign-up: name, username at the mail domain, password, terms. The server creates the Stalwart account and sends the verification email. Axes: terms (show, none).", {
+const signUp = spec(`${O}authkit-sign-up`, "AuthkitSignUp", "Authkit sign-up: name, username at the mail domain, password, terms. The server creates the Stalwart account and sends the verification email. Axes: terms (show, none).", {
   records: { SignUpLabels },
   props: [...common, { name: "labels", type: rec("SignUpLabels"), required: true }, { name: "terms", type: tsOf("show", "none"), default: "show" }],
   view: [shell("authkit-sign-up",
@@ -101,7 +101,7 @@ const signUp = spec(`${O}sign-up`, "AuthkitSignUp", "Authkit sign-up: name, user
 });
 
 const RequestLabels = requireFields(groupFields(["field", "string", "label of the field"], ["confirm", "string", "label of the repeat field (kind password)"], ["submit", "string"], ["back", "string"], ["backHref", "string"]), "field", "confirm", "submit");
-const request = spec(`${O}request`, "AuthkitRequest", "Authkit one-field forms. Axes: kind (email: magic-link request and forgot password, password: a new password and its repeat with the reset token, code: a one-time code, the TOTP extension point).", {
+const request = spec(`${O}authkit-request`, "AuthkitRequest", "Authkit one-field forms. Axes: kind (email: magic-link request and forgot password, password: a new password and its repeat with the reset token, code: a one-time code, the TOTP extension point).", {
   records: { RequestLabels },
   props: [...common, { name: "labels", type: rec("RequestLabels"), required: true }, { name: "token", type: "string", default: "", docs: "the reset token, sent back as token" },
     { name: "kind", type: tsOf("email", "password", "code"), default: "email" }],
@@ -115,7 +115,7 @@ const request = spec(`${O}request`, "AuthkitRequest", "Authkit one-field forms. 
 });
 
 const NoticeLabels = requireFields(groupFields(["cta", "string", "the primary action"], ["ctaHref", "string", "its address; empty with action form: a submit button"], ["secondary", "string"], ["secondaryHref", "string"]), "cta");
-const notice = spec(`${O}notice`, "AuthkitNotice", "Authkit result pages: check your email, link verified, email verified, signed out, sign out confirmation, errors. Axes: tone (default, success, error), action (link: the action is a link, form: a post form, used to sign out).", {
+const notice = spec(`${O}authkit-notice`, "AuthkitNotice", "Authkit result pages: check your email, link verified, email verified, signed out, sign out confirmation, errors. Axes: tone (default, success, error), action (link: the action is a link, form: a post form, used to sign out).", {
   records: { NoticeLabels },
   props: [id, { name: "title", type: "string", required: true }, { name: "text", type: "string", required: true },
     { name: "detail", type: "string", default: "", docs: "a highlighted value, e.g. the address the link went to" },
@@ -135,7 +135,7 @@ const notice = spec(`${O}notice`, "AuthkitNotice", "Authkit result pages: check 
 });
 
 const ConsentLabels = requireFields(groupFields(["account", "string", "the line before the account"], ["scopes", "string", "heading of the scope list"], ["approve", "string"], ["deny", "string"]), "account", "scopes", "approve", "deny");
-const consent = spec(`${O}consent`, "AuthkitConsent", "Authkit OIDC handoff: the application asking, the signed-in account, the scopes, allow and deny (one form, the button sends decision=approve or deny).", {
+const consent = spec(`${O}authkit-consent`, "AuthkitConsent", "Authkit OIDC handoff: the application asking, the signed-in account, the scopes, allow and deny (one form, the button sends decision=approve or deny).", {
   records: { ConsentLabels }, typeImports: featureType,
   props: [...common, { name: "client", type: "string", required: true, docs: "name of the application" }, { name: "account", type: "string", required: true },
     { name: "scopes", type: { ts: "Feature[]" }, required: true }, { name: "labels", type: rec("ConsentLabels"), required: true }],
@@ -150,7 +150,7 @@ const consent = spec(`${O}consent`, "AuthkitConsent", "Authkit OIDC handoff: the
 });
 
 const AccountLabels = requireFields(groupFields(["name", "string"], ["email", "string"], ["verified", "string"], ["unverified", "string"], ["security", "string"], ["signout", "string"]), "name", "email", "security", "signout");
-const account = spec(`${O}account`, "AuthkitAccount", "Authkit account basics: name, address, verification, the sign-in methods (password, magic link; TOTP, security keys and social as extension points) and sign out.", {
+const account = spec(`${O}authkit-account`, "AuthkitAccount", "Authkit account basics: name, address, verification, the sign-in methods (password, magic link; TOTP, security keys and social as extension points) and sign out.", {
   records: { AccountLabels }, typeImports: featureType,
   props: [id, { name: "title", type: "string", required: true }, { name: "text", type: "string", required: true },
     { name: "name", type: "string", required: true }, { name: "email", type: "string", required: true }, { name: "verified", type: "boolean", default: false },

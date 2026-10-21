@@ -12,3 +12,8 @@ Times are Europe/Moscow (UTC+3).
 - 03:40 TS adapter (packages/adapters/ts), React demo (apps/demo-react), docker-compose stack (Stalwart v0.16 + authkit + demo-react).
 - 03:42 Box quirk: a legacy iptables FORWARD DROP policy (other dockerd) blocked container-to-container and container DNS traffic; added narrow iptables-legacy DOCKER-USER accept rules for 172.16.0.0/12 (box only, not part of the repo).
 - 03:46 e2e/flow.test.ts: 13/13 steps pass against the compose stack (sign-up, verification mail via JMAP, magic link, sign-out, username+password, email+password, wrong password, reset, OIDC SSO into the React demo with consent, deny, JSON API).
+- 03:50 ui8px: repo policy in .ui8px (defaults + 5 utilities of upstream templ primitives); `npx ui8px@latest lint` → 0 violations.
+- 03:55 PHP and Python adapters (JSON API + OIDC RP); e2e now 15/15 (adds Python and PHP OIDC + API steps).
+- 04:00 Codegen fixes for `bun run verify`: typed identifier field, required confirm label, organism id prefix, codex status (tools/codex-status.py). `tools/gen-ui.sh --verify` → check ok (parity templ/solid/twig/jinja2/latte vs React), codex validate ok, typecheck ok, 839 tests pass, 0 fail.
+- 04:05 Docs (docs/*.md, 8 runtime guides) and the static site (site/, Go templ → site/dist, 18 pages + index, 14 live previews). `bun run site`.
+- NEXT: screenshots (390/1440, light/dark) into /workspace/authkit-shots, README, final report.

@@ -63,10 +63,7 @@ func currentAttr(on bool) templ.Attributes {
 	return nil
 }
 func listClass(kind string) string {
-	if kind == "ol" {
-		return "flex list-decimal flex-col gap-2 pl-6 text-muted-foreground"
-	}
-	return "flex list-disc flex-col gap-2 pl-6 text-muted-foreground"
+	return "flex flex-col gap-2 pl-6 text-muted-foreground" // markers in site/app.css (article ul, article ol)
 }
 func isExternal(h string) bool { return strings.HasPrefix(h, "http://") || strings.HasPrefix(h, "https://") }
 
