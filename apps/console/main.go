@@ -1,4 +1,4 @@
-// Command console is the Authkit Console: a private configurator for Stalwart and Authkit (docs/console.md).
+// Command console is the Authfly Console: a private configurator for Stalwart and Authfly (docs/console.md).
 // It listens on 127.0.0.1 (compose maps 127.0.0.1:4500 only); open it with `ssh -L 4500:127.0.0.1:4500 host`.
 package main
 
@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/ui8kit/authkit/server/core"
+	"github.com/ui8kit/authfly/server/core"
 )
 
 //go:embed assets
@@ -34,7 +34,7 @@ type Console struct {
 	adminPass string
 	Audit     *core.Audit // console actions
 	Data      string
-	AuthkitURL, AuthkitKey string // internal admin API
+	AuthflyURL, AuthflyKey string // internal admin API
 	Domain    string
 	PublicURL string
 	Secure    bool
@@ -81,10 +81,10 @@ func main() {
 		AdminUser: admin[0], adminPass: admin[1],
 		Audit:      core.OpenAudit(filepath.Join(data, "console-audit.jsonl")),
 		Data:       data,
-		AuthkitURL: strings.TrimRight(env("AUTHKIT_ADMIN_URL", "http://localhost:4001"), "/"),
-		AuthkitKey: env("AUTHKIT_ADMIN_KEY", ""),
-		Domain:     env("AUTHKIT_DOMAIN", "authkit.test"),
-		PublicURL:  strings.TrimRight(env("AUTHKIT_PUBLIC_URL", "http://localhost:4000"), "/"),
+		AuthflyURL: strings.TrimRight(env("AUTHFLY_ADMIN_URL", "http://localhost:4001"), "/"),
+		AuthflyKey: env("AUTHFLY_ADMIN_KEY", ""),
+		Domain:     env("AUTHFLY_DOMAIN", "authfly.test"),
+		PublicURL:  strings.TrimRight(env("AUTHFLY_PUBLIC_URL", "http://localhost:4000"), "/"),
 		failures:   map[string][]time.Time{},
 		optCache:   map[string]cachedOpts{},
 	}
@@ -94,7 +94,7 @@ func main() {
 	}
 	c.Schema = s
 	addr := env("CONSOLE_ADDR", "127.0.0.1:4500")
-	log.Printf("authkit console on %s (stalwart %s, %d views)", addr, c.SW.BaseURL, len(s.Views))
+	log.Printf("authfly console on %s (stalwart %s, %d views)", addr, c.SW.BaseURL, len(s.Views))
 	log.Fatal(http.ListenAndServe(addr, c.Handler()))
 }
 
@@ -148,7 +148,7 @@ func secHeaders(h http.Handler) http.Handler {
 
 // ---- session, CSRF
 
-const cookieName = "authkit_console"
+const cookieName = "authfly_console"
 
 type ctxKey struct{}
 
@@ -209,11 +209,11 @@ func (c *Console) loginPage(w http.ResponseWriter, r *http.Request) {
 
 func (c *Console) loginCSRF(w http.ResponseWriter, r *http.Request) string {
 	// login CSRF: double-submit cookie
-	if ck, err := r.Cookie("authkit_console_login"); err == nil && len(ck.Value) == 32 {
+	if ck, err := r.Cookie("authfly_console_login"); err == nil && len(ck.Value) == 32 {
 		return ck.Value
 	}
 	v := core.RandomString(24) // 32 characters
-	http.SetCookie(w, &http.Cookie{Name: "authkit_console_login", Value: v, Path: "/login", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "authfly_console_login", Value: v, Path: "/login", HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	return v
 }
 
@@ -222,7 +222,7 @@ func (c *Console) renderLogin(w http.ResponseWriter, r *http.Request, status int
 }
 
 func (c *Console) loginPost(w http.ResponseWriter, r *http.Request) {
-	ck, err := r.Cookie("authkit_console_login")
+	ck, err := r.Cookie("authfly_console_login")
 	if err != nil || subtle.ConstantTimeCompare([]byte(ck.Value), []byte(r.PostFormValue("csrf"))) != 1 {
 		c.renderLogin(w, r, 403, "Your session expired. Try again.")
 		return

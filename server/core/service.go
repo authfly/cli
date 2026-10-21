@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-// Config of the Authkit service.
+// Config of the Authfly service.
 type Config struct {
 	Domain          string // the mail domain accounts live in, e.g. example.com
-	PublicURL       string // public base URL of Authkit, used in emails and as OIDC redirect URI
-	ClientID        string // the OAuth client id Authkit uses with Stalwart for its own sessions
+	PublicURL       string // public base URL of Authfly, used in emails and as OIDC redirect URI
+	ClientID        string // the OAuth client id Authfly uses with Stalwart for its own sessions
 	RequireVerified bool   // refuse password sign-in until the address is verified
 	ProductName     string
 	MagicTTL        time.Duration
@@ -23,7 +23,7 @@ type Config struct {
 	AuditRetention  time.Duration // audit entries older than this are pruned (0: keep)
 }
 
-// Service is the Authkit core every adapter calls.
+// Service is the Authfly core every adapter calls.
 type Service struct {
 	Cfg   Config
 	SW    *Stalwart
@@ -52,7 +52,7 @@ var (
 
 var usernameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,31}$`)
 
-// LocalPart turns an identifier (username or address at the Authkit domain) into the account name.
+// LocalPart turns an identifier (username or address at the Authfly domain) into the account name.
 func (s *Service) LocalPart(identifier string) (string, error) {
 	id := strings.ToLower(strings.TrimSpace(identifier))
 	if i := strings.LastIndexByte(id, '@'); i >= 0 {
@@ -88,7 +88,7 @@ func (s *Service) SignUp(ctx context.Context, name, username, password string) (
 	addr := s.address(local)
 	s.Audit.Log("self", addr, "sign_up", "ok", nil)
 	if err := s.SendVerification(addr); err != nil {
-		log.Printf("authkit: verification mail to %s failed: %v", addr, err)
+		log.Printf("authfly: verification mail to %s failed: %v", addr, err)
 	}
 	return &User{Sub: acc.ID, Address: addr, Username: local, Name: acc.Description}, nil
 }
@@ -121,7 +121,7 @@ func (s *Service) PasswordSignIn(ctx context.Context, identifier, password strin
 	verifier, challenge := PKCE()
 	nonce := RandomString(12)
 	redirect := s.Cfg.PublicURL + "/auth/callback"
-	// Authkit always sends the full address: a bare name only resolves when Stalwart has a default domain.
+	// Authfly always sends the full address: a bare name only resolves when Stalwart has a default domain.
 	name := s.address(local)
 	code, err := s.SW.Authorize(ctx, AuthCodeRequest{AccountName: name, AccountSecret: password, ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce, CodeChallenge: challenge})
 	if err != nil {

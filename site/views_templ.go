@@ -9,7 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ui8kit/authkit/server/web"
+	"github.com/ui8kit/authfly/server/web"
 	"github.com/ui8kit/codegen/packages/templ/ui/ui/badge"
 	"github.com/ui8kit/codegen/packages/templ/ui/ui/block"
 	"github.com/ui8kit/codegen/packages/templ/ui/ui/box"
@@ -56,7 +56,7 @@ func siteDocument(pageTitle string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(pageTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 29, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 29, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -151,7 +151,7 @@ func siteHeader() templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "Authkit")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "Authfly")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -310,7 +310,7 @@ func sidebar(nav []Section, current string) templ.Component {
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(sec.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 66, Col: 16}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 66, Col: 16}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -362,7 +362,7 @@ func sidebar(nav []Section, current string) templ.Component {
 									var templ_7745c5c3_Var19 string
 									templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 72, Col: 17}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 72, Col: 17}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 									if templ_7745c5c3_Err != nil {
@@ -543,7 +543,7 @@ func docPage(nav []Section, page Page, nodes []Node, previews map[string]web.Pre
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = siteDocument(page.Title+" - Authkit").Render(templ.WithChildren(ctx, templ_7745c5c3_Var21), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = siteDocument(page.Title+" - Authfly").Render(templ.WithChildren(ctx, templ_7745c5c3_Var21), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -781,7 +781,7 @@ func mdNode(n Node, previews map[string]web.Preview) templ.Component {
 					var templ_7745c5c3_Var38 string
 					templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(n.Text)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 138, Col: 13}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 138, Col: 13}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 					if templ_7745c5c3_Err != nil {
@@ -850,7 +850,7 @@ func spans(xs []Inline) templ.Component {
 					var templ_7745c5c3_Var41 string
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(x.Text)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 153, Col: 13}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 153, Col: 13}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
@@ -878,7 +878,7 @@ func spans(xs []Inline) templ.Component {
 					var templ_7745c5c3_Var43 string
 					templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(x.Text)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 157, Col: 13}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 157, Col: 13}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 					if templ_7745c5c3_Err != nil {
@@ -906,7 +906,7 @@ func spans(xs []Inline) templ.Component {
 					var templ_7745c5c3_Var45 string
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(x.Text)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 161, Col: 13}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 161, Col: 13}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
@@ -922,7 +922,7 @@ func spans(xs []Inline) templ.Component {
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(x.Text)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 164, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 164, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
@@ -995,7 +995,7 @@ func previewFrame(p web.Preview) templ.Component {
 					var templ_7745c5c3_Var51 string
 					templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 174, Col: 12}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 174, Col: 12}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 					if templ_7745c5c3_Err != nil {
@@ -1072,7 +1072,7 @@ func previewFrame(p web.Preview) templ.Component {
 				var templ_7745c5c3_Var55 string
 				templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(p.Note)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 184, Col: 11}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 184, Col: 11}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 				if templ_7745c5c3_Err != nil {
@@ -1239,7 +1239,7 @@ func widgetsPage(nav []Section, page Page, intro []Node, all []web.Preview) temp
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = siteDocument("Widgets - Authkit").Render(templ.WithChildren(ctx, templ_7745c5c3_Var57), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = siteDocument("Widgets - Authfly").Render(templ.WithChildren(ctx, templ_7745c5c3_Var57), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1376,7 +1376,7 @@ func homePage(nav []Section, runtimes []Page, hero web.Preview) templ.Component 
 								}()
 							}
 							ctx = templ.InitializeContext(ctx)
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "Authkit puts hosted sign-in, sign-up, magic links, password reset and an OpenID Connect handoff in front of Stalwart, the mail server with a built-in directory and OIDC provider. The widgets are generated by ui8kit/codegen for eight runtimes with the same DOM.")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "Authfly puts hosted sign-in, sign-up, magic links, password reset and an OpenID Connect handoff in front of Stalwart, the mail server with a built-in directory and OIDC provider. The widgets are generated by ui8kit/codegen for eight runtimes with the same DOM.")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1556,7 +1556,7 @@ func homePage(nav []Section, runtimes []Page, hero web.Preview) templ.Component 
 									var templ_7745c5c3_Var80 string
 									templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(r.Title)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 248, Col: 17}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 248, Col: 17}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 									if templ_7745c5c3_Err != nil {
@@ -1583,7 +1583,7 @@ func homePage(nav []Section, runtimes []Page, hero web.Preview) templ.Component 
 									var templ_7745c5c3_Var82 string
 									templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(r.Blurb)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 251, Col: 17}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 251, Col: 17}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 									if templ_7745c5c3_Err != nil {
@@ -1626,7 +1626,7 @@ func homePage(nav []Section, runtimes []Page, hero web.Preview) templ.Component 
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = feature("mail", "Stalwart does the identity", "Accounts, passwords and OIDC tokens live in Stalwart. Authkit adds the flows and mails through Stalwart SMTP.").Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = feature("mail", "Stalwart does the identity", "Accounts, passwords and OIDC tokens live in Stalwart. Authfly adds the flows and mails through Stalwart SMTP.").Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1652,7 +1652,7 @@ func homePage(nav []Section, runtimes []Page, hero web.Preview) templ.Component 
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = siteDocument("Authkit - self-hosted sign-in on Stalwart").Render(templ.WithChildren(ctx, templ_7745c5c3_Var64), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = siteDocument("Authfly - self-hosted sign-in on Stalwart").Render(templ.WithChildren(ctx, templ_7745c5c3_Var64), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1712,7 +1712,7 @@ func feature(icon, head, body string) templ.Component {
 				var templ_7745c5c3_Var87 string
 				templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(head)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 270, Col: 9}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 270, Col: 9}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
 				if templ_7745c5c3_Err != nil {
@@ -1739,7 +1739,7 @@ func feature(icon, head, body string) templ.Component {
 				var templ_7745c5c3_Var89 string
 				templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(body)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views.templ`, Line: 273, Col: 9}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `site/views.templ`, Line: 273, Col: 9}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
 				if templ_7745c5c3_Err != nil {

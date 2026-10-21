@@ -1,4 +1,4 @@
-// Authkit Console end to end, against the compose stack: localhost-only binding, admin session, CSRF, schema-driven
+// Authfly Console end to end, against the compose stack: localhost-only binding, admin session, CSRF, schema-driven
 // validation, user create/edit/delete (verified in Stalwart), generic object forms, request builder, saved requests,
 // the onboarding scenario and the console audit log.
 //   docker compose up -d --build && bun e2e/console.test.ts
@@ -38,7 +38,7 @@ await step("login needs the CSRF token and the right password", async () => {
   assert(status(bad) === 401, `wrong password: ${status(bad)}`);
   const ok = await b.submit(await b.go(`${CONSOLE}/login`), { username: cuser, password: cpass }, "login-form", false);
   assert(status(ok) === 303, `login: ${status(ok)}`);
-  const cookie = ok.res.headers.getSetCookie().find((c) => c.startsWith("authkit_console="))!;
+  const cookie = ok.res.headers.getSetCookie().find((c) => c.startsWith("authfly_console="))!;
   assert(/HttpOnly/i.test(cookie) && /SameSite=Strict/i.test(cookie), "session cookie flags");
 });
 await step("dashboard: live lock-down checks all pass", async () => {

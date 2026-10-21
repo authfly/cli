@@ -5,17 +5,17 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ui8kit/authkit/server/core"
+	"github.com/ui8kit/authfly/server/core"
 )
 
-// APIKey, when set, is required in the X-Authkit-Key header of every JSON API call (adapters call from servers).
+// APIKey, when set, is required in the X-Authfly-Key header of every JSON API call (adapters call from servers).
 var APIKey string
 
 func (s *Server) api(m *http.ServeMux) {
 	h := func(pattern string, f func(r *http.Request, in map[string]string) (int, any)) {
 		m.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			if APIKey != "" && r.Header.Get("X-Authkit-Key") != APIKey {
+			if APIKey != "" && r.Header.Get("X-Authfly-Key") != APIKey {
 				w.WriteHeader(401)
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 				return

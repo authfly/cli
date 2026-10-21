@@ -1,4 +1,4 @@
-// Package web is the Authkit HTTP server for the Go / templ family: the hosted pages (generated templ widgets), the
+// Package web is the Authfly HTTP server for the Go / templ family: the hosted pages (generated templ widgets), the
 // OIDC handoff for relying parties, and the JSON API the TypeScript, PHP and Python adapters call.
 package web
 
@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/ui8kit/authkit/server/core"
-	"github.com/ui8kit/authkit/server/ext"
+	"github.com/ui8kit/authfly/server/core"
+	"github.com/ui8kit/authfly/server/ext"
 	"github.com/ui8kit/codegen/packages/templ/ui/blocks"
 )
 
@@ -113,9 +113,9 @@ func logRequests(h http.Handler) http.Handler {
 // ---- cookies: session, CSRF, pending OIDC request
 
 const (
-	cookieSession = "authkit_session"
-	cookieCSRF    = "authkit_csrf"
-	cookieOAuth   = "authkit_oauth"
+	cookieSession = "authfly_session"
+	cookieCSRF    = "authfly_csrf"
+	cookieOAuth   = "authfly_oauth"
 )
 
 func (s *Server) setCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
@@ -183,7 +183,7 @@ func (s *Server) notice(w http.ResponseWriter, r *http.Request, status int, page
 	for k, v := range override {
 		labels[k] = v
 	}
-	s.render(w, r, status, s.text(page, "title"), blocks.AuthkitNotice(blocks.AuthkitNoticeProps{Id: "authkit", Title: s.text(page, "title"), Text: s.text(page, "text"),
+	s.render(w, r, status, s.text(page, "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text(page, "title"), Text: s.text(page, "text"),
 		Detail: detail, Icon: icon, Labels: labels, Tone: tone, Action: "link"}))
 }
 
@@ -194,7 +194,7 @@ func errText(err error) string {
 	case errors.Is(err, core.ErrUnverified):
 		return "Verify your email address first. We sent you a new link."
 	case errors.Is(err, core.ErrMFARequired):
-		return "This account uses two-step verification, which Authkit does not support yet."
+		return "This account uses two-step verification, which Authfly does not support yet."
 	case errors.Is(err, core.ErrAccountExists):
 		return "This username is taken."
 	case errors.Is(err, core.ErrWeakPassword), errors.Is(err, core.ErrBadUsername):
@@ -202,7 +202,7 @@ func errText(err error) string {
 	case errors.Is(err, core.ErrBadToken):
 		return "The link is invalid or expired."
 	}
-	log.Printf("authkit: %v", err)
+	log.Printf("authfly: %v", err)
 	return "Something went wrong. Try again in a moment."
 }
 
@@ -227,7 +227,7 @@ func (s *Server) signInView(w http.ResponseWriter, r *http.Request, status int, 
 	if action == "" {
 		action = r.URL.Path
 	}
-	s.render(w, r, status, s.text(page, "title"), blocks.AuthkitSignIn(blocks.AuthkitSignInProps{Id: "authkit", Title: s.text(page, "title"), Text: s.text(page, "text"),
+	s.render(w, r, status, s.text(page, "title"), blocks.AuthflySignIn(blocks.AuthflySignInProps{Id: "authfly", Title: s.text(page, "title"), Text: s.text(page, "text"),
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: labels, Providers: s.providers(), Method: method, Identifier: map[bool]string{true: "email", false: "any"}[method == "magic"], Social: social}))
 }
 
@@ -255,7 +255,7 @@ func (s *Server) signInPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) signUpView(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
-	s.render(w, r, status, s.text("signup", "title"), blocks.AuthkitSignUp(blocks.AuthkitSignUpProps{Id: "authkit", Title: s.text("signup", "title"), Text: s.text("signup", "text"),
+	s.render(w, r, status, s.text("signup", "title"), blocks.AuthflySignUp(blocks.AuthflySignUpProps{Id: "authfly", Title: s.text("signup", "title"), Text: s.text("signup", "text"),
 		Action: "/auth/sign-up", Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab("signup"), Terms: "show"}))
 }
 func (s *Server) signUpPage(w http.ResponseWriter, r *http.Request) { s.signUpView(w, r, 200, "") }
@@ -311,7 +311,7 @@ func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) requestView(w http.ResponseWriter, r *http.Request, status int, page, kind, action, token, errMsg string) {
-	s.render(w, r, status, s.text(page, "title"), blocks.AuthkitRequest(blocks.AuthkitRequestProps{Id: "authkit", Title: s.text(page, "title"), Text: s.text(page, "text"),
+	s.render(w, r, status, s.text(page, "title"), blocks.AuthflyRequest(blocks.AuthflyRequestProps{Id: "authfly", Title: s.text(page, "title"), Text: s.text(page, "text"),
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab(page), Token: token, Kind: kind}))
 }
 func (s *Server) forgotPage(w http.ResponseWriter, r *http.Request) {
@@ -351,12 +351,12 @@ func (s *Server) resetPost(w http.ResponseWriter, r *http.Request) {
 		s.requestView(w, r, 400, "reset", "password", "/auth/reset", tok, errText(err))
 		return
 	}
-	s.render(w, r, 200, "Password changed", blocks.AuthkitNotice(blocks.AuthkitNoticeProps{Id: "authkit", Title: "Password changed", Text: "Sign in with your new password.",
+	s.render(w, r, 200, "Password changed", blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: "Password changed", Text: "Sign in with your new password.",
 		Icon: "key-round", Tone: "success", Action: "link", Labels: map[string]any{"cta": "Sign in", "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": ""}}))
 }
 
 func (s *Server) signOutPage(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, 200, s.text("signout", "title"), blocks.AuthkitNotice(blocks.AuthkitNoticeProps{Id: "authkit", Title: s.text("signout", "title"), Text: s.text("signout", "text"),
+	s.render(w, r, 200, s.text("signout", "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text("signout", "title"), Text: s.text("signout", "text"),
 		Icon: "log-out", Labels: s.lab("signout"), Tone: "default", Action: "form", ActionUrl: "/auth/sign-out", Csrf: s.csrf(w, r)}))
 }
 func (s *Server) signOutPost(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +368,7 @@ func (s *Server) signOutPost(w http.ResponseWriter, r *http.Request) {
 		s.Svc.Audit.Log("self", u.Address, "sign_out", "ok", nil)
 	}
 	s.clearCookie(w, cookieSession)
-	s.render(w, r, 200, "Signed out", blocks.AuthkitNotice(blocks.AuthkitNoticeProps{Id: "authkit", Title: "You are signed out", Text: "See you soon.",
+	s.render(w, r, 200, "Signed out", blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: "You are signed out", Text: "See you soon.",
 		Icon: "circle-check", Tone: "success", Action: "link", Labels: map[string]any{"cta": "Sign in again", "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": ""}}))
 }
 
@@ -378,7 +378,7 @@ func (s *Server) accountPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/auth/sign-in", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, 200, s.text("account", "title"), blocks.AuthkitAccount(blocks.AuthkitAccountProps{Id: "authkit", Title: s.text("account", "title"), Text: "Signed in with " + methodName(u.Method) + ".",
+	s.render(w, r, 200, s.text("account", "title"), blocks.AuthflyAccount(blocks.AuthflyAccountProps{Id: "authfly", Title: s.text("account", "title"), Text: "Signed in with " + methodName(u.Method) + ".",
 		Name: nonEmpty(u.Name, u.Username), Email: u.Address, Verified: u.Verified, Methods: Methods(s.Ext), Labels: s.lab("account"), SignoutUrl: "/auth/sign-out", Csrf: s.csrf(w, r)}))
 }
 
@@ -412,7 +412,7 @@ func (s *Server) totpStub(w http.ResponseWriter, r *http.Request) {
 	s.requestView(w, r, 501, "code", "code", "/auth/2fa", "", "Two-step verification is an extension point; no TOTP provider is configured.")
 }
 
-// ---- OIDC handoff: a relying party sends the browser here instead of Stalwart's /login; Authkit shows its sign-in,
+// ---- OIDC handoff: a relying party sends the browser here instead of Stalwart's /login; Authfly shows its sign-in,
 // asks Stalwart for an authorization code bound to the relying party's client id, redirect URI and PKCE challenge
 // (POST /api/auth), shows the consent, then redirects back with Stalwart's code. The relying party exchanges the code
 // at Stalwart's token endpoint itself.
@@ -484,7 +484,7 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request) {
 		label := map[string]string{"openid": "Your account identifier", "email": "Your email address", "profile": "Your name", "offline_access": "Access while you are away"}[sc]
 		scopes = append(scopes, map[string]any{"id": sc, "title": nonEmpty(label, sc), "text": sc, "icon": "check"})
 	}
-	s.render(w, r, 200, s.text("consent", "title"), blocks.AuthkitConsent(blocks.AuthkitConsentProps{Id: "authkit", Title: s.text("consent", "title"),
+	s.render(w, r, 200, s.text("consent", "title"), blocks.AuthflyConsent(blocks.AuthflyConsentProps{Id: "authfly", Title: s.text("consent", "title"),
 		Text: s.Clients[or.ClientID].Name + " wants to sign you in with your mail account.", Action: "/oauth/consent", Csrf: s.csrf(w, r),
 		Client: s.Clients[or.ClientID].Name, Account: account, Scopes: scopes, Labels: s.lab("consent")}))
 }

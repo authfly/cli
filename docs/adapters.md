@@ -1,15 +1,15 @@
 # Adapters
 
-An adapter connects your app's backend to Authkit and Stalwart. One per runtime family, all thin, all covered by the end-to-end test.
+An adapter connects your app's backend to Authfly and Stalwart. One per runtime family, all thin, all covered by the end-to-end test.
 
 - **Go** (`server/core`, `server/web`): the core itself. Embed `web.New(...).Handler()` or call `core.Service` directly (templ runtime).
-- **Node and Bun** (`packages/adapters/ts`, `@authkit/node`): React, Vue, Svelte, Solid backends. OIDC relying party with PKCE, ES256 ID token verification against Stalwart's JWKS, sealed session cookies, and `AuthkitApi` for the JSON API.
-- **PHP** (`packages/adapters/php`): Twig and Latte apps. `AuthkitApi` and `Authkit` (OIDC with PKCE). No dependencies.
-- **Python** (`packages/adapters/python`): Jinja2 apps (Flask, FastAPI, Django). `AuthkitApi` and `Authkit`. Standard library only.
+- **Node and Bun** (`packages/adapters/ts`, `@authfly/node`): React, Vue, Svelte, Solid backends. OIDC relying party with PKCE, ES256 ID token verification against Stalwart's JWKS, sealed session cookies, and `AuthflyApi` for the JSON API.
+- **PHP** (`packages/adapters/php`): Twig and Latte apps. `AuthflyApi` and `Authfly` (OIDC with PKCE). No dependencies.
+- **Python** (`packages/adapters/python`): Jinja2 apps (Flask, FastAPI, Django). `AuthflyApi` and `Authfly`. Standard library only.
 
 ## Two ways in
 
-1. **SSO with OIDC** (recommended for apps): `authorizeUrl()` sends the user to the Authkit hosted sign-in; `callback()` exchanges the code at Stalwart and returns the claims (`sub`, `email`, `preferred_username`, ...). Your app keeps its own session. See [Configure OIDC](oidc.md).
+1. **SSO with OIDC** (recommended for apps): `authorizeUrl()` sends the user to the Authfly hosted sign-in; `callback()` exchanges the code at Stalwart and returns the claims (`sub`, `email`, `preferred_username`, ...). Your app keeps its own session. See [Configure OIDC](oidc.md).
 2. **JSON API** (your own forms): render the widgets in your app, post to your routes, call `signIn`, `signUp`, `requestMagicLink`, `forgot`, `reset` and keep the returned token. See [Form contract and API](contract.md).
 
 ## ID token checks

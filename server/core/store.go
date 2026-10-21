@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Store keeps the little state Authkit owns (Stalwart owns accounts and passwords): which addresses are verified and
+// Store keeps the little state Authfly owns (Stalwart owns accounts and passwords): which addresses are verified and
 // which one-time tokens were used. A JSON file; swap for SQL/Redis by implementing the same methods.
 type Store struct {
 	Path string
@@ -125,7 +125,7 @@ func (s *Store) RevokedAt(addr string) int64 {
 	return s.data.Revoked[Pseudonym(addr)]
 }
 
-// Forget removes everything Authkit keeps about an address (erasure) and keeps only the session revocation, keyed by
+// Forget removes everything Authfly keeps about an address (erasure) and keeps only the session revocation, keyed by
 // the pseudonym, so a stolen session token cannot come back if the address is registered again.
 func (s *Store) Forget(addr string) {
 	s.mu.Lock()
@@ -137,7 +137,7 @@ func (s *Store) Forget(addr string) {
 	s.save()
 }
 
-// Snapshot is what Authkit holds about an address (for the export).
+// Snapshot is what Authfly holds about an address (for the export).
 func (s *Store) Snapshot(addr string) map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()

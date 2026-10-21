@@ -68,7 +68,7 @@ func (c *Console) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	lock := Block{Kind: "card", Title: "Lock-down status", Icon: "shield-check", Text: "Live checks of the hardening init-stalwart applies (docs/security.md).", Steps: checks,
-		Form: &FormVM{ID: "lockdown", Action: "/scenarios/lockdown", Submit: "Re-apply hardening", Variant: "outline", Note: "Runs the same idempotent steps as `authkit init-stalwart` for the parts the console owns (web UI off, OIDC registration locked)."}}
+		Form: &FormVM{ID: "lockdown", Action: "/scenarios/lockdown", Submit: "Re-apply hardening", Variant: "outline", Note: "Runs the same idempotent steps as `authfly init-stalwart` for the parts the console owns (web UI off, OIDC registration locked)."}}
 	var bl []Block
 	if bad > 0 {
 		bl = append(bl, Block{Kind: "alert", Tone: "destructive", Icon: "shield-alert", Title: fmt.Sprintf("%d lock-down check(s) failing", bad), Text: "Re-apply the hardening below or run `docker compose run --rm stalwart-init`."})
@@ -77,9 +77,9 @@ func (c *Console) dashboard(w http.ResponseWriter, r *http.Request) {
 		Block{Kind: "card", Title: "Guided scenarios", Icon: "wand-sparkles", Text: "Multi-step flows with explanations and live checks.", Links: scenarioLinks()},
 		Block{Kind: "card", Title: "Surface", Icon: "map", KV: [][2]string{
 			{"Stalwart", c.SW.BaseURL}, {"Schema", fmt.Sprintf("%d objects, %d console views", len(c.Schema.Objects), len(c.Schema.Views))},
-			{"Authkit admin API", c.AuthkitURL}, {"Domain", c.Domain}, {"Session", "8 h, SameSite=Strict, CSRF on every form"},
+			{"Authfly admin API", c.AuthflyURL}, {"Domain", c.Domain}, {"Session", "8 h, SameSite=Strict, CSRF on every form"},
 		}})
-	c.show(w, r, 200, c.page(r, "Dashboard", "Stalwart and Authkit at a glance.", "/", bl...))
+	c.show(w, r, 200, c.page(r, "Dashboard", "Stalwart and Authfly at a glance.", "/", bl...))
 }
 
 func scenarioLinks() []Link {
@@ -106,8 +106,8 @@ func (c *Console) lockdownChecks(ctx context.Context) []Step {
 	if d, err := c.getOne(ctx, "x:DataRetention", "singleton"); err == nil {
 		st = append(st, boolStep("Deleted accounts are not archived (erasure is final)", d["archiveDeletedAccountsFor"] == nil, "x:DataRetention.archiveDeletedAccountsFor"))
 	}
-	ok := c.authkitPing(ctx)
-	st = append(st, boolStep("Authkit internal admin API reachable", ok, c.AuthkitURL))
+	ok := c.authflyPing(ctx)
+	st = append(st, boolStep("Authfly internal admin API reachable", ok, c.AuthflyURL))
 	return st
 }
 

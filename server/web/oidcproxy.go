@@ -1,11 +1,11 @@
 package web
 
-// OIDC proxy: Stalwart's HTTP listener stays on the internal network; Authkit forwards only the OpenID Connect
+// OIDC proxy: Stalwart's HTTP listener stays on the internal network; Authfly forwards only the OpenID Connect
 // endpoints relying parties need. Everything else of Stalwart's HTTP surface (/jmap management and mail, /api/*,
-// /admin, /account, /login, /auth/device, /auth/register, /auth/introspect, DAV, health) is not reachable through Authkit.
+// /admin, /account, /login, /auth/device, /auth/register, /auth/introspect, DAV, health) is not reachable through Authfly.
 //
-// Stalwart's STALWART_PUBLIC_URL is set to Authkit's public URL, so the issuer and the endpoint URLs in the discovery
-// document already point at Authkit; the proxy rewrites authorization_endpoint to Authkit's /oauth/authorize (the
+// Stalwart's STALWART_PUBLIC_URL is set to Authfly's public URL, so the issuer and the endpoint URLs in the discovery
+// document already point at Authfly; the proxy rewrites authorization_endpoint to Authfly's /oauth/authorize (the
 // hosted sign-in) and removes the endpoints it does not forward.
 
 import (

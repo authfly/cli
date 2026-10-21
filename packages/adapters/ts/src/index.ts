@@ -1,15 +1,15 @@
-// @authkit/node: the adapter of the TypeScript runtime family. Server-side only (it holds the session secret).
-// - OIDC relying party: authorization code + PKCE; the browser signs in on the Authkit hosted page (or Stalwart's own
+// @authfly/node: the adapter of the TypeScript runtime family. Server-side only (it holds the session secret).
+// - OIDC relying party: authorization code + PKCE; the browser signs in on the Authfly hosted page (or Stalwart's own
 //   /login), the code is exchanged at Stalwart's token endpoint, the ID token (ES256) is verified with Stalwart's JWKS.
 // - Sessions: HMAC-SHA256 signed cookies.
-// - AuthkitApi: the Authkit JSON API (sign-up, password sign-in, magic link, reset) for custom forms.
+// - AuthflyApi: the Authfly JSON API (sign-up, password sign-in, magic link, reset) for custom forms.
 const enc = new TextEncoder();
 const b64url = (b: ArrayBuffer | Uint8Array) => Buffer.from(b instanceof Uint8Array ? b : new Uint8Array(b)).toString("base64url");
 const rand = (n = 32) => b64url(crypto.getRandomValues(new Uint8Array(n)));
 
-export interface AuthkitOptions {
-  /** public URL of the Authkit server (browser-facing), e.g. http://localhost:4000 */
-  authkitUrl: string;
+export interface AuthflyOptions {
+  /** public URL of the Authfly server (browser-facing), e.g. http://localhost:4000 */
+  authflyUrl: string;
   /** URL the server uses to reach Stalwart (token endpoint, JWKS), e.g. http://stalwart:8080 */
   stalwartUrl: string;
   clientId: string;
@@ -17,15 +17,15 @@ export interface AuthkitOptions {
   /** at least 32 characters */
   sessionSecret: string;
   scope?: string;
-  /** "authkit" (default): the Authkit hosted sign-in; "stalwart": Stalwart's own /login page */
-  loginVia?: "authkit" | "stalwart";
+  /** "authfly" (default): the Authfly hosted sign-in; "stalwart": Stalwart's own /login page */
+  loginVia?: "authfly" | "stalwart";
 }
 
 export interface User { sub: string; email: string; name: string; username: string; amr: string; exp: number }
 export interface Pending { state: string; verifier: string; nonce: string }
 
-export class Authkit {
-  constructor(readonly o: AuthkitOptions) {
+export class Authfly {
+  constructor(readonly o: AuthflyOptions) {
     if (o.sessionSecret.length < 32) throw new Error("sessionSecret must have at least 32 characters");
   }
 
@@ -33,7 +33,7 @@ export class Authkit {
   async authorizeUrl(): Promise<{ url: string; pending: Pending }> {
     const verifier = rand(32), state = rand(16), nonce = rand(16);
     const challenge = b64url(await crypto.subtle.digest("SHA-256", enc.encode(verifier)));
-    const base = this.o.loginVia === "stalwart" ? (await this.discovery()).authorization_endpoint : `${this.o.authkitUrl.replace(/\/$/, "")}/oauth/authorize`;
+    const base = this.o.loginVia === "stalwart" ? (await this.discovery()).authorization_endpoint : `${this.o.authflyUrl.replace(/\/$/, "")}/oauth/authorize`;
     const q = new URLSearchParams({ response_type: "code", client_id: this.o.clientId, redirect_uri: this.o.redirectUri, scope: this.o.scope ?? "openid email profile", state, nonce, code_challenge: challenge, code_challenge_method: "S256" });
     return { url: `${base}?${q}`, pending: { state, verifier, nonce } };
   }
@@ -103,12 +103,12 @@ export const cookie = (header: string | null, name: string) => header?.split(/;\
 export const setCookie = (name: string, value: string, maxAge: number, secure = false) =>
   `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
 
-/** client of the Authkit JSON API (server to server) */
-export class AuthkitApi {
+/** client of the Authfly JSON API (server to server) */
+export class AuthflyApi {
   constructor(readonly baseUrl: string, readonly apiKey = "") {}
   private async call<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
     const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/v1${path}`, {
-      method, headers: { "Content-Type": "application/json", ...(this.apiKey ? { "X-Authkit-Key": this.apiKey } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      method, headers: { "Content-Type": "application/json", ...(this.apiKey ? { "X-Authfly-Key": this.apiKey } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
     const out = (await res.json()) as T & { error?: string; message?: string };

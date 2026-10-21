@@ -1,4 +1,4 @@
-module github.com/ui8kit/authkit
+module github.com/ui8kit/authfly
 
 go 1.26.0
 

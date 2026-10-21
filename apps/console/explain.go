@@ -15,29 +15,29 @@ var notes = map[string]Note{
 	"x:Account": {
 		Effects: []string{"Creating a user creates its mailbox immediately; it can receive mail at name@domain.",
 			"Changing name or domainId changes the email address; mail to the old address bounces unless you add an alias.",
-			"Setting credentials replaces the password; existing Stalwart OAuth tokens stay valid until they expire. Authkit sessions are revoked by its password-reset flow, not by this edit."},
+			"Setting credentials replaces the password; existing Stalwart OAuth tokens stay valid until they expire. Authfly sessions are revoked by its password-reset flow, not by this edit."},
 		Depends: []string{"domainId must reference an existing x:Domain.", "roles: an account can only be given permissions the caller holds (escalation is refused).",
-			"The Authkit service account uses the custom role authkit-service; do not edit it here, run init-stalwart."},
-		GDPR:   "An account is personal data (name, address, mailbox). Use the GDPR actions on the user page for export and erasure, so Authkit's sessions, consent records and audit log follow.",
+			"The Authfly service account uses the custom role authfly-service; do not edit it here, run init-stalwart."},
+		GDPR:   "An account is personal data (name, address, mailbox). Use the GDPR actions on the user page for export and erasure, so Authfly's sessions, consent records and audit log follow.",
 		Danger: "Destroying an account deletes its mailbox, contacts, calendars and files. x:DataRetention.archiveDeletedAccountsFor decides whether Enterprise keeps an archive (null in this deployment: nothing is kept).",
 	},
 	"x:Domain": {
 		Effects: []string{"A new domain makes Stalwart accept mail for it; publish MX, SPF, DKIM and DMARC records (DNS view) before use.",
-			"Disabling or deleting the Authkit domain breaks sign-up and sign-in for every user."},
-		Depends: []string{"x:Account.domainId references it", "x:DkimSignature keys are per domain", "AUTHKIT_DOMAIN must match the domain name"},
+			"Disabling or deleting the Authfly domain breaks sign-up and sign-in for every user."},
+		Depends: []string{"x:Account.domainId references it", "x:DkimSignature keys are per domain", "AUTHFLY_DOMAIN must match the domain name"},
 		Danger:  "Deleting a domain that still has accounts is refused or orphans them; move or erase the accounts first.",
 	},
 	"x:OAuthClient": {
 		Effects: []string{"Registering a client lets it start the authorization-code flow with these redirect URIs.",
 			"Removing a redirect URI breaks the client's sign-in immediately."},
 		Depends: []string{"x:OidcProvider.requireClientRegistration=true makes this list the allowlist (set by init-stalwart).",
-			"The Authkit core needs a client with redirect AUTHKIT_PUBLIC_URL/auth/callback (id AUTHKIT_CLIENT_ID)."},
-		Danger: "Deleting the authkit client stops every hosted sign-in.",
+			"The Authfly core needs a client with redirect AUTHFLY_PUBLIC_URL/auth/callback (id AUTHFLY_CLIENT_ID)."},
+		Danger: "Deleting the authfly client stops every hosted sign-in.",
 	},
 	"x:OidcProvider": {
-		Effects: []string{"anonymousClientRegistration=true would let anyone register clients through /auth/register (Authkit blocks the path, but keep it false).",
+		Effects: []string{"anonymousClientRegistration=true would let anyone register clients through /auth/register (Authfly blocks the path, but keep it false).",
 			"requireClientRegistration=false would accept any client id."},
-		Depends: []string{"Issuer comes from STALWART_PUBLIC_URL (= Authkit's public URL); Authkit proxies only the OIDC endpoints."},
+		Depends: []string{"Issuer comes from STALWART_PUBLIC_URL (= Authfly's public URL); Authfly proxies only the OIDC endpoints."},
 	},
 	"x:Application": {
 		Effects: []string{"Enabling the web admin or account app publishes /admin or /account on Stalwart's HTTP listener (localhost-only here)."},
@@ -45,7 +45,7 @@ var notes = map[string]Note{
 	},
 	"x:Role": {
 		Effects: []string{"Changing a role changes the permissions of every account holding it at once."},
-		Depends: []string{"The authkit-service role must keep sysAccount*, sysDomainGet/Query, impersonate and fetchAnyBlob, and inherit User; the security test checks the rest stays denied."},
+		Depends: []string{"The authfly-service role must keep sysAccount*, sysDomainGet/Query, impersonate and fetchAnyBlob, and inherit User; the security test checks the rest stays denied."},
 		Danger:  "Deleting a role in use removes those permissions from its accounts.",
 	},
 	"x:DataRetention": {
@@ -57,8 +57,8 @@ var notes = map[string]Note{
 		GDPR:    "Encryption at rest per account protects stored mail (Art. 32).",
 	},
 	"x:Http": {
-		Effects: []string{"Changing listeners, rate limits or headers affects every HTTP client, including Authkit's OIDC proxy."},
-		Depends: []string{"The compose file binds HTTP to 127.0.0.1:8080; Authkit reaches it as stalwart:8080 on the internal network."},
+		Effects: []string{"Changing listeners, rate limits or headers affects every HTTP client, including Authfly's OIDC proxy."},
+		Depends: []string{"The compose file binds HTTP to 127.0.0.1:8080; Authfly reaches it as stalwart:8080 on the internal network."},
 	},
 	"x:QueuedMessage": {
 		Effects: []string{"Destroying a queued message drops it without a bounce."},

@@ -1,10 +1,10 @@
 // GDPR end to end against the compose stack: consent records, the self-service JSON export, erasure through the API
-// and through the console, each verified in Stalwart (account, mailbox) and in Authkit (sessions, store, audit log).
+// and through the console, each verified in Stalwart (account, mailbox) and in Authfly (sessions, store, audit log).
 //   docker compose up -d --build && bun e2e/gdpr.test.ts
-import { AUTHKIT, assert, Browser, CONSOLE, CONSOLE_ADMIN, DOMAIN, findAccount, has, jmap, linkIn, mail, rand, step, STALWART } from "./lib";
+import { AUTHFLY, assert, Browser, CONSOLE, CONSOLE_ADMIN, DOMAIN, findAccount, has, jmap, linkIn, mail, rand, step, STALWART } from "./lib";
 
 const api = async (path: string, init: RequestInit & { token?: string } = {}) => {
-  const r = await fetch(AUTHKIT + path, { ...init, headers: { "Content-Type": "application/json", ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}) } });
+  const r = await fetch(AUTHFLY + path, { ...init, headers: { "Content-Type": "application/json", ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}) } });
   return { status: r.status, json: (await r.json().catch(() => ({}))) as any };
 };
 const docker = (cmd: string[]) => {
@@ -36,14 +36,14 @@ await step("consent record: terms version and time", async () => {
   const c = r.json.consents.find((x: any) => x.kind === "terms");
   assert(c && c.version === "2026-10" && c.granted && c.time, JSON.stringify(r.json));
 });
-await step("self-service export: account, Authkit records, audit trail, mailbox; no credentials", async () => {
+await step("self-service export: account, Authfly records, audit trail, mailbox; no credentials", async () => {
   const r = await api("/api/v1/me/export", { token });
   assert(r.status === 200, `status ${r.status} ${JSON.stringify(r.json)}`);
   const e = r.json;
-  assert(e.format === "authkit-export/1" && e.subject === addr, "header");
+  assert(e.format === "authfly-export/1" && e.subject === addr, "header");
   assert(e.account?.emailAddress === addr && e.account.description === "Gdpr Person", "account record");
   assert(!("credentials" in e.account) && !JSON.stringify(e).includes(password), "credentials leaked");
-  assert(e.authkit.email_verified_at && e.authkit.consents.length === 1, "authkit records");
+  assert(e.authfly.email_verified_at && e.authfly.consents.length === 1, "authfly records");
   const actions = e.audit.map((x: any) => x.action);
   for (const a of ["sign_up", "verify_email", "sign_in"]) assert(actions.includes(a), `audit lacks ${a}`);
   assert(e.mailbox.mailboxes.length >= 1 && e.mailbox.emails.length >= 1, "mailbox empty");
@@ -59,7 +59,7 @@ await step("console export of the same person is logged in both audit logs", asy
   assert(JSON.parse(r.body).account.emailAddress === addr, "export body");
   const logs = await b.go(`${CONSOLE}/logs?subject=${encodeURIComponent(addr)}`);
   has(logs.body, "console.gdpr.export");
-  has(logs.body, "console:" + u); // Authkit's log names the console admin as actor
+  has(logs.body, "console:" + u); // Authfly's log names the console admin as actor
 });
 await step("erasure needs the password again", async () => {
   const r = await api("/api/v1/me", { method: "DELETE", token, body: JSON.stringify({ password: "wrong-password-1" }) });
@@ -86,15 +86,15 @@ await step("verified in Stalwart: account gone, password rejected, mailbox gone"
   assert(m[0]![1].list.length === 0 && m[0]![1].notFound.length === emailIds.length, `messages readable: ${JSON.stringify(m[0])}`);
   assert(m[1]![1].ids.length === 0 && m[2]![1].ids.length === 0, "found by search");
 });
-await step("verified in Authkit: old session token revoked, no sign-in", async () => {
+await step("verified in Authfly: old session token revoked, no sign-in", async () => {
   const me = await api("/api/v1/me", { token });
   assert(me.status === 401, `session still valid: ${me.status}`);
   const s = await api("/api/v1/sign-in", { method: "POST", body: JSON.stringify({ identifier: name, password }) });
   assert(s.status === 401, `sign-in ${s.status}`);
 });
-await step("verified on disk: address gone from Authkit's store and audit log, pseudonym kept", async () => {
-  const store = docker(["authkit", "cat", "/data/store.json"]);
-  const audit = docker(["authkit", "cat", "/data/store-audit.jsonl"]);
+await step("verified on disk: address gone from Authfly's store and audit log, pseudonym kept", async () => {
+  const store = docker(["authfly", "cat", "/data/store.json"]);
+  const audit = docker(["authfly", "cat", "/data/store-audit.jsonl"]);
   assert(store !== null && audit !== null, "docker exec unavailable");
   assert(!store!.includes(addr), "address in store.json");
   assert(!audit!.includes(addr), "address in the audit log");

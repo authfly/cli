@@ -1,5 +1,5 @@
 {
-  "name": "authkit",
+  "name": "authfly",
   "private": true,
   "type": "module",
   "workspaces": [

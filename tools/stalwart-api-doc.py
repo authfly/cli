@@ -29,11 +29,11 @@ ok = [k for k, s in st.items() if s == "live"]
 eps = p["endpoints"]
 L = []
 L.append("# Stalwart API audit (v0.16)\n")
-L.append(f"Captured live from `stalwartlabs/stalwart:v0.16` ({p['edition']} edition) at {p['capturedAt']} by `tools/stalwart-audit.py`, after `authkit init-stalwart` hardened it (so `/auth/register` is refused and `/admin/` is 404 here; the defaults before hardening are described below); regenerate with `python3 tools/stalwart-audit.py && python3 tools/stalwart-api-doc.py`. Raw captures: `docs/api-capture/probe.json` (requests and responses, secrets redacted) and `docs/api-capture/schema.json` (the server's own configuration schema).\n")
+L.append(f"Captured live from `stalwartlabs/stalwart:v0.16` ({p['edition']} edition) at {p['capturedAt']} by `tools/stalwart-audit.py`, after `authfly init-stalwart` hardened it (so `/auth/register` is refused and `/admin/` is 404 here; the defaults before hardening are described below); regenerate with `python3 tools/stalwart-audit.py && python3 tools/stalwart-api-doc.py`. Raw captures: `docs/api-capture/probe.json` (requests and responses, secrets redacted) and `docs/api-capture/schema.json` (the server's own configuration schema).\n")
 L.append("## Coverage\n")
 L.append(f"- HTTP endpoints: **{len(eps)}** requested live ({sum(1 for e in eps if e['status'] and e['status'] < 400)} answered 2xx/3xx, the rest with the documented error or 404).")
 L.append(f"- Management object types (`x:*` over JMAP): **{sum(1 for k in objs if k.startswith('x:'))}**, all probed live: **{len(ok)}** answered get/query, **{len(live) - len(ok)}** answered with a documented restriction (Enterprise only, per-account, set only, store not configured).")
-L.append(f"- JMAP user-data object types (Email, Mailbox, …): **{sum(1 for k in objs if not k.startswith('x:'))}**, docs-only here (standard JMAP; Authkit uses Email/query and Email/get live in the e2e test).")
+L.append(f"- JMAP user-data object types (Email, Mailbox, …): **{sum(1 for k in objs if not k.startswith('x:'))}**, docs-only here (standard JMAP; Authfly uses Email/query and Email/get live in the e2e test).")
 L.append(f"- JMAP data objects reachable (from the method permissions): see the JMAP section.")
 L.append(f"- Permissions: **{len(p['permissions'])}** (one per object method), from `GET /api/account`.\n")
 L.append(notes)
@@ -51,7 +51,7 @@ for perm in p["permissions"]:
     m = _re.match(r"jmap([A-Z][a-zA-Z]+?)(Get|Query|QueryChanges|Changes|Create|Update|Destroy|Copy|Import|Parse|Validate|Upload|Lookup|Echo|GetAvailability)$", perm)
     if m: jm.setdefault(m.group(1), []).append(m.group(2))
 L.append("\n## JMAP data methods (user data)\n")
-L.append("Standard JMAP (RFC 8620 core, RFC 8621 mail, RFC 9610 contacts, calendars, file node, sieve, quota drafts) at `POST /jmap`, authenticated as the account or with `impersonate` and the target `accountId`. Methods as permissions of the admin; docs-only except Email/query, Email/get, Mailbox/get, Identity/get (used live by Authkit's e2e test and GDPR export).\n")
+L.append("Standard JMAP (RFC 8620 core, RFC 8621 mail, RFC 9610 contacts, calendars, file node, sieve, quota drafts) at `POST /jmap`, authenticated as the account or with `impersonate` and the target `accountId`. Methods as permissions of the admin; docs-only except Email/query, Email/get, Mailbox/get, Identity/get (used live by Authfly's e2e test and GDPR export).\n")
 L.append("| Object | Methods |\n|---|---|")
 for k in sorted(jm): L.append(f"| `{k}` | {', '.join(sorted(set(jm[k])))} |")
 L.append("\n## Management objects (JMAP `x:*`)\n")

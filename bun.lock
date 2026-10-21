@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "authkit",
+      "name": "authfly",
       "devDependencies": {
         "@tailwindcss/cli": "^4.1.0",
         "tailwindcss": "^4.1.0",
@@ -12,7 +12,7 @@
     "apps/demo-react": {
       "name": "demo-react",
       "dependencies": {
-        "@authkit/node": "workspace:*",
+        "@authfly/node": "workspace:*",
         "clsx": "^2.1.1",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -28,12 +28,12 @@
       },
     },
     "packages/adapters/ts": {
-      "name": "@authkit/node",
+      "name": "@authfly/node",
       "version": "0.1.0",
     },
   },
   "packages": {
-    "@authkit/node": ["@authkit/node@workspace:packages/adapters/ts"],
+    "@authfly/node": ["@authfly/node@workspace:packages/adapters/ts"],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 

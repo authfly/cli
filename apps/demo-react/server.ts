@@ -1,10 +1,10 @@
-// The demo's backend for frontend (Bun): serves the built SPA and the OIDC routes through @authkit/node.
-import { Authkit, cookie, setCookie } from "@authkit/node";
+// The demo's backend for frontend (Bun): serves the built SPA and the OIDC routes through @authfly/node.
+import { Authfly, cookie, setCookie } from "@authfly/node";
 import { join } from "node:path";
 
 const env = (k: string, d: string) => process.env[k] ?? d;
-const ak = new Authkit({
-  authkitUrl: env("AUTHKIT_URL", "http://localhost:4000"),
+const ak = new Authfly({
+  authflyUrl: env("AUTHFLY_URL", "http://localhost:4000"),
   stalwartUrl: env("STALWART_URL", "http://localhost:8080"),
   clientId: env("OIDC_CLIENT_ID", "demo-react"),
   redirectUri: env("OIDC_REDIRECT_URI", "http://localhost:5173/callback"),

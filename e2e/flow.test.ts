@@ -1,10 +1,10 @@
-// End-to-end flow against the running docker compose stack (Stalwart + Authkit + React demo), headless HTTP:
+// End-to-end flow against the running docker compose stack (Stalwart + Authfly + React demo), headless HTTP:
 // the real HTML forms (CSRF included), mail read back from Stalwart over JMAP as the new user.
 //   docker compose up -d --build && bun e2e/flow.test.ts
-const AUTHKIT = process.env.AUTHKIT_URL ?? "http://localhost:4000";
+const AUTHFLY = process.env.AUTHFLY_URL ?? "http://localhost:4000";
 const DEMO = process.env.DEMO_URL ?? "http://localhost:5173";
 const STALWART = process.env.STALWART_URL ?? "http://localhost:8080";
-const DOMAIN = process.env.AUTHKIT_DOMAIN ?? "authkit.test";
+const DOMAIN = process.env.AUTHFLY_DOMAIN ?? "authfly.test";
 
 let passed = 0;
 const step = async (name: string, f: () => Promise<void>) => {
@@ -37,7 +37,7 @@ class Browser {
     return r;
   }
   /** submit the form of a page: hidden fields (csrf, token, decision) kept, fields overridden */
-  async submit(page: { body: string; url: string }, fields: Record<string, string>, testid = "authkit-form", follow = true) {
+  async submit(page: { body: string; url: string }, fields: Record<string, string>, testid = "authfly-form", follow = true) {
     const forms = [...page.body.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/g)];
     const form = forms.find((f) => f[1]!.includes(`data-testid="${testid}"`));
     assert(form, `no form ${testid} on ${page.url}`);
@@ -82,26 +82,26 @@ const user = `e2e${Date.now().toString(36)}`;
 const addr = `${user}@${DOMAIN}`;
 let password = "First-Pass-1234";
 const b = new Browser();
-console.log(`Authkit e2e: ${AUTHKIT}, demo ${DEMO}, Stalwart ${STALWART}, user ${addr}`);
+console.log(`Authfly e2e: ${AUTHFLY}, demo ${DEMO}, Stalwart ${STALWART}, user ${addr}`);
 
-await step("stack is up (Stalwart discovery, Authkit, demo)", async () => {
-  await waitUp(`${STALWART}/.well-known/openid-configuration`); await waitUp(`${AUTHKIT}/auth/sign-in`); await waitUp(`${DEMO}/`);
+await step("stack is up (Stalwart discovery, Authfly, demo)", async () => {
+  await waitUp(`${STALWART}/.well-known/openid-configuration`); await waitUp(`${AUTHFLY}/auth/sign-in`); await waitUp(`${DEMO}/`);
   const d = (await (await fetch(`${STALWART}/.well-known/openid-configuration`)).json()) as Record<string, unknown>;
   assert(d.issuer && (d.code_challenge_methods_supported as string[]).includes("S256"), "discovery without S256");
 });
 
 await step("sign up creates the Stalwart account and shows check your email", async () => {
-  const page = await b.follow(`${AUTHKIT}/auth/sign-up`);
-  has(page.body, 'data-testid="authkit-sign-up"');
+  const page = await b.follow(`${AUTHFLY}/auth/sign-up`);
+  has(page.body, 'data-testid="authfly-sign-up"');
   const t = Date.now();
   const r = await b.submit(page, { name: "E2E Tester", username: user, password, terms: "on" });
-  has(r.body, 'data-testid="authkit-notice"'); has(r.body, addr);
+  has(r.body, 'data-testid="authfly-notice"'); has(r.body, addr);
   (globalThis as { signupAt?: number }).signupAt = t;
 });
 
 await step("password sign-in is refused until the address is verified", async () => {
-  const r = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-in`), { identifier: user, password });
-  assert(r.res.status === 401, `status ${r.res.status}`); has(r.body, 'data-testid="authkit-error"');
+  const r = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-in`), { identifier: user, password });
+  assert(r.res.status === 401, `status ${r.res.status}`); has(r.body, 'data-testid="authfly-error"');
 });
 
 await step("verification email arrives in the Stalwart mailbox (JMAP) and the link verifies", async () => {
@@ -111,66 +111,66 @@ await step("verification email arrives in the Stalwart mailbox (JMAP) and the li
 });
 
 await step("magic link: request, read the email, follow the link, signed in", async () => {
-  const page = await b.follow(`${AUTHKIT}/auth/magic`);
+  const page = await b.follow(`${AUTHFLY}/auth/magic`);
   const t = Date.now();
   const r = await b.submit(page, { identifier: addr });
   has(r.body, "Check your email");
   const link = linkIn(await mail(addr, password, "Your sign-in link", t));
   const acc = await b.follow(link);
   assert(acc.url.endsWith("/account"), `landed on ${acc.url}`);
-  has(acc.body, 'data-testid="authkit-account"'); has(acc.body, addr); has(acc.body, "Signed in with a magic link");
+  has(acc.body, 'data-testid="authfly-account"'); has(acc.body, addr); has(acc.body, "Signed in with a magic link");
   const again = await b.follow(link);
   has(again.body, 'data-tone="error"');
 });
 
 await step("sign out", async () => {
-  const r = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-out`), {});
+  const r = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-out`), {});
   has(r.body, "You are signed out");
-  const acc = await b.follow(`${AUTHKIT}/account`);
+  const acc = await b.follow(`${AUTHFLY}/account`);
   assert(acc.url.endsWith("/auth/sign-in"), "still signed in");
 });
 
 await step("username + password sign-in", async () => {
-  const r = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-in`), { identifier: user, password });
+  const r = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-in`), { identifier: user, password });
   assert(r.url.endsWith("/account"), `landed on ${r.url}`); has(r.body, "Signed in with a password");
-  await b.submit(await b.follow(`${AUTHKIT}/auth/sign-out`), {});
+  await b.submit(await b.follow(`${AUTHFLY}/auth/sign-out`), {});
 });
 
 await step("email + password sign-in", async () => {
-  const r = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-in`), { identifier: addr, password });
+  const r = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-in`), { identifier: addr, password });
   assert(r.url.endsWith("/account"), `landed on ${r.url}`); has(r.body, addr);
-  await b.submit(await b.follow(`${AUTHKIT}/auth/sign-out`), {});
+  await b.submit(await b.follow(`${AUTHFLY}/auth/sign-out`), {});
 });
 
 await step("wrong password shows the error state", async () => {
-  const r = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-in`), { identifier: addr, password: "wrong-password-123" });
+  const r = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-in`), { identifier: addr, password: "wrong-password-123" });
   assert(r.res.status === 401, `status ${r.res.status}`); has(r.body, "The address or the password is wrong.");
 });
 
 await step("password reset: request, email, new password, old one refused", async () => {
   const t = Date.now();
-  const r = await b.submit(await b.follow(`${AUTHKIT}/auth/forgot`), { email: addr });
+  const r = await b.submit(await b.follow(`${AUTHFLY}/auth/forgot`), { email: addr });
   has(r.body, "Check your email");
   const link = linkIn(await mail(addr, password, "Reset your password", t));
   const form = await b.follow(link);
-  has(form.body, 'data-testid="authkit-request"');
+  has(form.body, 'data-testid="authfly-request"');
   const old = password;
   password = "Second-Pass-5678";
   const done = await b.submit(form, { password, confirm: password });
   has(done.body, "Password changed");
-  const ok = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-in`), { identifier: user, password });
+  const ok = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-in`), { identifier: user, password });
   assert(ok.url.endsWith("/account"), "new password refused");
-  await b.submit(await b.follow(`${AUTHKIT}/auth/sign-out`), {});
-  const bad = await b.submit(await b.follow(`${AUTHKIT}/auth/sign-in`), { identifier: user, password: old });
+  await b.submit(await b.follow(`${AUTHFLY}/auth/sign-out`), {});
+  const bad = await b.submit(await b.follow(`${AUTHFLY}/auth/sign-in`), { identifier: user, password: old });
   assert(bad.res.status === 401, "old password still works");
 });
 
-await step("OIDC SSO into the React demo (authorization code + PKCE, Authkit hosted sign-in, consent)", async () => {
+await step("OIDC SSO into the React demo (authorization code + PKCE, Authfly hosted sign-in, consent)", async () => {
   const start = await b.follow(`${DEMO}/login`);
-  assert(start.url.startsWith(`${AUTHKIT}/oauth/authorize?`), `not handed to Authkit: ${start.url}`);
+  assert(start.url.startsWith(`${AUTHFLY}/oauth/authorize?`), `not handed to Authfly: ${start.url}`);
   assert(start.url.includes("code_challenge_method=S256"), "no PKCE");
   const consent = await b.submit(start, { identifier: addr, password });
-  has(consent.body, 'data-testid="authkit-consent"'); has(consent.body, "Demo app (React)");
+  has(consent.body, 'data-testid="authfly-consent"'); has(consent.body, "Demo app (React)");
   const back = await b.submit(consent, {}, "approve");
   assert(back.url === `${DEMO}/`, `landed on ${back.url}`);
   const me = await b.go(`${DEMO}/api/me`);
@@ -188,10 +188,10 @@ await step("OIDC deny returns access_denied to the demo", async () => {
 });
 
 await step("JSON API for adapters: sign-in token and /me", async () => {
-  const r = await fetch(`${AUTHKIT}/api/v1/sign-in`, { method: "POST", body: JSON.stringify({ identifier: addr, password }) });
+  const r = await fetch(`${AUTHFLY}/api/v1/sign-in`, { method: "POST", body: JSON.stringify({ identifier: addr, password }) });
   const j = (await r.json()) as { token: string };
   assert(r.ok && j.token, "no token");
-  const me = (await (await fetch(`${AUTHKIT}/api/v1/me`, { headers: { Authorization: `Bearer ${j.token}` } })).json()) as { user: { email: string } };
+  const me = (await (await fetch(`${AUTHFLY}/api/v1/me`, { headers: { Authorization: `Bearer ${j.token}` } })).json()) as { user: { email: string } };
   assert(me.user.email === addr, "me mismatch");
 });
 
@@ -204,7 +204,7 @@ async function run(cmd: string[], input: unknown): Promise<any> {
 }
 for (const [lang, cmd] of [["Python", ["python3", "adapters.py"]], ["PHP", ["php", "adapters.php"]]] as const) {
   await step(`${lang} adapter: OIDC (authorize URL, hosted sign-in, consent, code exchange at Stalwart) and JSON API`, async () => {
-    const cfg = { authkit: AUTHKIT, stalwart: AUTHKIT /* OIDC endpoints through the Authkit proxy */, client: "adapters", redirect: "http://localhost:9999/callback", identifier: addr, password };
+    const cfg = { authfly: AUTHFLY, stalwart: AUTHFLY /* OIDC endpoints through the Authfly proxy */, client: "adapters", redirect: "http://localhost:9999/callback", identifier: addr, password };
     const { url, pending } = await run([...cmd, "authorize"], cfg);
     const d = new Browser();
     const signin = await d.follow(url);

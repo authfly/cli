@@ -1,5 +1,5 @@
-// The React demo: a relying party of Authkit. Signed out: a notice with "Sign in with Authkit" (OIDC + PKCE through the
-// Authkit hosted sign-in on Stalwart). Signed in: the account widget. Everything is ui8kit primitives and Authkit widgets.
+// The React demo: a relying party of Authfly. Signed out: a notice with "Sign in with Authfly" (OIDC + PKCE through the
+// Authfly hosted sign-in on Stalwart). Signed in: the account widget. Everything is ui8kit primitives and Authfly widgets.
 import { useEffect, useState } from "react";
 import { Block } from "../../../packages/ui/react/src/primitives/block/block";
 import { Container } from "../../../packages/ui/react/src/primitives/container/container";
@@ -8,7 +8,7 @@ import { Inline } from "../../../packages/ui/react/src/primitives/inline/inline"
 import { LinkPlain } from "../../../packages/ui/react/src/primitives/link-plain/link-plain";
 import { LucideIcon } from "../../../packages/ui/react/src/primitives/lucide-icon/lucide-icon";
 import { ThemeToggle } from "../../../packages/ui/react/src/primitives/themetoggle/themetoggle";
-import { AuthkitAccount, AuthkitNotice } from "../../../packages/ui/react/src/authkit";
+import { AuthflyAccount, AuthflyNotice } from "../../../packages/ui/react/src/authfly";
 
 type User = { sub: string; email: string; name: string; username: string; amr: string };
 const methods = [
@@ -28,7 +28,7 @@ export function App() {
   const toggle = () => {
     const d = !dark;
     document.documentElement.classList.toggle("dark", d);
-    localStorage.setItem("authkit-theme", d ? "dark" : "light");
+    localStorage.setItem("authfly-theme", d ? "dark" : "light");
     setDark(d);
   };
   return (
@@ -46,11 +46,11 @@ export function App() {
       </Block>
       <Block Tag="main" Class="w-full px-4 py-12">
         {state.loading ? null : state.user ? (
-          <AuthkitAccount id="demo" title="Your account" text="Signed in with single sign-on through Authkit." name={state.user.name || state.user.username} email={state.user.email}
+          <AuthflyAccount id="demo" title="Your account" text="Signed in with single sign-on through Authfly." name={state.user.name || state.user.username} email={state.user.email}
             verified methods={methods} labels={{ name: "Name", email: "Email", verified: "Verified", unverified: "Not verified", security: "Sign-in methods", signout: "Sign out" }} signoutUrl="/logout" />
         ) : (
-          <AuthkitNotice id="demo" title={state.error ? "Sign-in was cancelled" : "Welcome to the demo"} text={state.error ? `The provider answered: ${state.error}.` : "This app has no passwords of its own. Sign in with your mail account."}
-            icon={state.error ? "shield-alert" : "log-in"} tone={state.error ? "error" : "default"} labels={{ cta: "Sign in with Authkit", ctaHref: "/login", secondary: "", secondaryHref: "" }} />
+          <AuthflyNotice id="demo" title={state.error ? "Sign-in was cancelled" : "Welcome to the demo"} text={state.error ? `The provider answered: ${state.error}.` : "This app has no passwords of its own. Sign in with your mail account."}
+            icon={state.error ? "shield-alert" : "log-in"} tone={state.error ? "error" : "default"} labels={{ cta: "Sign in with Authfly", ctaHref: "/login", secondary: "", secondaryHref: "" }} />
         )}
       </Block>
     </>

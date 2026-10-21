@@ -1,6 +1,6 @@
-// Package core is the shared Authkit logic: the Stalwart client (OIDC authorization code + PKCE, JMAP management of
+// Package core is the shared Authfly logic: the Stalwart client (OIDC authorization code + PKCE, JMAP management of
 // accounts), SMTP mail through Stalwart, one-time tokens and sessions. Every runtime family talks to it, directly (Go)
-// or over the Authkit HTTP API (TypeScript, PHP, Python adapters).
+// or over the Authfly HTTP API (TypeScript, PHP, Python adapters).
 package core
 
 import (
@@ -31,7 +31,7 @@ import (
 //	GET  /auth/userinfo        OIDC userinfo
 //	GET  /.well-known/openid-configuration, /auth/jwks.json
 type Stalwart struct {
-	BaseURL    string // internal URL Authkit uses to reach Stalwart, e.g. http://stalwart:8080
+	BaseURL    string // internal URL Authfly uses to reach Stalwart, e.g. http://stalwart:8080
 	AdminUser  string // management credential (dev: STALWART_RECOVERY_ADMIN; production: an API key as AdminToken)
 	AdminPass  string
 	AdminToken string
@@ -165,7 +165,7 @@ func (s *Stalwart) EnsureDomain(ctx context.Context, name string) (string, error
 	return id, nil
 }
 
-// Account is the part of a Stalwart Account (variant User) Authkit reads.
+// Account is the part of a Stalwart Account (variant User) Authfly reads.
 type Account struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -451,7 +451,7 @@ func RandomString(n int) string {
 }
 
 // Raw posts a JMAP request body as the management credential and returns the HTTP status and body unchanged
-// (the Authkit Console's request runner).
+// (the Authfly Console's request runner).
 func (s *Stalwart) Raw(ctx context.Context, method, path string, body []byte, ctype string) (int, []byte, error) {
 	var rd io.Reader
 	if body != nil {

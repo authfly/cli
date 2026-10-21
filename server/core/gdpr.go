@@ -15,7 +15,7 @@ var mailUsing = []string{"urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail
 // ExportLimit caps the messages per export file (bodies included); the export says when it was truncated.
 var ExportLimit = 5000
 
-// Export collects everything about an account: the directory record (without credentials), what Authkit holds
+// Export collects everything about an account: the directory record (without credentials), what Authfly holds
 // (verification, consent records, revocations), the audit trail, and the mailbox (mailboxes, identities, messages
 // with headers and text bodies) read over JMAP with the service account's impersonate permission.
 func (s *Service) Export(ctx context.Context, addr, actor string) (map[string]any, error) {
@@ -28,7 +28,7 @@ func (s *Service) Export(ctx context.Context, addr, actor string) (map[string]an
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"format": "authkit-export/1", "exportedAt": time.Now().UTC().Format(time.RFC3339), "subject": addr}
+	out := map[string]any{"format": "authfly-export/1", "exportedAt": time.Now().UTC().Format(time.RFC3339), "subject": addr}
 	r, err := s.SW.JMAP(ctx, []any{"x:Account/get", map[string]any{"ids": []string{acc.ID}}, "a"})
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *Service) Export(ctx context.Context, addr, actor string) (map[string]an
 		delete(rec, "credentials") // hashes are not personal data the user can use, and must not leave the server
 		out["account"] = rec
 	}
-	out["authkit"] = s.Store.Snapshot(addr)
+	out["authfly"] = s.Store.Snapshot(addr)
 	out["audit"] = s.Audit.Query(addr, 0)
 	mr, err := s.SW.JMAPUsing(ctx, mailUsing,
 		[]any{"Mailbox/get", map[string]any{"accountId": acc.ID, "ids": nil}, "m"},
@@ -82,8 +82,8 @@ type ErasureReport struct {
 	BlobPurge          string   `json:"blobPurge"` // scheduled | deferred
 }
 
-// Erase removes an account: the Stalwart account with its mailbox (x:Account/set destroy), every Authkit session
-// (revocation), what Authkit stores (verification, consent records), and replaces the address in the audit log with a
+// Erase removes an account: the Stalwart account with its mailbox (x:Account/set destroy), every Authfly session
+// (revocation), what Authfly stores (verification, consent records), and replaces the address in the audit log with a
 // pseudonym. The erasure itself is logged under the pseudonym.
 func (s *Service) Erase(ctx context.Context, addr, actor string) (*ErasureReport, error) {
 	local, err := s.LocalPart(addr)
@@ -143,7 +143,7 @@ func (s *Service) Erase(ctx context.Context, addr, actor string) (*ErasureReport
 		rep.BlobPurge = "deferred"
 	}
 	s.Store.Forget(addr)
-	rep.Steps = append(rep.Steps, "authkit sessions revoked, verification and consent records deleted")
+	rep.Steps = append(rep.Steps, "authfly sessions revoked, verification and consent records deleted")
 	rep.AuditPseudonymised = s.Audit.Pseudonymise(addr)
 	rep.Steps = append(rep.Steps, fmt.Sprintf("audit log: %d entries pseudonymised to %s", rep.AuditPseudonymised, rep.Pseudonym))
 	s.Audit.Log(actor, rep.Pseudonym, "erase", "ok", map[string]string{"messages": fmt.Sprint(rep.MessagesBefore)})

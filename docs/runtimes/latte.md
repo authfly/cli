@@ -1,6 +1,6 @@
 # Latte
 
-The Latte widgets live in `packages/ui/latte`: a plain local set (primitives, helpers, styles and the six Authkit widgets), no registry and no CDN. Copy the folder into your app or import it by path. Templates take their props as `$p`; `UI8Kit\Latte\Extension::engine()` gives a ready engine. Requires `latte/latte` ^3 and PHP 8.2.
+The Latte widgets live in `packages/ui/latte`: a plain local set (primitives, helpers, styles and the six Authfly widgets), no registry and no CDN. Copy the folder into your app or import it by path. Templates take their props as `$p`; `UI8Kit\Latte\Extension::engine()` gives a ready engine. Requires `latte/latte` ^3 and PHP 8.2.
 
 ::preview sign-in
 
@@ -15,7 +15,7 @@ require 'packages/ui/latte/php/Runtime.php';
 require 'packages/ui/latte/php/Extension.php';
 
 $latte = UI8Kit\Latte\Extension::engine(__DIR__ . '/packages/ui/latte', sys_get_temp_dir());
-$latte->render('blocks/authkit-sign-in.latte', ['p' => [
+$latte->render('blocks/authfly-sign-in.latte', ['p' => [
     'id' => 'signin', 'title' => 'Sign in', 'text' => 'Welcome back.', 'action' => '/sign-in', 'csrf' => $csrf,
     'method' => 'password', 'identifier' => 'any', 'social' => 'none',
     'labels' => ['identifier' => 'Email or username', 'password' => 'Password', 'submit' => 'Sign in'],

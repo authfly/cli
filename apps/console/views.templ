@@ -35,7 +35,7 @@ templ document(pageTitle string) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ pageTitle } - Authkit Console</title>
+			<title>{ pageTitle } - Authfly Console</title>
 			<link rel="stylesheet" href="/assets/app.css"/>
 			<script src="/assets/theme.js"></script>
 		</head>
@@ -49,7 +49,7 @@ templ brand() {
 	@linkplain.LinkPlain(linkplain.LinkPlainProps{Href: "/", Class: "flex items-center gap-2 font-semibold"}) {
 		@lucideicon.LucideIcon(lucideicon.LucideIconProps{Name: "terminal", Size: 20})
 		@inline.Inline(inline.InlineProps{}) {
-			Authkit Console
+			Authfly Console
 		}
 	}
 }
@@ -64,7 +64,7 @@ templ loginView(csrf, errMsg string) {
 						@themetoggle.ThemeToggle(themetoggle.ThemeToggleProps{Variant: "ghost", Size: "default", Attrs: templ.Attributes{"data-testid": "theme-toggle"}})
 					}
 					@card.CardDescription(card.CardDescriptionProps{}) {
-						Private configurator for Stalwart and Authkit. Reachable on localhost only.
+						Private configurator for Stalwart and Authfly. Reachable on localhost only.
 					}
 				}
 				@card.CardContent(card.CardContentProps{}) {

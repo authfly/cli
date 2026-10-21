@@ -1,13 +1,13 @@
 package core
 
-// Hardening of a Stalwart server for Authkit, run once with the bootstrap admin (`authkit init-stalwart`). Every step
+// Hardening of a Stalwart server for Authfly, run once with the bootstrap admin (`authfly init-stalwart`). Every step
 // is idempotent and was verified live against v0.16.27:
 //   - the mail domain (x:Domain)
-//   - a least-privilege role "authkit-service" (x:Role): inherits the built-in User role (Stalwart refuses to let an
+//   - a least-privilege role "authfly-service" (x:Role): inherits the built-in User role (Stalwart refuses to let an
 //     account grant permissions it does not hold, so creating user accounts needs the User permissions) plus only the
 //     account management, domain read and mailbox read-for-export permissions; no settings, queue, roles, logs or
 //     other sys* objects
-//   - the service account Authkit authenticates with (x:Account, custom role)
+//   - the service account Authfly authenticates with (x:Account, custom role)
 //   - the bundled web admin and self-service UI off (x:Application enabled=false; /admin and /account answer 404)
 //   - OIDC: no anonymous dynamic client registration, client ids must be registered (x:OidcProvider), and the
 //     relying parties registered as x:OAuthClient with their redirect URIs
@@ -20,7 +20,7 @@ import (
 	"fmt"
 )
 
-// ServicePermissions are the permissions the Authkit service role adds on top of the User role.
+// ServicePermissions are the permissions the Authfly service role adds on top of the User role.
 var ServicePermissions = []string{
 	"sysAccountGet", "sysAccountQuery", "sysAccountCreate", "sysAccountUpdate", "sysAccountDestroy",
 	"sysDomainGet", "sysDomainQuery",
@@ -30,11 +30,11 @@ var ServicePermissions = []string{
 	"sysTaskCreate", "taskStoreMaintenance",
 }
 
-const ServiceRoleName = "authkit-service"
+const ServiceRoleName = "authfly-service"
 
 type HardenOptions struct {
 	Domain          string
-	ServiceName     string // local part of the service account, e.g. authkit-svc
+	ServiceName     string // local part of the service account, e.g. authfly-svc
 	ServicePassword string
 	KeepWebUI       bool
 	Clients         []OAuthClient
@@ -138,7 +138,7 @@ func (s *Stalwart) Harden(ctx context.Context, o HardenOptions) ([]string, error
 		return log, err
 	}
 	fields := map[string]any{"roles": map[string]any{"@type": "Custom", "roleIds": map[string]bool{svcRole: true}}, "permissions": map[string]any{"@type": "Inherit"},
-		"credentials": map[string]any{"0": map[string]any{"@type": "Password", "secret": o.ServicePassword}}, "description": "Authkit service account"}
+		"credentials": map[string]any{"0": map[string]any{"@type": "Password", "secret": o.ServicePassword}}, "description": "Authfly service account"}
 	if acc == nil {
 		fields["@type"], fields["name"], fields["domainId"], fields["encryptionAtRest"] = "User", o.ServiceName, domainID, map[string]any{"@type": "Disabled"}
 		r, err := s.JMAP(ctx, []any{"x:Account/set", map[string]any{"create": map[string]any{"s": fields}}, "c"})

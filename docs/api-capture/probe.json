@@ -1188,11 +1188,11 @@
         },
         "@type": "User",
         "usedDiskQuota": 7876,
-        "emailAddress": "e2emvhs0ons@authkit.test",
+        "emailAddress": "e2emvhs0ons@authfly.test",
         "id": "c"
        },
        {
-        "name": "authkit-svc",
+        "name": "authfly-svc",
         "domainId": "b",
         "credentials": "[redacted]",
         "createdAt": "2026-10-21T07:13:58Z",
@@ -1210,7 +1210,7 @@
         "quotas": {},
         "aliases": {},
         "externalId": null,
-        "description": "Authkit service account",
+        "description": "Authfly service account",
         "locale": "en-US",
         "timeZone": null,
         "encryptionAtRest": {
@@ -1218,7 +1218,7 @@
         },
         "@type": "User",
         "usedDiskQuota": 0,
-        "emailAddress": "authkit-svc@authkit.test",
+        "emailAddress": "authfly-svc@authfly.test",
         "id": "b"
        }
       ],
@@ -5396,7 +5396,7 @@
       "accountId": "d333333",
       "list": [
        {
-        "name": "authkit.test",
+        "name": "authfly.test",
         "aliases": {},
         "isEnabled": true,
         "createdAt": "2026-10-21T07:13:58Z",
@@ -5428,7 +5428,7 @@
         "allowRelaying": false,
         "reportAddressUri": "mailto:postmaster",
         "allowScimProvisioning": false,
-        "dnsZoneFile": "v1-ed25519-20261021._domainkey.authkit.test. IN TXT \"v=DKIM1; k=ed25519; h=sha256; p=whUogB5CsdGsufTrBGxNkMFerifwPjWpqKnlQmwux3s=\"\nv1-rsa-20261021._domainkey.authkit.test. IN TXT (\n    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyuA3rmZJTVLwN7HwueBpLhwr4dnb6vwK8CXA/KQTkr2fMSl7Hs99nevaLd8dIkwlmOa0HZql/vaTMDmn51NXfxY6IRU6aGjDRdhj9uTdc+lCKTEUoMqUfXcDgrj+OLVTQaHRbK2Q6sVWPJ\u2026",
+        "dnsZoneFile": "v1-ed25519-20261021._domainkey.authfly.test. IN TXT \"v=DKIM1; k=ed25519; h=sha256; p=whUogB5CsdGsufTrBGxNkMFerifwPjWpqKnlQmwux3s=\"\nv1-rsa-20261021._domainkey.authfly.test. IN TXT (\n    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyuA3rmZJTVLwN7HwueBpLhwr4dnb6vwK8CXA/KQTkr2fMSl7Hs99nevaLd8dIkwlmOa0HZql/vaTMDmn51NXfxY6IRU6aGjDRdhj9uTdc+lCKTEUoMqUfXcDgrj+OLVTQaHRbK2Q6sVWPJ\u2026",
         "id": "b"
        }
       ],
@@ -10221,8 +10221,8 @@
         "id": "c"
        },
        {
-        "clientId": "authkit",
-        "description": "Authkit",
+        "clientId": "authfly",
+        "description": "Authfly",
         "contacts": {},
         "createdAt": "2026-10-21T07:13:58Z",
         "expiresAt": null,
@@ -13761,7 +13761,7 @@
       "accountId": "d333333",
       "list": [
        {
-        "from": "noreply@authkit.test",
+        "from": "noreply@authfly.test",
         "subject": "Your sign-in link",
         "blobId": "ebne3wgaqpcjt21p0nbv7f3lofjdvycychbigpre3k9tq7hswnhtz333333q333333333333333qc",
         "isSpam": true,
@@ -13771,7 +13771,7 @@
         "id": "jkr70zaoabaa"
        },
        {
-        "from": "noreply@authkit.test",
+        "from": "noreply@authfly.test",
         "subject": "Verify your email address",
         "blobId": "ea0ddzps1ano3vpu9wullraenpr7klfd0ooiwvgxaguqtbbydinll333333q333333333333333qc",
         "isSpam": true,
@@ -13781,7 +13781,7 @@
         "id": "jkr70pfsaaqa"
        },
        {
-        "from": "noreply@authkit.test",
+        "from": "noreply@authfly.test",
         "subject": "Verify your email address",
         "blobId": "eb3mjmyxcra23jc9dzl21oz1ykqm9pkkzcyniekiaafbtmcqpkmwv333333q333333333333333qc",
         "isSpam": true,
@@ -15444,7 +15444,7 @@
   },
   {
    "method": "GET",
-   "path": "/api/discover/admin@authkit.test",
+   "path": "/api/discover/admin@authfly.test",
    "auth": "anonymous",
    "description": "OIDC discovery per address",
    "source": "docs: development/api",
@@ -15566,13 +15566,13 @@
   },
   {
    "method": "GET",
-   "path": "/api/live/delivery/authkit.test",
+   "path": "/api/live/delivery/authfly.test",
    "auth": "admin basic/bearer",
    "description": "Live delivery test (SSE)",
    "source": "docs: development/api",
    "request": null,
    "status": 200,
-   "response": "event: event\ndata: [{\"type\":\"mxLookupStart\",\"domain\":\"authkit.test\"}]\n\nevent: event\ndata: [{\"type\":\"mxLookupError\",\"reason\":\"DNS record not found: No Error\",\"elapsed\":2}]\n\nevent: event\ndata: [{\"type\":\"completed\"}]\n\n",
+   "response": "event: event\ndata: [{\"type\":\"mxLookupStart\",\"domain\":\"authfly.test\"}]\n\nevent: event\ndata: [{\"type\":\"mxLookupError\",\"reason\":\"DNS record not found: No Error\",\"elapsed\":2}]\n\nevent: event\ndata: [{\"type\":\"completed\"}]\n\n",
    "location": null
   },
   {

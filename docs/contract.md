@@ -23,7 +23,7 @@ Each widget takes `action` (the form URL) and `csrf` (the token value) as props,
 
 ## JSON API
 
-JSON in, JSON out, under `/api/v1`. With `AUTHKIT_API_KEY` set, send it as `X-Authkit-Key`. Sign-in calls return a session token; send it as `Authorization: Bearer <token>`.
+JSON in, JSON out, under `/api/v1`. With `AUTHFLY_API_KEY` set, send it as `X-Authfly-Key`. Sign-in calls return a session token; send it as `Authorization: Bearer <token>`.
 
 - `POST /sign-up` `{name, username, password}` → `{user}` and a verification email.
 - `POST /sign-in` `{identifier, password}` → `{token, user}`.

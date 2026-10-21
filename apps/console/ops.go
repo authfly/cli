@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ui8kit/authkit/server/core"
+	"github.com/ui8kit/authfly/server/core"
 )
 
 func auditTable(events []core.AuditEvent) *Table {
@@ -45,21 +45,21 @@ func (c *Console) logsPage(w http.ResponseWriter, r *http.Request) {
 	if subject != "" {
 		path += "&subject=" + q(subject)
 	}
-	if _, _, err := c.authkit(ctx, "", "GET", path, &ak); err == nil {
+	if _, _, err := c.authfly(ctx, "", "GET", path, &ak); err == nil {
 		badge := fmt.Sprintf("%d entries, hash chain intact", ak.Total)
 		if !ak.ChainIntact {
 			badge = fmt.Sprintf("%d entries, chain BROKEN", ak.Total)
 		}
-		bl = append(bl, Block{Kind: "table", Title: "Authkit audit log", Icon: "scroll-text", Badge: badge, Text: "Sign-ups, sign-ins, verifications, resets, consents, exports and erasures. No IP addresses are stored.", Table: auditTable(ak.Events)})
+		bl = append(bl, Block{Kind: "table", Title: "Authfly audit log", Icon: "scroll-text", Badge: badge, Text: "Sign-ups, sign-ins, verifications, resets, consents, exports and erasures. No IP addresses are stored.", Table: auditTable(ak.Events)})
 	} else {
-		bl = append(bl, errBlock("Authkit audit log unavailable", err))
+		bl = append(bl, errBlock("Authfly audit log unavailable", err))
 	}
 	if _, err := c.call(ctx, "x:Log/query", map[string]any{"limit": 1}); err != nil {
 		bl = append(bl, Block{Kind: "alert", Icon: "info", Title: "Stalwart server log", Text: "x:Log is unavailable (" + err.Error() + "): no log store is configured in this deployment. Use `docker compose logs stalwart`."})
 	} else {
 		bl = append(bl, Block{Kind: "links", Title: "Stalwart server log", Icon: "file-text", Links: []Link{{Label: "Open x:Log", Href: "/object?v=x:Log", Icon: "file-text"}}})
 	}
-	c.show(w, r, 200, c.page(r, "Logs and audit", "Tamper-evident logs of the console and of Authkit.", "/logs", bl...))
+	c.show(w, r, 200, c.page(r, "Logs and audit", "Tamper-evident logs of the console and of Authfly.", "/logs", bl...))
 }
 
 func (c *Console) gdprPage(w http.ResponseWriter, r *http.Request) {
@@ -80,16 +80,16 @@ func (c *Console) gdprPage(w http.ResponseWriter, r *http.Request) {
 	var ret struct {
 		AuditRetention string `json:"auditRetention"`
 	}
-	_, _, aerr := c.authkit(ctx, "", "GET", "/admin/v1/retention", &ret)
+	_, _, aerr := c.authfly(ctx, "", "GET", "/admin/v1/retention", &ret)
 	rk := [][2]string{{"Audit log retention", nonEmpty(ret.AuditRetention, "unknown")}, {"Pruning", "daily, and on demand below"}, {"Session revocation", "per address, on erasure, password reset, sign out everywhere"}}
 	if aerr != nil {
 		rk = append(rk, [2]string{"Admin API", aerr.Error()})
 	}
-	bl = append(bl, Block{Kind: "form", Title: "Authkit retention", Icon: "history", Text: "AUTHKIT_AUDIT_RETENTION. Entries older than this are removed from the audit log.", KV: rk,
+	bl = append(bl, Block{Kind: "form", Title: "Authfly retention", Icon: "history", Text: "AUTHFLY_AUDIT_RETENTION. Entries older than this are removed from the audit log.", KV: rk,
 		Form: &FormVM{ID: "retention", Action: "/gdpr/retention", Submit: "Run retention now", Variant: "outline"}})
 	if e, err := c.getOne(ctx, "x:Email", "singleton"); err == nil {
 		bl = append(bl, Block{Kind: "card", Title: "Encryption at rest", Icon: "lock", Text: "Users can encrypt stored mail with their own OpenPGP or S/MIME key (x:Account.encryptionAtRest).",
-			KV: [][2]string{{"x:Email.encryptAtRest (allowed)", cell(e["encryptAtRest"])}, {"Volumes", "Encrypt the stalwart-data and authkit-data volumes at the disk level (LUKS or the cloud provider's disk encryption); see docs/gdpr.md."}}})
+			KV: [][2]string{{"x:Email.encryptAtRest (allowed)", cell(e["encryptAtRest"])}, {"Volumes", "Encrypt the stalwart-data and authfly-data volumes at the disk level (LUKS or the cloud provider's disk encryption); see docs/gdpr.md."}}})
 	}
 	users := c.options(ctx, "x:Account/User")
 	bl = append(bl, Block{Kind: "card", Title: "Requests by person", Icon: "user-search", Text: "Open a user to export (access, portability) or erase (right to be forgotten). Both are logged.",
@@ -101,10 +101,10 @@ func (c *Console) gdprPage(w http.ResponseWriter, r *http.Request) {
 			return l
 		}()},
 		Block{Kind: "card", Title: "What the GDPR features cover", Icon: "book-open", Items: []string{
-			"Export (Art. 15, 20): account record without credentials, Authkit records, consents, audit trail, mailboxes, identities and messages with text bodies.",
-			"Erasure (Art. 17): Stalwart account and mailbox destroyed, Authkit sessions revoked, records deleted, audit pseudonymised; verified live.",
+			"Export (Art. 15, 20): account record without credentials, Authfly records, consents, audit trail, mailboxes, identities and messages with text bodies.",
+			"Erasure (Art. 17): Stalwart account and mailbox destroyed, Authfly sessions revoked, records deleted, audit pseudonymised; verified live.",
 			"Consent (Art. 7): terms acceptance at sign-up and every OIDC consent decision, with time, client and scopes.",
-			"Accountability (Art. 5(2)): hash-chained audit logs for Authkit and for this console, without IP addresses.",
+			"Accountability (Art. 5(2)): hash-chained audit logs for Authfly and for this console, without IP addresses.",
 			"Self-service API: GET /api/v1/me/export, GET /api/v1/me/consents, DELETE /api/v1/me (password required).",
 		}})
 	c.show(w, r, 200, c.page(r, "GDPR", "Data subject requests, retention and encryption.", "/gdpr", bl...))
@@ -114,7 +114,7 @@ func (c *Console) gdprRetention(w http.ResponseWriter, r *http.Request) {
 	var out struct {
 		Pruned int `json:"pruned"`
 	}
-	_, _, err := c.authkit(r.Context(), session(r).User, "POST", "/admin/v1/retention/run", &out)
+	_, _, err := c.authfly(r.Context(), session(r).User, "POST", "/admin/v1/retention/run", &out)
 	c.log(r, "gdpr.retention", "", map[bool]string{true: "ok", false: "error"}[err == nil], map[string]string{"pruned": fmt.Sprint(out.Pruned)})
 	if err != nil {
 		c.show(w, r, 502, c.page(r, "GDPR", "", "/gdpr", errBlock("Retention failed", err)))
@@ -227,7 +227,7 @@ func (c *Console) onboardRun(w http.ResponseWriter, r *http.Request) {
 		u, _ := c.getOne(ctx, "x:Account", uid)
 		addr := cell(u["emailAddress"])
 		ok("Create the user", fmt.Sprintf("%s (id %s)", addr, uid))
-		out, err = c.call(ctx, "x:OAuthClient/set", map[string]any{"create": map[string]any{"c": map[string]any{"clientId": vals["clientId"], "description": "Onboarded with the Authkit Console", "redirectUris": map[string]bool{vals["redirect"]: true}}}})
+		out, err = c.call(ctx, "x:OAuthClient/set", map[string]any{"create": map[string]any{"c": map[string]any{"clientId": vals["clientId"], "description": "Onboarded with the Authfly Console", "redirectUris": map[string]bool{vals["redirect"]: true}}}})
 		var cid string
 		if err == nil {
 			cid, err = setResult(out)

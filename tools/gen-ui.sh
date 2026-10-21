@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Generate the Authkit widgets for the eight ui8kit runtimes the codegen way, without touching ui8kit/codegen upstream:
-# a pristine checkout of the pinned commit (codegen.lock) in .cache/codegen, the Authkit overlay, xgen build, then export.
+# Generate the Authfly widgets for the eight ui8kit runtimes the codegen way, without touching ui8kit/codegen upstream:
+# a pristine checkout of the pinned commit (codegen.lock) in .cache/codegen, the Authfly overlay, xgen build, then export.
 #   tools/gen-ui.sh            build + export
 #   tools/gen-ui.sh --check    build + export + bun run check (parity of templ, solid, twig, jinja2, latte vs React)
 #   tools/gen-ui.sh --verify   build + export + bun run verify (check, codex validate, typecheck, unit tests)

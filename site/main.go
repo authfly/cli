@@ -1,4 +1,4 @@
-// Command site renders the Authkit docs (docs/*.md) and the live widget previews to static HTML with Go templ and the
+// Command site renders the Authfly docs (docs/*.md) and the live widget previews to static HTML with Go templ and the
 // generated ui8kit templ primitives. Run from the repo root: `bun run site` (builds the CSS, then `go run ./site`).
 // Output: site/dist (open site/dist/index.html, or serve the folder).
 package main
@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
-	"github.com/ui8kit/authkit/server/core"
-	"github.com/ui8kit/authkit/server/ext"
-	"github.com/ui8kit/authkit/server/web"
+	"github.com/ui8kit/authfly/server/core"
+	"github.com/ui8kit/authfly/server/ext"
+	"github.com/ui8kit/authfly/server/web"
 )
 
 type Page struct{ Slug, Title, Blurb, File string }
@@ -31,7 +31,7 @@ var nav = []Section{
 		{"architecture", "Architecture", "", "docs/architecture.md"},
 		{"security", "Security and lock-down", "", "docs/security.md"},
 		{"gdpr", "GDPR", "", "docs/gdpr.md"},
-		{"console", "Authkit Console", "", "docs/console.md"},
+		{"console", "Authfly Console", "", "docs/console.md"},
 	}},
 	{"Reference", []Page{
 		{"widgets", "Widgets", "", "docs/widgets.md"},
@@ -43,7 +43,7 @@ var nav = []Section{
 		{"stalwart-api", "Stalwart API audit", "", "docs/stalwart-api.md"},
 	}},
 	{"Runtimes", []Page{
-		{"runtime-react", "React", "Vite or any bundler, BFF with @authkit/node", "docs/runtimes/react.md"},
+		{"runtime-react", "React", "Vite or any bundler, BFF with @authfly/node", "docs/runtimes/react.md"},
 		{"runtime-vue", "Vue", "Single-file components", "docs/runtimes/vue.md"},
 		{"runtime-svelte", "Svelte", "Svelte 5 components", "docs/runtimes/svelte.md"},
 		{"runtime-solid", "Solid", "Solid components", "docs/runtimes/solid.md"},
@@ -111,7 +111,7 @@ func write(out, name string, c templ.Component) {
 func main() {
 	out := "site/dist"
 	_ = os.MkdirAll(filepath.Join(out, "assets"), 0o755)
-	svc := &core.Service{Cfg: core.Config{Domain: "example.com", ProductName: "Authkit"}}
+	svc := &core.Service{Cfg: core.Config{Domain: "example.com", ProductName: "Authfly"}}
 	reg := ext.Registry{Social: []ext.SocialProvider{ext.StubSocial{IDValue: "github", NameValue: "Continue with GitHub"}, ext.StubSocial{IDValue: "google", NameValue: "Continue with Google"}}}
 	all := web.New(svc, reg, nil, false).Previews()
 	previews := map[string]web.Preview{}

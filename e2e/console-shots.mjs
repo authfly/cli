@@ -1,9 +1,9 @@
-// Authkit Console screenshots, light and dark, at 390 and 1440 px, into /workspace/authkit-shots/console-*.png.
+// Authfly Console screenshots, light and dark, at 390 and 1440 px, into /workspace/authfly-shots/console-*.png.
 // Needs the compose stack (console on 127.0.0.1:4500). Run: NODE_PATH=<dir with playwright-core> node e2e/console-shots.mjs
 import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 
-const out = process.env.SHOTS_DIR ?? "/workspace/authkit-shots";
+const out = process.env.SHOTS_DIR ?? "/workspace/authfly-shots";
 mkdirSync(out, { recursive: true });
 const C = process.env.CONSOLE_URL ?? "http://localhost:4500";
 const [user, pass] = (process.env.CONSOLE_ADMIN ?? "console:dev-only-console-password").split(":");
@@ -24,7 +24,7 @@ const pages = [
 let n = 0;
 for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
   const ctx = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme });
-  await ctx.addInitScript((t) => localStorage.setItem("authkit-theme", t), theme);
+  await ctx.addInitScript((t) => localStorage.setItem("authfly-theme", t), theme);
   const p = await ctx.newPage();
   await p.goto(`${C}/login`);
   await p.screenshot({ path: `${out}/console-login-${theme}-${width}.png`, fullPage: true }); n++;

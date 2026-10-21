@@ -1,11 +1,11 @@
 # Architecture
 
 ```text
- browser ──> your app (any runtime, Authkit widgets) ──> Authkit adapter
+ browser ──> your app (any runtime, Authfly widgets) ──> Authfly adapter
                  │                                          │
                  │ OIDC (code + PKCE)                       │ JSON API / hosted pages
                  v                                          v
-            Stalwart  <── JMAP management, /api/auth ──  Authkit server (Go core)
+            Stalwart  <── JMAP management, /api/auth ──  Authfly server (Go core)
          (directory, OIDC,  <──────── SMTP ──────────────   templ hosted pages
           mailboxes, SMTP)
 ```
@@ -13,14 +13,14 @@
 ## Pieces
 
 - **Stalwart** holds the accounts (`x:Account`, `x:Domain`), checks passwords, issues OIDC codes and tokens, and delivers the emails.
-- **Authkit core** (`server/core`, Go): creates accounts and changes passwords over JMAP, gets authorization codes from `/api/auth`, exchanges codes at `/auth/token`, verifies ID tokens (ES256, JWKS), sends mail over SMTP, signs single-use links (HMAC) and keeps a small state file (verified addresses, used links).
+- **Authfly core** (`server/core`, Go): creates accounts and changes passwords over JMAP, gets authorization codes from `/api/auth`, exchanges codes at `/auth/token`, verifies ID tokens (ES256, JWKS), sends mail over SMTP, signs single-use links (HMAC) and keeps a small state file (verified addresses, used links).
 - **Hosted pages** (`server/web`, templ): every flow as server-rendered HTML forms with CSRF protection (double-submit cookie). They work without JavaScript.
 - **JSON API** (`/api/v1`): the same flows for adapters and single-page apps.
 - **Widgets** (`packages/ui`): the forms as components for eight runtimes, generated from one spec by ui8kit/codegen with the same DOM.
 
 ## Sessions
 
-- Authkit session: an HMAC-signed cookie `authkit_session` (12 hours), or the same token as a bearer token for the JSON API.
+- Authfly session: an HMAC-signed cookie `authfly_session` (12 hours), or the same token as a bearer token for the JSON API.
 - App sessions: your app's own; the Node adapter seals the user into a cookie after the OIDC callback.
 
 ## Email links

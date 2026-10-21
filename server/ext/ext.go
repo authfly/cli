@@ -1,4 +1,4 @@
-// Package ext holds the extension points of Authkit: social login, second factors (TOTP) and security keys
+// Package ext holds the extension points of Authfly: social login, second factors (TOTP) and security keys
 // (WebAuthn / YubiKey). Interfaces and stubs only; nothing here is wired to a provider yet. See docs/extensions.md.
 package ext
 
@@ -8,7 +8,7 @@ import (
 )
 
 // ErrNotImplemented is returned by every stub.
-var ErrNotImplemented = errors.New("authkit: extension not implemented")
+var ErrNotImplemented = errors.New("authfly: extension not implemented")
 
 // Identity is what a social provider proves about a person.
 type Identity struct {
@@ -16,12 +16,12 @@ type Identity struct {
 	EmailVerified                  bool
 }
 
-// SocialProvider is an external OAuth/OIDC identity provider (GitHub, Google, ...). Authkit links an Identity to a
+// SocialProvider is an external OAuth/OIDC identity provider (GitHub, Google, ...). Authfly links an Identity to a
 // Stalwart account by verified email, or creates the account on first sign-in (policy of the host app).
 type SocialProvider interface {
 	ID() string
 	Name() string
-	// AuthURL returns where to send the browser; state and PKCE are Authkit's.
+	// AuthURL returns where to send the browser; state and PKCE are Authfly's.
 	AuthURL(state, codeChallenge, redirectURI string) string
 	// Exchange finishes the flow at the provider and returns the identity.
 	Exchange(ctx context.Context, code, codeVerifier, redirectURI string) (*Identity, error)

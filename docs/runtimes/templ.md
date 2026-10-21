@@ -1,6 +1,6 @@
 # templ
 
-The templ widgets live in `packages/ui/templ`: a plain local set (primitives, helpers, styles and the six Authkit widgets), no registry and no CDN. Copy the folder into your app or import it by path. The Authkit server's hosted pages are this set: `server/web` renders every page with it. The Go module is `github.com/ui8kit/codegen/packages/templ/ui`; point it at the local copy with a `replace` directive.
+The templ widgets live in `packages/ui/templ`: a plain local set (primitives, helpers, styles and the six Authfly widgets), no registry and no CDN. Copy the folder into your app or import it by path. The Authfly server's hosted pages are this set: `server/web` renders every page with it. The Go module is `github.com/ui8kit/codegen/packages/templ/ui`; point it at the local copy with a `replace` directive.
 
 ::preview sign-in
 
@@ -18,7 +18,7 @@ replace github.com/ui8kit/codegen/packages/templ/ui => ./packages/ui/templ
 ```go
 import blocks "github.com/ui8kit/codegen/packages/templ/ui/blocks"
 
-c := blocks.AuthkitSignIn(blocks.AuthkitSignInProps{
+c := blocks.AuthflySignIn(blocks.AuthflySignInProps{
 	Id: "signin", Title: "Sign in", Text: "Welcome back.", Action: "/auth/sign-in", Csrf: csrf,
 	Method: "password", Identifier: "any", Social: "none",
 	Labels: map[string]any{"identifier": "Email or username", "password": "Password", "submit": "Sign in"},
@@ -28,7 +28,7 @@ _ = c.Render(ctx, w)
 
 ## Embed the whole server
 
-The core is a Go package: `core.Service` (Stalwart, mailer, signer, store) and `web.New(svc, registry, clients, secure).Handler()` give you every hosted route and the JSON API in your own `http.ServeMux`. `cmd/authkit/main.go` shows the wiring from environment variables.
+The core is a Go package: `core.Service` (Stalwart, mailer, signer, store) and `web.New(svc, registry, clients, secure).Handler()` give you every hosted route and the JSON API in your own `http.ServeMux`. `cmd/authfly/main.go` shows the wiring from environment variables.
 
 ## Styles
 

@@ -1,12 +1,12 @@
 # Stalwart API audit (v0.16)
 
-Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-21T10:17:54+0300 by `tools/stalwart-audit.py`, after `authkit init-stalwart` hardened it (so `/auth/register` is refused and `/admin/` is 404 here; the defaults before hardening are described below); regenerate with `python3 tools/stalwart-audit.py && python3 tools/stalwart-api-doc.py`. Raw captures: `docs/api-capture/probe.json` (requests and responses, secrets redacted) and `docs/api-capture/schema.json` (the server's own configuration schema).
+Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-21T10:17:54+0300 by `tools/stalwart-audit.py`, after `authfly init-stalwart` hardened it (so `/auth/register` is refused and `/admin/` is 404 here; the defaults before hardening are described below); regenerate with `python3 tools/stalwart-audit.py && python3 tools/stalwart-api-doc.py`. Raw captures: `docs/api-capture/probe.json` (requests and responses, secrets redacted) and `docs/api-capture/schema.json` (the server's own configuration schema).
 
 ## Coverage
 
 - HTTP endpoints: **29** requested live (17 answered 2xx/3xx, the rest with the documented error or 404).
 - Management object types (`x:*` over JMAP): **117**, all probed live: **109** answered get/query, **8** answered with a documented restriction (Enterprise only, per-account, set only, store not configured).
-- JMAP user-data object types (Email, Mailbox, …): **6**, docs-only here (standard JMAP; Authkit uses Email/query and Email/get live in the e2e test).
+- JMAP user-data object types (Email, Mailbox, …): **6**, docs-only here (standard JMAP; Authfly uses Email/query and Email/get live in the e2e test).
 - JMAP data objects reachable (from the method permissions): see the JMAP section.
 - Permissions: **623** (one per object method), from `GET /api/account`.
 
@@ -17,13 +17,13 @@ Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-
 - OAuth / OIDC lives under `/auth/*` and `/.well-known/*`. The bundled web UI is an `x:Application` served at `/admin` and `/account`.
 - Every object method is a permission: `sys<Object><Get|Query|Create|Update|Destroy>`, `action<Name>`, `task<Name>`, `jmap<Object><Method>`, protocol permissions (`imap*`, `pop3*`, `dav*`, `sieve*`) and specials (`impersonate`, `fetchAnyBlob`, `liveTracing`, …). An account can never grant permissions it does not hold (verified: a service role without the User permissions cannot create user accounts; an admin-role grant is refused).
 
-## Findings that matter for Authkit
+## Findings that matter for Authfly
 
 - `/api/auth` answers `client_code` (docs: `clientCode`); a bare account name fails without a default domain.
-- **Dynamic client registration is anonymous by default** (`POST /auth/register` answered 201 with a stateless `swc1.` client id) and **unregistered client ids are accepted** (`x:OidcProvider.anonymousClientRegistration=true`, `requireClientRegistration=false`). Authkit's hardening turns both off and registers its relying parties as `x:OAuthClient`.
+- **Dynamic client registration is anonymous by default** (`POST /auth/register` answered 201 with a stateless `swc1.` client id) and **unregistered client ids are accepted** (`x:OidcProvider.anonymousClientRegistration=true`, `requireClientRegistration=false`). Authfly's hardening turns both off and registers its relying parties as `x:OAuthClient`.
 - Disabling the web UI (`x:Application.enabled=false`) takes effect on restart or after `x:Action` `UpdateApps` (verified: `/admin/` 200 → 404). `ReloadSettings` alone does not stop serving it.
 - Stalwart also listens on HTTPS `:443` inside the container (listener `https`); the compose file publishes neither 443 nor 8080 publicly.
-- `/auth/device` is anonymous and issues device codes; it is not proxied by Authkit.
+- `/auth/device` is anonymous and issues device codes; it is not proxied by Authfly.
 - An administrator (or a role with `impersonate`) can call JMAP mail methods with another account's `accountId` (the x:Account id): this is how the GDPR export reads a mailbox without the user's password.
 - Enterprise-only in this build (answer `forbidden … Enterprise edition`): `x:ArchivedItem` (undelete), `x:Trace` (delivery history), `x:Metric`, `x:MaskedEmail`; `/api/live/tracing|metrics` and `/api/token/tracing|metrics` answer 404. `x:Log` answers `serverUnavailable` while no tracer stores logs (the compose stack logs to stdout).
 - `x:ApiKey` and `x:AppPassword` are per account (queried as the account itself, not as admin).
@@ -32,11 +32,11 @@ Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-
 
 | Need | Stalwart surface | Status |
 |---|---|---|
-| Export (Art. 15, 20) | JMAP as the user or with `impersonate`: `Mailbox/get`, `Email/query` + `Email/get` (+ blobs), `Identity/get`, `SieveScript/*`, `AddressBook`/`ContactCard`, `Calendar`/`CalendarEvent`, `VacationResponse`; `x:Account/get` for the directory record | live (Authkit export uses x:Account + Mailbox + Email + Identity) |
+| Export (Art. 15, 20) | JMAP as the user or with `impersonate`: `Mailbox/get`, `Email/query` + `Email/get` (+ blobs), `Identity/get`, `SieveScript/*`, `AddressBook`/`ContactCard`, `Calendar`/`CalendarEvent`, `VacationResponse`; `x:Account/get` for the directory record | live (Authfly export uses x:Account + Mailbox + Email + Identity) |
 | Erasure (Art. 17) | `x:Account/set destroy` removes the account and its data; `x:DataRetention.archiveDeletedAccountsFor` (null = no archive) decides whether a copy is kept; `x:ArchivedItem` (Enterprise) lists archives | live (see docs/gdpr.md for the verification) |
 | Retention (Art. 5(1)(e)) | `x:DataRetention`: trash and submission expunge, `holdTracesFor`, `holdMetricsFor`, `holdMtaReportsFor`, archive periods; schedules | live |
-| Audit log (Art. 30, 32) | `x:Log` (needs a log store), `x:Trace` (Enterprise), webhooks `x:WebHook`; Authkit keeps its own append-only audit log | live: Stalwart logs not stored in the dev stack |
-| Consent records (Art. 7) | none in Stalwart; Authkit stores consent records (OIDC consent, terms at sign-up) | Authkit |
+| Audit log (Art. 30, 32) | `x:Log` (needs a log store), `x:Trace` (Enterprise), webhooks `x:WebHook`; Authfly keeps its own append-only audit log | live: Stalwart logs not stored in the dev stack |
+| Consent records (Art. 7) | none in Stalwart; Authfly stores consent records (OIDC consent, terms at sign-up) | Authfly |
 | Encryption at rest (Art. 32) | `x:Email.encryptAtRest` (allow), per account `encryptionAtRest` (`Aes128`, `Aes256` OpenPGP or S/MIME with the user's `publicKey`, `encryptOnAppend`); disk/database encryption is outside Stalwart | live (settings); see docs/gdpr.md |
 | Access restriction (Art. 32) | roles (`x:Role`), permissions, tenants (`x:Tenant`), `x:Security` bans, `x:AllowedIp`/`x:BlockedIp`, `x:Http.allowedEndpoints` | live |
 
@@ -54,13 +54,13 @@ Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-
 | POST | `/auth/device` | anonymous | 200 | Device authorization (RFC 8628) | docs: auth/oauth/endpoints |
 | POST | `/auth/register` | anonymous | 401 | Dynamic client registration (RFC 7591) | docs: auth/oauth/client-registration |
 | POST | `/api/auth` | anonymous | 401 | Credential check, issues an authorization code | docs: development/api |
-| GET | `/api/discover/admin@authkit.test` | anonymous | 200 | OIDC discovery per address | docs: development/api |
+| GET | `/api/discover/admin@authfly.test` | anonymous | 200 | OIDC discovery per address | docs: development/api |
 | GET | `/api/account` | admin basic/bearer | 200 | Effective permissions, edition, locale | docs: development/api |
 | GET | `/api/schema` | admin basic/bearer | 302 | Configuration schema (redirect to hash) | docs: development/api |
 | GET | `/api/token/delivery` | admin basic/bearer | 200 | Short-lived SSE token (delivery) | docs: development/api |
 | GET | `/api/token/tracing` | admin basic/bearer | 404 | SSE token tracing (Enterprise) | docs: development/api |
 | GET | `/api/token/metrics` | admin basic/bearer | 404 | SSE token metrics (Enterprise) | docs: development/api |
-| GET | `/api/live/delivery/authkit.test` | admin basic/bearer | 200 | Live delivery test (SSE) | docs: development/api |
+| GET | `/api/live/delivery/authfly.test` | admin basic/bearer | 200 | Live delivery test (SSE) | docs: development/api |
 | GET | `/api/live/tracing` | admin basic/bearer | 404 | Live tracing (Enterprise, SSE) | docs: development/api |
 | GET | `/api/live/metrics` | admin basic/bearer | 404 | Live metrics (Enterprise, SSE) | docs: development/api |
 | GET | `/jmap/session` | admin basic/bearer | 200 | JMAP session (RFC 8620) | docs: development (JMAP) |
@@ -169,7 +169,7 @@ Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-
 }
 ```
 
-`GET /api/discover/admin@authkit.test`
+`GET /api/discover/admin@authfly.test`
 
 ```json
 {
@@ -286,7 +286,7 @@ Captured live from `stalwartlabs/stalwart:v0.16` (community edition) at 2026-10-
 
 ## JMAP data methods (user data)
 
-Standard JMAP (RFC 8620 core, RFC 8621 mail, RFC 9610 contacts, calendars, file node, sieve, quota drafts) at `POST /jmap`, authenticated as the account or with `impersonate` and the target `accountId`. Methods as permissions of the admin; docs-only except Email/query, Email/get, Mailbox/get, Identity/get (used live by Authkit's e2e test and GDPR export).
+Standard JMAP (RFC 8620 core, RFC 8621 mail, RFC 9610 contacts, calendars, file node, sieve, quota drafts) at `POST /jmap`, authenticated as the account or with `impersonate` and the target `accountId`. Methods as permissions of the admin; docs-only except Email/query, Email/get, Mailbox/get, Identity/get (used live by Authfly's e2e test and GDPR export).
 
 | Object | Methods |
 |---|---|
@@ -1087,11 +1087,11 @@ Variants: `User` (x:UserAccount), `Group` (x:GroupAccount).
    },
    "@type": "User",
    "usedDiskQuota": 7876,
-   "emailAddress": "e2emvhs0ons@authkit.test",
+   "emailAddress": "e2emvhs0ons@authfly.test",
    "id": "c"
   },
   {
-   "name": "authkit-svc",
+   "name": "authfly-svc",
    "domainId": "b",
    "credentials": "[redacted]",
    "createdAt": "2
@@ -1936,7 +1936,7 @@ Fields: `aliases`, `allowRelaying`, `allowScimProvisioning`, `catchAllAddress`, 
  "accountId": "d333333",
  "list": [
   {
-   "name": "authkit.test",
+   "name": "authfly.test",
    "aliases": {},
    "isEnabled": true,
    "createdAt": "2026-10-21T07:13:58Z",
@@ -3242,8 +3242,8 @@ Fields: `clientId`, `contacts`, `createdAt` (server set), `description`, `expire
    "id": "c"
   },
   {
-   "clientId": "authkit",
-   "description": "Authkit",
+   "clientId": "authfly",
+   "description": "Authfly",
    "contacts": {},
    "createdAt": "2026-
 …
@@ -4006,7 +4006,7 @@ Fields: `accountId`, `blobId`, `deleteAfterUse`, `expiresAt` (server set), `from
  "accountId": "d333333",
  "list": [
   {
-   "from": "noreply@authkit.test",
+   "from": "noreply@authfly.test",
    "subject": "Your sign-in link",
    "blobId": "ebne3wgaqpcjt21p0nbv7f3lofjdvycychbigpre3k9tq7hswnhtz333333q333333333333333qc",
    "isSpam": true,
@@ -4016,7 +4016,7 @@ Fields: `accountId`, `blobId`, `deleteAfterUse`, `expiresAt` (server set), `from
    "id": "jkr70zaoabaa"
   },
   {
-   "from": "noreply@authkit.test",
+   "from": "noreply@authfly.test",
    "subject": "Verify your email address",
    "blobId": "ea0ddzps1ano3vpu9wullraenpr7klfd0ooiwvgxaguqtbbydinll333333q333333333333333qc",
    "isSpam": true,
@@ -4026,7 +4026,7 @@ Fields: `accountId`, `blobId`, `deleteAfterUse`, `expiresAt` (server set), `from
    "id": "jkr70pfsaaqa"
   },
   {
-   "from": "noreply@authkit.test",
+   "from": "noreply@authfly.test",
    
 …
 ```

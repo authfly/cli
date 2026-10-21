@@ -1,6 +1,6 @@
-# Authkit Console
+# Authfly Console
 
-A private configurator for Stalwart and Authkit (`apps/console`, Go and templ, built from the ui8kit primitives). It listens on `127.0.0.1:4500` only; see [Security](security.md) for the SSH tunnel.
+A private configurator for Stalwart and Authfly (`apps/console`, Go and templ, built from the ui8kit primitives). It listens on `127.0.0.1:4500` only; see [Security](security.md) for the SSH tunnel.
 
 ```sh
 docker compose up -d --build                     # includes the console
@@ -8,7 +8,7 @@ ssh -N -L 4500:127.0.0.1:4500 you@your-server    # on a remote server
 open http://localhost:4500                       # sign in with CONSOLE_ADMIN
 ```
 
-Local development without Docker: `bun run console` (needs `CONSOLE_ADMIN`, `CONSOLE_SECRET`, `STALWART_URL`, `STALWART_ADMIN`, `AUTHKIT_ADMIN_URL`, `AUTHKIT_ADMIN_KEY`).
+Local development without Docker: `bun run console` (needs `CONSOLE_ADMIN`, `CONSOLE_SECRET`, `STALWART_URL`, `STALWART_ADMIN`, `AUTHFLY_ADMIN_URL`, `AUTHFLY_ADMIN_KEY`).
 
 ## A configurator driven by the live schema
 
@@ -26,12 +26,12 @@ At start the console reads Stalwart's schema (`GET /api/schema`: 150 objects, 38
 ## Views
 
 - **Dashboard**: counts, live lock-down checks (with "Re-apply hardening"), scenarios.
-- **Users**: list, create (domain and role prefilled), edit name and password (a new password signs the user out of Authkit everywhere), sign out everywhere, export, erase, delete. Shows Authkit's view of the person: verification, consents, audit trail. The service account is flagged.
+- **Users**: list, create (domain and role prefilled), edit name and password (a new password signs the user out of Authfly everywhere), sign out everywhere, export, erase, delete. Shows Authfly's view of the person: verification, consents, audit trail. The service account is flagged.
 - **Domains, Groups, OIDC clients, Roles, Mail queue**, and every other object: the schema-driven list, create, edit and delete pages.
 - **Request builder**: any object and method (`get`, `query`, `set`, `changes`), a body template generated from the schema, JSON and capability checks, confirmation for `destroy`, a response viewer with status and timing, curl export (password kept as `$STALWART_ADMIN_PASSWORD`), and saved requests.
 - **Scenarios**: "Onboard an application" creates a user, registers an OIDC client, runs a real authorization-code + PKCE sign-in, calls userinfo and verifies the ID token signature. It stops at the first failing step and says how to fix it.
-- **GDPR**: Stalwart and Authkit retention, encryption at rest, requests by person, "Run retention now".
-- **Logs and audit**: console actions and the Authkit audit log, both with hash-chain status; the Stalwart log when a log store exists.
+- **GDPR**: Stalwart and Authfly retention, encryption at rest, requests by person, "Run retention now".
+- **Logs and audit**: console actions and the Authfly audit log, both with hash-chain status; the Stalwart log when a log store exists.
 
 ## Settings
 
@@ -42,8 +42,8 @@ At start the console reads Stalwart's schema (`GET /api/schema`: 150 objects, 38
 | `CONSOLE_SECRET` | at least 32 characters; signs the session |
 | `CONSOLE_DATA` | audit log and saved requests |
 | `STALWART_URL`, `STALWART_ADMIN` | Stalwart management (admin credential) |
-| `AUTHKIT_ADMIN_URL`, `AUTHKIT_ADMIN_KEY` | Authkit's internal admin API |
-| `AUTHKIT_DOMAIN`, `AUTHKIT_PUBLIC_URL`, `AUTHKIT_SERVICE_NAME` | defaults and hints |
+| `AUTHFLY_ADMIN_URL`, `AUTHFLY_ADMIN_KEY` | Authfly's internal admin API |
+| `AUTHFLY_DOMAIN`, `AUTHFLY_PUBLIC_URL`, `AUTHFLY_SERVICE_NAME` | defaults and hints |
 
 ## Tests
 
@@ -63,4 +63,4 @@ At start the console reads Stalwart's schema (`GET /api/schema`: 150 objects, 38
 - all 143 views render;
 - sign out.
 
-Screenshots: `node e2e/console-shots.mjs` writes `/workspace/authkit-shots/console-*.png` (11 pages × light/dark × 390/1440).
+Screenshots: `node e2e/console-shots.mjs` writes `/workspace/authfly-shots/console-*.png` (11 pages × light/dark × 390/1440).

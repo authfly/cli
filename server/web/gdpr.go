@@ -1,7 +1,7 @@
 package web
 
-// GDPR endpoints. Self-service on the public JSON API (/api/v1/me/...), and the internal admin API used by the Authkit
-// Console (AdminHandler, served on AUTHKIT_ADMIN_ADDR, never published, key in X-Authkit-Admin-Key).
+// GDPR endpoints. Self-service on the public JSON API (/api/v1/me/...), and the internal admin API used by the Authfly
+// Console (AdminHandler, served on AUTHFLY_ADMIN_ADDR, never published, key in X-Authfly-Admin-Key).
 
 import (
 	"crypto/subtle"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ui8kit/authkit/server/core"
+	"github.com/ui8kit/authfly/server/core"
 )
 
 // TermsVersion is recorded with the terms consent of hosted sign-up.
@@ -70,7 +70,7 @@ func (s *Server) meGDPR(h func(string, func(*http.Request, map[string]string) (i
 	}))
 }
 
-// AdminHandler is the internal API of the Authkit Console. Only GDPR and Authkit-state operations live here
+// AdminHandler is the internal API of the Authfly Console. Only GDPR and Authfly-state operations live here
 // (Stalwart management goes from the console to Stalwart directly); the store and the audit log have one writer.
 func (s *Server) AdminHandler(key string) http.Handler {
 	m := http.NewServeMux()
@@ -81,12 +81,12 @@ func (s *Server) AdminHandler(key string) http.Handler {
 	}
 	h := func(pattern string, f func(w http.ResponseWriter, r *http.Request, actor string)) {
 		m.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-			if key == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Authkit-Admin-Key")), []byte(key)) != 1 {
+			if key == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Authfly-Admin-Key")), []byte(key)) != 1 {
 				j(w, 401, map[string]string{"error": "unauthorized"})
 				return
 			}
 			actor := "console"
-			if a := r.Header.Get("X-Authkit-Actor"); a != "" {
+			if a := r.Header.Get("X-Authfly-Actor"); a != "" {
 				actor = "console:" + a
 			}
 			f(w, r, actor)
@@ -114,7 +114,7 @@ func (s *Server) AdminHandler(key string) http.Handler {
 		j(w, 200, map[string]any{"revoked": true})
 	})
 	h("GET /admin/v1/users/{addr}", func(w http.ResponseWriter, r *http.Request, actor string) {
-		j(w, 200, map[string]any{"authkit": s.Svc.Store.Snapshot(r.PathValue("addr")), "audit": s.Svc.Audit.Query(r.PathValue("addr"), 50)})
+		j(w, 200, map[string]any{"authfly": s.Svc.Store.Snapshot(r.PathValue("addr")), "audit": s.Svc.Audit.Query(r.PathValue("addr"), 50)})
 	})
 	h("GET /admin/v1/audit", func(w http.ResponseWriter, r *http.Request, actor string) {
 		n, _ := strconv.Atoi(r.URL.Query().Get("limit"))

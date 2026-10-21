@@ -1,6 +1,6 @@
 # Jinja2
 
-The Jinja2 widgets live in `packages/ui/jinja2`: a plain local set (primitives, helpers, styles and the six Authkit widgets), no registry and no CDN. Copy the folder into your app or import it by path. Templates take their props as `p`; `ui8kit_jinja.environment(root)` returns an Environment with the `ui_*` helpers. Requires Jinja2 3.1.
+The Jinja2 widgets live in `packages/ui/jinja2`: a plain local set (primitives, helpers, styles and the six Authfly widgets), no registry and no CDN. Copy the folder into your app or import it by path. Templates take their props as `p`; `ui8kit_jinja.environment(root)` returns an Environment with the `ui_*` helpers. Requires Jinja2 3.1.
 
 ::preview sign-in
 
@@ -14,7 +14,7 @@ sys.path.insert(0, "packages/ui/jinja2/py")
 from ui8kit_jinja import environment
 
 env = environment("packages/ui/jinja2")
-html = env.get_template("blocks/authkit-sign-in.html.j2").render(p={
+html = env.get_template("blocks/authfly-sign-in.html.j2").render(p={
     "id": "signin", "title": "Sign in", "text": "Welcome back.", "action": "/sign-in", "csrf": csrf,
     "method": "password", "identifier": "any", "social": "none",
     "labels": {"identifier": "Email or username", "password": "Password", "submit": "Sign in"},
@@ -24,17 +24,17 @@ html = env.get_template("blocks/authkit-sign-in.html.j2").render(p={
 ## Backend (Flask)
 
 ```python
-from authkit import Authkit, AuthkitApi   # packages/adapters/python
+from authfly import Authfly, AuthflyApi   # packages/adapters/python
 
-api = AuthkitApi("http://localhost:4000")
+api = AuthflyApi("http://localhost:4000")
 
 @app.post("/sign-in")
 def sign_in():
-    session["authkit"] = api.sign_in(request.form["identifier"], request.form["password"])["token"]
+    session["authfly"] = api.sign_in(request.form["identifier"], request.form["password"])["token"]
     return redirect("/")
 ```
 
-For SSO, `Authkit(...).authorize_url()` and `.callback(request.args, pending)`, see [Adapters](../adapters.md).
+For SSO, `Authfly(...).authorize_url()` and `.callback(request.args, pending)`, see [Adapters](../adapters.md).
 
 ## Styles
 

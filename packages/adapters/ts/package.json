@@ -1,7 +1,7 @@
 {
-  "name": "@authkit/node",
+  "name": "@authfly/node",
   "version": "0.1.0",
-  "description": "Authkit adapter for the TypeScript runtimes (React, Vue, Svelte, Solid hosts on Node/Bun/Deno): OIDC authorization code + PKCE against Stalwart via the Authkit hosted sign-in, ID token verification, signed session cookies, and a client of the Authkit JSON API.",
+  "description": "Authfly adapter for the TypeScript runtimes (React, Vue, Svelte, Solid hosts on Node/Bun/Deno): OIDC authorization code + PKCE against Stalwart via the Authfly hosted sign-in, ID token verification, signed session cookies, and a client of the Authfly JSON API.",
   "type": "module",
   "main": "src/index.ts",
   "license": "MIT"

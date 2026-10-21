@@ -9,7 +9,7 @@ Secrets in captured responses are redacted. Usage: STALWART_URL=http://localhost
 import base64, json, os, re, sys, urllib.request, urllib.error, gzip, time
 
 URL = os.environ.get("STALWART_URL", "http://localhost:8080").rstrip("/")
-ADMIN = os.environ.get("STALWART_ADMIN", "admin:authkit-dev-admin")
+ADMIN = os.environ.get("STALWART_ADMIN", "admin:authfly-dev-admin")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "api-capture")
 AUTH = "Basic " + base64.b64encode(ADMIN.encode()).decode()
@@ -100,13 +100,13 @@ def main():
         ("POST", "/auth/device", False, b"client_id=probe", "Device authorization (RFC 8628)", "docs: auth/oauth/endpoints"),
         ("POST", "/auth/register", False, {"redirect_uris": ["https://probe.invalid/cb"], "client_name": "probe"}, "Dynamic client registration (RFC 7591)", "docs: auth/oauth/client-registration"),
         ("POST", "/api/auth", False, {"type": "authCode", "accountName": "nobody@invalid", "accountSecret": "x", "clientId": "probe"}, "Credential check, issues an authorization code", "docs: development/api"),
-        ("GET", "/api/discover/admin@authkit.test", False, None, "OIDC discovery per address", "docs: development/api"),
+        ("GET", "/api/discover/admin@authfly.test", False, None, "OIDC discovery per address", "docs: development/api"),
         ("GET", "/api/account", True, None, "Effective permissions, edition, locale", "docs: development/api"),
         ("GET", "/api/schema", True, None, "Configuration schema (redirect to hash)", "docs: development/api"),
         ("GET", "/api/token/delivery", True, None, "Short-lived SSE token (delivery)", "docs: development/api"),
         ("GET", "/api/token/tracing", True, None, "SSE token tracing (Enterprise)", "docs: development/api"),
         ("GET", "/api/token/metrics", True, None, "SSE token metrics (Enterprise)", "docs: development/api"),
-        ("GET", "/api/live/delivery/authkit.test?timeout=1", True, None, "Live delivery test (SSE)", "docs: development/api"),
+        ("GET", "/api/live/delivery/authfly.test?timeout=1", True, None, "Live delivery test (SSE)", "docs: development/api"),
         ("GET", "/api/live/tracing", True, None, "Live tracing (Enterprise, SSE)", "docs: development/api"),
         ("GET", "/api/live/metrics", True, None, "Live metrics (Enterprise, SSE)", "docs: development/api"),
         ("GET", "/jmap/session", True, None, "JMAP session (RFC 8620)", "docs: development (JMAP)"),

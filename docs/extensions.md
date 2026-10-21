@@ -38,16 +38,16 @@ type Registry struct {
 }
 ```
 
-Pass a `Registry` to `web.New`. `AUTHKIT_SOCIAL_STUBS=true` registers two stub providers (GitHub, Google) so you can see the buttons.
+Pass a `Registry` to `web.New`. `AUTHFLY_SOCIAL_STUBS=true` registers two stub providers (GitHub, Google) so you can see the buttons.
 
 ## Widgets
 
 - Sign in: `social="show"` renders the provider list from `providers` (`{id, title, text, icon}`); each links to `/auth/social/{id}`.
-- Code: `AuthkitRequest` with `kind="code"` is the second-factor entry form (`code` field).
+- Code: `AuthflyRequest` with `kind="code"` is the second-factor entry form (`code` field).
 - Account: the methods list shows "Authenticator app" and "Security key" as "Soon" while the stubs are in place.
 
 ## Wiring a real provider
 
-- **Social**: implement `SocialProvider`, then link the identity to a Stalwart account. Stalwart only issues OIDC codes for a password it can check, so a social sign-in gives an Authkit session (like a magic link), not Stalwart tokens.
-- **TOTP**: store the secret per address (the state file or your database) and call `Verify` after the password step. Separately, if an account has Stalwart's own two-factor auth on, Stalwart's `/api/auth` answers `mfaRequired` (per the Stalwart docs, not tested live) and Authkit reports `mfa_required`; the hosted pages do not ask for that code yet.
+- **Social**: implement `SocialProvider`, then link the identity to a Stalwart account. Stalwart only issues OIDC codes for a password it can check, so a social sign-in gives an Authfly session (like a magic link), not Stalwart tokens.
+- **TOTP**: store the secret per address (the state file or your database) and call `Verify` after the password step. Separately, if an account has Stalwart's own two-factor auth on, Stalwart's `/api/auth` answers `mfaRequired` (per the Stalwart docs, not tested live) and Authfly reports `mfa_required`; the hosted pages do not ask for that code yet.
 - **WebAuthn**: implement `Authenticator` with a WebAuthn library; the ceremonies need a small script on the page, which the widgets leave to the host.

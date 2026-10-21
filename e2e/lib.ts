@@ -1,12 +1,12 @@
 // Shared helpers of the e2e tests (a cookie-jar browser over fetch, mail over JMAP, steps).
-export const AUTHKIT = process.env.AUTHKIT_URL ?? "http://localhost:4000";
+export const AUTHFLY = process.env.AUTHFLY_URL ?? "http://localhost:4000";
 export const STALWART = process.env.STALWART_URL ?? "http://localhost:8080";
 export const CONSOLE = process.env.CONSOLE_URL ?? "http://localhost:4500";
-export const DOMAIN = process.env.AUTHKIT_DOMAIN ?? "authkit.test";
-export const ADMIN = process.env.STALWART_ADMIN ?? "admin:authkit-dev-admin";
+export const DOMAIN = process.env.AUTHFLY_DOMAIN ?? "authfly.test";
+export const ADMIN = process.env.STALWART_ADMIN ?? "admin:authfly-dev-admin";
 export const CONSOLE_ADMIN = process.env.CONSOLE_ADMIN ?? "console:dev-only-console-password";
 
-/** management JMAP as the Stalwart admin (to verify what the console and Authkit did) */
+/** management JMAP as the Stalwart admin (to verify what the console and Authfly did) */
 export async function jmap(calls: unknown[], using = ["urn:ietf:params:jmap:core", "urn:stalwart:jmap"], auth = ADMIN) {
   const r = await fetch(`${STALWART}/jmap`, { method: "POST", headers: { Authorization: "Basic " + Buffer.from(auth).toString("base64"), "Content-Type": "application/json" }, body: JSON.stringify({ using, methodCalls: calls }) });
   if (r.status !== 200) throw new Error(`jmap HTTP ${r.status}`);
@@ -49,7 +49,7 @@ export class Browser {
     return r;
   }
   /** submit the form of a page: hidden fields (csrf, token, decision) kept, fields overridden */
-  async submit(page: { body: string; url: string }, fields: Record<string, string>, testid = "authkit-form", follow = true) {
+  async submit(page: { body: string; url: string }, fields: Record<string, string>, testid = "authfly-form", follow = true) {
     const forms = [...page.body.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/g)];
     const form = forms.find((f) => f[1]!.includes(`data-testid="${testid}"`));
     assert(form, `no form ${testid} on ${page.url}`);
@@ -59,7 +59,7 @@ export class Browser {
       const name = m[0].match(/name="([^"]*)"/)?.[1], value = m[0].match(/value="([^"]*)"/)?.[1] ?? "";
       if (name) data.set(name, unescapeHtml(value));
     }
-    if (testid !== "authkit-form") {
+    if (testid !== "authfly-form") {
       // like a browser: visible inputs and textareas with their values, selects with their selected option, checked boxes
       for (const m of form![2]!.matchAll(/<input\b[^>]*>/g)) {
         const t = m[0];

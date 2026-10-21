@@ -1,6 +1,6 @@
 package main
 
-// Users: the higher-level view over x:Account/User with Authkit's state (verification, consents, audit) next to it,
+// Users: the higher-level view over x:Account/User with Authfly's state (verification, consents, audit) next to it,
 // and the GDPR actions.
 
 import (
@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ui8kit/authkit/server/core"
+	"github.com/ui8kit/authfly/server/core"
 )
 
 func (c *Console) userFields(r *http.Request, vals map[string]string) []Field {
@@ -29,7 +29,7 @@ func (c *Console) userFields(r *http.Request, vals map[string]string) []Field {
 		{Name: "name", Label: "Username", Kind: "text", Required: true, Value: vals["name"], Desc: "Local part of the address: letters, digits, dot, dash, underscore.", Type: TypeDef{MaxLength: 64}},
 		{Name: "domainId", Label: "Domain", Kind: "ref", Ref: "x:Domain", Required: true, Value: defDomain, Options: domains, Desc: "Prefilled from the live domains; the address is username@domain."},
 		{Name: "description", Label: "Full name", Kind: "text", Value: vals["description"]},
-		{Name: "password", Label: "Password", Kind: "password", Required: true, Desc: "At least 10 characters. The user can change it with Authkit's reset flow.", Type: TypeDef{MinLength: 10}},
+		{Name: "password", Label: "Password", Kind: "password", Required: true, Desc: "At least 10 characters. The user can change it with Authfly's reset flow.", Type: TypeDef{MinLength: 10}},
 		{Name: "role", Label: "Role", Kind: "select", Required: true, Value: nonEmpty(vals["role"], "User"), Options: roles, Desc: "Prefilled from the live roles. Admin grants full management access: avoid it for end users."},
 	}
 }
@@ -69,7 +69,7 @@ func (c *Console) usersView(w http.ResponseWriter, r *http.Request, status int, 
 	}
 	bl = append(bl, Block{Kind: "form", Title: "New user", Icon: "user-plus", Text: "Creates the Stalwart account and its mailbox (x:Account/set create).", Form: &FormVM{ID: "user-create", Action: "/users/create", Submit: "Create user", Fields: fields}})
 	bl = append(bl, c.objectIntro(v)[1:]...)
-	c.show(w, r, status, c.page(r, "Users", "Mail accounts that sign in with Authkit.", "/users", bl...))
+	c.show(w, r, status, c.page(r, "Users", "Mail accounts that sign in with Authfly.", "/users", bl...))
 }
 
 func (c *Console) usersCreate(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +136,7 @@ func (c *Console) userPage(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	var top []Block
 	if r.URL.Query().Get("created") != "" {
-		top = append(top, Block{Kind: "alert", Tone: "success", Icon: "circle-check", Title: "User created", Text: "The mailbox exists now. The user verifies the address through Authkit."})
+		top = append(top, Block{Kind: "alert", Tone: "success", Icon: "circle-check", Title: "User created", Text: "The mailbox exists now. The user verifies the address through Authfly."})
 	}
 	if r.URL.Query().Get("saved") != "" {
 		top = append(top, Block{Kind: "alert", Tone: "success", Icon: "circle-check", Title: "Saved"})
@@ -153,48 +153,48 @@ func (c *Console) userView(w http.ResponseWriter, r *http.Request, status int, i
 	}
 	addr := cell(acc["emailAddress"])
 	bl := append([]Block{}, top...)
-	if cell(acc["name"]) == env("AUTHKIT_SERVICE_NAME", "authkit-svc") {
-		bl = append(bl, Block{Kind: "alert", Tone: "destructive", Icon: "shield-alert", Title: "Authkit service account",
-			Text: "Authkit signs in to Stalwart with this account (role authkit-service). Changing its password, deleting or erasing it stops every sign-in until you update AUTHKIT_SERVICE_PASSWORD and re-run stalwart-init."})
+	if cell(acc["name"]) == env("AUTHFLY_SERVICE_NAME", "authfly-svc") {
+		bl = append(bl, Block{Kind: "alert", Tone: "destructive", Icon: "shield-alert", Title: "Authfly service account",
+			Text: "Authfly signs in to Stalwart with this account (role authfly-service). Changing its password, deleting or erasing it stops every sign-in until you update AUTHFLY_SERVICE_PASSWORD and re-run stalwart-init."})
 	}
 	bl = append(bl, Block{Kind: "card", Title: "Account", Icon: "user", KV: [][2]string{
 		{"Address", addr}, {"Id", id}, {"Full name", cell(acc["description"])}, {"Role", cell(acc["roles"])},
 		{"Created", cell(acc["createdAt"])}, {"Disk used", cell(acc["usedDiskQuota"]) + " bytes"}, {"Encryption at rest", cell(acc["encryptionAtRest"])},
 	}})
 	var ak struct {
-		Authkit map[string]any   `json:"authkit"`
+		Authfly map[string]any   `json:"authfly"`
 		Audit   []map[string]any `json:"audit"`
 	}
-	if _, _, err := c.authkit(ctx, "", "GET", "/admin/v1/users/"+pathAddr(addr), &ak); err == nil {
-		kv := [][2]string{{"Email verified", nonEmpty(cell(ak.Authkit["email_verified_at"]), "not yet")}, {"Sessions revoked at", nonEmpty(cell(ak.Authkit["sessions_revoked_at"]), "never")}}
-		if cs, ok := ak.Authkit["consents"].([]any); ok {
+	if _, _, err := c.authfly(ctx, "", "GET", "/admin/v1/users/"+pathAddr(addr), &ak); err == nil {
+		kv := [][2]string{{"Email verified", nonEmpty(cell(ak.Authfly["email_verified_at"]), "not yet")}, {"Sessions revoked at", nonEmpty(cell(ak.Authfly["sessions_revoked_at"]), "never")}}
+		if cs, ok := ak.Authfly["consents"].([]any); ok {
 			for _, x := range cs {
 				m, _ := x.(map[string]any)
 				kv = append(kv, [2]string{"Consent " + cell(m["kind"]) + " " + cell(m["client"]), fmt.Sprintf("%v at %v %v", map[bool]string{true: "granted", false: "denied"}[m["granted"] == true], m["time"], cell(m["scopes"]))})
 			}
 		}
-		bl = append(bl, Block{Kind: "card", Title: "Authkit", Icon: "shield-check", Text: "What Authkit holds about this person (store and consent records).", KV: kv})
+		bl = append(bl, Block{Kind: "card", Title: "Authfly", Icon: "shield-check", Text: "What Authfly holds about this person (store and consent records).", KV: kv})
 		t := &Table{Cols: []string{"Time", "Action", "Outcome", "Actor"}, Empty: "No audit events."}
 		for _, e := range ak.Audit {
 			t.Rows = append(t.Rows, Row{Cells: []string{cell(e["time"]), cell(e["action"]), cell(e["outcome"]), cell(e["actor"])}})
 		}
 		bl = append(bl, Block{Kind: "table", Title: "Audit trail", Icon: "scroll-text", Table: t})
 	} else {
-		bl = append(bl, Block{Kind: "alert", Tone: "warning", Icon: "triangle-alert", Title: "Authkit admin API unreachable", Text: err.Error()})
+		bl = append(bl, Block{Kind: "alert", Tone: "warning", Icon: "triangle-alert", Title: "Authfly admin API unreachable", Text: err.Error()})
 	}
 	if edit == nil {
 		edit = []Field{
 			{Name: "description", Label: "Full name", Kind: "text", Value: cell(acc["description"])},
-			{Name: "password", Label: "New password", Kind: "password", Desc: "Leave empty to keep the current password. Setting one also signs the user out of Authkit everywhere.", Type: TypeDef{MinLength: 10}},
+			{Name: "password", Label: "New password", Kind: "password", Desc: "Leave empty to keep the current password. Setting one also signs the user out of Authfly everywhere.", Type: TypeDef{MinLength: 10}},
 		}
 	}
 	bl = append(bl,
 		Block{Kind: "form", Title: "Edit", Icon: "pencil", Form: &FormVM{ID: "user-edit", Action: "/users/update", Submit: "Save", Hidden: [][2]string{{"id", id}}, Fields: edit}},
-		Block{Kind: "form", Title: "Sessions", Icon: "log-out", Text: "Revoke every Authkit session of this user (sign out everywhere).", Form: &FormVM{ID: "user-revoke", Action: "/users/revoke", Submit: "Sign out everywhere", Variant: "outline", Hidden: [][2]string{{"id", id}}}},
-		Block{Kind: "links", Title: "GDPR: right of access (Art. 15, 20)", Icon: "file-down", Text: "A JSON file with the account, Authkit's records, the audit trail and the mailbox. The download is logged.", Links: []Link{{Label: "Download export", Href: "/users/export?id=" + q(id), Icon: "download", Text: addr + ".json"}}},
-		Block{Kind: "form", Title: "GDPR: right to erasure (Art. 17)", Icon: "user-x", Tone: "destructive", Text: "Removes the account and mailbox in Stalwart, Authkit's sessions and records, and pseudonymises the audit log. Asks for confirmation.",
+		Block{Kind: "form", Title: "Sessions", Icon: "log-out", Text: "Revoke every Authfly session of this user (sign out everywhere).", Form: &FormVM{ID: "user-revoke", Action: "/users/revoke", Submit: "Sign out everywhere", Variant: "outline", Hidden: [][2]string{{"id", id}}}},
+		Block{Kind: "links", Title: "GDPR: right of access (Art. 15, 20)", Icon: "file-down", Text: "A JSON file with the account, Authfly's records, the audit trail and the mailbox. The download is logged.", Links: []Link{{Label: "Download export", Href: "/users/export?id=" + q(id), Icon: "download", Text: addr + ".json"}}},
+		Block{Kind: "form", Title: "GDPR: right to erasure (Art. 17)", Icon: "user-x", Tone: "destructive", Text: "Removes the account and mailbox in Stalwart, Authfly's sessions and records, and pseudonymises the audit log. Asks for confirmation.",
 			Form: &FormVM{ID: "user-erase", Action: "/users/erase", Submit: "Erase…", Variant: "destructive", Hidden: [][2]string{{"id", id}}}},
-		Block{Kind: "form", Title: "Delete account only", Icon: "trash-2", Text: "Deletes the Stalwart account without the GDPR steps (Authkit keeps its records). Prefer erasure for people.",
+		Block{Kind: "form", Title: "Delete account only", Icon: "trash-2", Text: "Deletes the Stalwart account without the GDPR steps (Authfly keeps its records). Prefer erasure for people.",
 			Form: &FormVM{ID: "user-delete", Action: "/users/delete", Submit: "Delete…", Variant: "outline", Hidden: [][2]string{{"id", id}}}},
 	)
 	p := c.page(r, addr, "User account", "/users", bl...)
@@ -238,7 +238,7 @@ func (c *Console) userUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if pw != "" {
-		_, _, _ = c.authkit(ctx, session(r).User, "POST", "/admin/v1/users/"+pathAddr(cell(acc["emailAddress"]))+"/revoke", nil)
+		_, _, _ = c.authfly(ctx, session(r).User, "POST", "/admin/v1/users/"+pathAddr(cell(acc["emailAddress"]))+"/revoke", nil)
 	}
 	c.log(r, "user.update", cell(acc["emailAddress"]), "ok", map[string]string{"fields": strings.Join(keys(patch), ",")})
 	http.Redirect(w, r, "/users/view?id="+q(id)+"&saved=1", http.StatusSeeOther)
@@ -252,8 +252,8 @@ func (c *Console) userRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	addr := cell(acc["emailAddress"])
-	_, _, err = c.authkit(r.Context(), session(r).User, "POST", "/admin/v1/users/"+pathAddr(addr)+"/revoke", nil)
-	top := []Block{{Kind: "alert", Tone: "success", Icon: "circle-check", Title: "Signed out everywhere", Text: "Every Authkit session issued before now is invalid."}}
+	_, _, err = c.authfly(r.Context(), session(r).User, "POST", "/admin/v1/users/"+pathAddr(addr)+"/revoke", nil)
+	top := []Block{{Kind: "alert", Tone: "success", Icon: "circle-check", Title: "Signed out everywhere", Text: "Every Authfly session issued before now is invalid."}}
 	if err != nil {
 		top = []Block{errBlock("Could not revoke", err)}
 	}
@@ -271,7 +271,7 @@ func (c *Console) userDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	addr := cell(acc["emailAddress"])
 	if r.PostFormValue("confirm") != addr {
-		c.confirm(w, r, "Delete "+addr, append(c.dangerItems(c.Schema.Views["x:Account/User"], acc), "Authkit keeps its records (consents, audit). Use erasure to remove those too."),
+		c.confirm(w, r, "Delete "+addr, append(c.dangerItems(c.Schema.Views["x:Account/User"], acc), "Authfly keeps its records (consents, audit). Use erasure to remove those too."),
 			"/users/delete", [][2]string{{"id", id}}, addr, r.PostFormValue("confirm") != "")
 		return
 	}
@@ -297,7 +297,7 @@ func (c *Console) userExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	addr := cell(acc["emailAddress"])
-	_, b, err := c.authkit(r.Context(), session(r).User, "GET", "/admin/v1/users/"+pathAddr(addr)+"/export", nil)
+	_, b, err := c.authfly(r.Context(), session(r).User, "GET", "/admin/v1/users/"+pathAddr(addr)+"/export", nil)
 	if err != nil {
 		c.log(r, "gdpr.export", addr, "error", map[string]string{"error": err.Error()})
 		c.userView(w, r, 502, id, []Block{errBlock("Export failed", err)}, nil)
@@ -307,7 +307,7 @@ func (c *Console) userExport(w http.ResponseWriter, r *http.Request) {
 	var pretty any
 	_ = json.Unmarshal(b, &pretty)
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="authkit-export-%s.json"`, strings.ReplaceAll(addr, "@", "_at_")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="authfly-export-%s.json"`, strings.ReplaceAll(addr, "@", "_at_")))
 	_, _ = w.Write([]byte(jsonPretty(pretty)))
 }
 
@@ -321,7 +321,7 @@ func (c *Console) userErase(w http.ResponseWriter, r *http.Request) {
 	}
 	addr := cell(acc["emailAddress"])
 	if r.PostFormValue("confirm") != addr {
-		items := []string{"The Stalwart account " + addr + " and its whole mailbox are destroyed.", "Every Authkit session is revoked; verification and consent records are deleted.",
+		items := []string{"The Stalwart account " + addr + " and its whole mailbox are destroyed.", "Every Authfly session is revoked; verification and consent records are deleted.",
 			"The audit log keeps the events under a pseudonym (accountability, Art. 5(2)).", "Consider downloading the export first: after erasure nothing can be recovered."}
 		if d, err := c.getOne(ctx, "x:DataRetention", "singleton"); err == nil && d["archiveDeletedAccountsFor"] != nil {
 			items = append(items, fmt.Sprintf("WARNING: x:DataRetention.archiveDeletedAccountsFor is %v, so Stalwart Enterprise keeps an archive.", d["archiveDeletedAccountsFor"]))
@@ -336,7 +336,7 @@ func (c *Console) userErase(w http.ResponseWriter, r *http.Request) {
 		Verified           bool     `json:"verified"`
 		Steps              []string `json:"steps"`
 	}
-	_, _, err = c.authkit(ctx, session(r).User, "POST", "/admin/v1/users/"+pathAddr(addr)+"/erase", &rep)
+	_, _, err = c.authfly(ctx, session(r).User, "POST", "/admin/v1/users/"+pathAddr(addr)+"/erase", &rep)
 	c.invalidate()
 	if err != nil {
 		c.log(r, "gdpr.erase", addr, "error", map[string]string{"error": err.Error()})

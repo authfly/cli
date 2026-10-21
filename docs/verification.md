@@ -1,6 +1,6 @@
 # Verified and unverified
 
-Authkit only uses Stalwart APIs and settings it found in the Stalwart documentation, and every one below was exercised against `stalwartlabs/stalwart:v0.16` (v0.16.27) in the dev stack unless marked otherwise.
+Authfly only uses Stalwart APIs and settings it found in the Stalwart documentation, and every one below was exercised against `stalwartlabs/stalwart:v0.16` (v0.16.27) in the dev stack unless marked otherwise.
 
 ## Verified live
 
@@ -12,15 +12,15 @@ Authkit only uses Stalwart APIs and settings it found in the Stalwart documentat
 
 ## Differences from the docs
 
-- The management JMAP endpoint answered at `POST /jmap`; the docs mention `/api` for management. Authkit uses `/jmap`.
-- `/api/auth` answered `client_code`; the docs say `clientCode`. Authkit accepts both.
-- A bare account name failed `/api/auth` without a default domain; Authkit always sends the full address.
-- Stalwart rejects the SMTP HELO name `localhost`; Authkit greets with its sender domain.
+- The management JMAP endpoint answered at `POST /jmap`; the docs mention `/api` for management. Authfly uses `/jmap`.
+- `/api/auth` answered `client_code`; the docs say `clientCode`. Authfly accepts both.
+- A bare account name failed `/api/auth` without a default domain; Authfly always sends the full address.
+- Stalwart rejects the SMTP HELO name `localhost`; Authfly greets with its sender domain.
 
 ## Not verified
 
 - `mfaRequired` from `/api/auth` (accounts with Stalwart two-factor auth): handled from the docs, not tested.
 - Registered OAuth clients in Stalwart: in the tested setup any client id and `http` redirect URIs were accepted; behavior with registered clients and strict redirect checks was not tested.
-- Authenticated SMTP submission (587/465) through Authkit's mailer: implemented, tested only against port 25.
+- Authenticated SMTP submission (587/465) through Authfly's mailer: implemented, tested only against port 25.
 - Production TLS (HTTPS issuer, SMTP TLS) and DNS (MX, SPF, DKIM, DMARC).
 - Social login, TOTP and WebAuthn are stubs ([Extensions](extensions.md)).

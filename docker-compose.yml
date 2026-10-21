@@ -1,17 +1,17 @@
-# Authkit dev stack. Network design (docs/security.md):
-#   public    : Authkit :4000 (hosted pages, JSON API, the OIDC endpoints it proxies), the React demo :5173, and the
+# Authfly dev stack. Network design (docs/security.md):
+#   public    : Authfly :4000 (hosted pages, JSON API, the OIDC endpoints it proxies), the React demo :5173, and the
 #               Stalwart mail ports (SMTP 2525->25, submissions 4465->465, IMAPS 9993->993)
-#   localhost : Stalwart HTTP (management JMAP, /api) on 127.0.0.1:8080 only; the Authkit Console on 127.0.0.1:4500 only
+#   localhost : Stalwart HTTP (management JMAP, /api) on 127.0.0.1:8080 only; the Authfly Console on 127.0.0.1:4500 only
 #               (reach both from your machine with `ssh -L`)
-#   internal  : everything else talks over the compose network (authkit -> stalwart:8080, stalwart:25)
+#   internal  : everything else talks over the compose network (authfly -> stalwart:8080, stalwart:25)
 # Dev only: fixed secrets and plain HTTP. See docs/stalwart.md and docs/security.md for production.
 services:
   stalwart:
     image: stalwartlabs/stalwart:v0.16
     environment:
       # Pinned recovery admin (stalw.art/docs/configuration/recovery-mode). Used only by stalwart-init and the Console.
-      STALWART_RECOVERY_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
-      # Public URL = the OIDC issuer. Relying parties reach the OIDC endpoints through Authkit, so it is Authkit's URL.
+      STALWART_RECOVERY_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authfly-dev-admin}
+      # Public URL = the OIDC issuer. Relying parties reach the OIDC endpoints through Authfly, so it is Authfly's URL.
       STALWART_PUBLIC_URL: http://localhost:4000
     volumes:
       # A config.json holding only the DataStore skips the bootstrap wizard (declarative deployments)
@@ -25,51 +25,51 @@ services:
   # One-shot hardening with the bootstrap admin: least-privilege service role and account, web UI off, OIDC clients
   # registered, anonymous client registration off (server/core/harden.go).
   stalwart-init:
-    build: { context: ., dockerfile: deploy/authkit.Dockerfile }
+    build: { context: ., dockerfile: deploy/authfly.Dockerfile }
     command: ["init-stalwart"]
     depends_on: [stalwart]
     restart: "no"
-    environment: &authkit-common
+    environment: &authfly-common
       STALWART_URL: http://stalwart:8080
-      STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
-      AUTHKIT_DOMAIN: authkit.test
-      AUTHKIT_PUBLIC_URL: http://localhost:4000
-      AUTHKIT_SERVICE_PASSWORD: ${AUTHKIT_SERVICE_PASSWORD:-dev-only-service-password-0123}
-      AUTHKIT_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]},{"id":"adapters","name":"Adapter test","redirect_uris":["http://localhost:9999/callback"]}]'
-  authkit:
-    build: { context: ., dockerfile: deploy/authkit.Dockerfile }
+      STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authfly-dev-admin}
+      AUTHFLY_DOMAIN: authfly.test
+      AUTHFLY_PUBLIC_URL: http://localhost:4000
+      AUTHFLY_SERVICE_PASSWORD: ${AUTHFLY_SERVICE_PASSWORD:-dev-only-service-password-0123}
+      AUTHFLY_CLIENTS: '[{"id":"demo-react","name":"Demo app (React)","redirect_uris":["http://localhost:5173/callback"]},{"id":"adapters","name":"Adapter test","redirect_uris":["http://localhost:9999/callback"]}]'
+  authfly:
+    build: { context: ., dockerfile: deploy/authfly.Dockerfile }
     depends_on:
       stalwart-init: { condition: service_completed_successfully }
     environment:
-      <<: *authkit-common
+      <<: *authfly-common
       # least privilege: the service account created by stalwart-init, not the admin
-      STALWART_ADMIN: authkit-svc@authkit.test:${AUTHKIT_SERVICE_PASSWORD:-dev-only-service-password-0123}
-      AUTHKIT_SECRET: ${AUTHKIT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
-      AUTHKIT_PRODUCT: Authkit
-      AUTHKIT_SOCIAL_STUBS: "false"
+      STALWART_ADMIN: authfly-svc@authfly.test:${AUTHFLY_SERVICE_PASSWORD:-dev-only-service-password-0123}
+      AUTHFLY_SECRET: ${AUTHFLY_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      AUTHFLY_PRODUCT: Authfly
+      AUTHFLY_SOCIAL_STUBS: "false"
       SMTP_ADDR: stalwart:25
-      SMTP_FROM: noreply@authkit.test
-      AUTHKIT_AUDIT_RETENTION: 8760h       # GDPR retention of the audit log (docs/gdpr.md)
+      SMTP_FROM: noreply@authfly.test
+      AUTHFLY_AUDIT_RETENTION: 8760h       # GDPR retention of the audit log (docs/gdpr.md)
       # internal admin API for the Console: compose network only, no port mapping
-      AUTHKIT_ADMIN_ADDR: ":4001"
-      AUTHKIT_ADMIN_KEY: ${AUTHKIT_ADMIN_KEY:-dev-only-admin-key-0123456789abcdef}
+      AUTHFLY_ADMIN_ADDR: ":4001"
+      AUTHFLY_ADMIN_KEY: ${AUTHFLY_ADMIN_KEY:-dev-only-admin-key-0123456789abcdef}
     volumes:
-      - authkit-data:/data
+      - authfly-data:/data
     ports:
       - "4000:4000"
   console:
     build: { context: ., dockerfile: deploy/console.Dockerfile }
     depends_on:
       stalwart-init: { condition: service_completed_successfully }
-      authkit: { condition: service_started }
+      authfly: { condition: service_started }
     environment:
       CONSOLE_ADDR: ":4500"
       STALWART_URL: http://stalwart:8080
-      STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
-      AUTHKIT_ADMIN_URL: http://authkit:4001
-      AUTHKIT_ADMIN_KEY: ${AUTHKIT_ADMIN_KEY:-dev-only-admin-key-0123456789abcdef}
-      AUTHKIT_DOMAIN: authkit.test
-      AUTHKIT_PUBLIC_URL: http://localhost:4000
+      STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authfly-dev-admin}
+      AUTHFLY_ADMIN_URL: http://authfly:4001
+      AUTHFLY_ADMIN_KEY: ${AUTHFLY_ADMIN_KEY:-dev-only-admin-key-0123456789abcdef}
+      AUTHFLY_DOMAIN: authfly.test
+      AUTHFLY_PUBLIC_URL: http://localhost:4000
       CONSOLE_ADMIN: ${CONSOLE_ADMIN:-console:dev-only-console-password}
       CONSOLE_SECRET: ${CONSOLE_SECRET:-dev-only-console-secret-0123456789abcdef}
       CONSOLE_DATA: /data
@@ -79,11 +79,11 @@ services:
       - "127.0.0.1:4500:4500"   # localhost only: open with ssh -L 4500:127.0.0.1:4500 host
   demo-react:
     build: { context: ., dockerfile: deploy/demo-react.Dockerfile }
-    depends_on: [authkit]
+    depends_on: [authfly]
     environment:
-      AUTHKIT_URL: http://localhost:4000
-      # OIDC endpoints through Authkit's proxy (server side, compose network)
-      STALWART_URL: http://authkit:4000
+      AUTHFLY_URL: http://localhost:4000
+      # OIDC endpoints through Authfly's proxy (server side, compose network)
+      STALWART_URL: http://authfly:4000
       OIDC_CLIENT_ID: demo-react
       OIDC_REDIRECT_URI: http://localhost:5173/callback
       SESSION_SECRET: ${DEMO_SESSION_SECRET:-dev-only-demo-session-secret-0123456789}
@@ -91,5 +91,5 @@ services:
       - "5173:5173"
 volumes:
   stalwart-data:
-  authkit-data:
+  authfly-data:
   console-data:
