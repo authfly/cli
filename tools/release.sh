@@ -10,7 +10,11 @@ out=dist/$v
 mkdir -p "$out"
 export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 go build -trimpath -ldflags="-s -w -X main.Version=$v" -o "$out/authfly-linux-amd64" ./cmd/authfly
-go build -trimpath -ldflags="-s -w" -o "$out/console-linux-amd64" ./apps/console
+# The Console lives in authfly/stalwart (.deps/stalwart, pinned). Its .deps/cli and .deps/authkit are pointed at THIS
+# checkout and our pinned authkit, so the release never mixes two versions of the JMAP client (server/core).
+bash tools/deps.sh >/dev/null
+mkdir -p .deps/stalwart/.deps && ln -sfn "$PWD" .deps/stalwart/.deps/cli && ln -sfn "$PWD/.deps/authkit" .deps/stalwart/.deps/authkit
+(cd .deps/stalwart && go build -trimpath -ldflags="-s -w" -o "$OLDPWD/$out/console-linux-amd64" ./apps/console)
 (cd "$out" && sha256sum authfly-linux-amd64 console-linux-amd64 > SHA256SUMS)
 DOCKER=${DOCKER:-docker}
 for b in authfly console; do

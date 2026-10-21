@@ -2,3 +2,4 @@
 # name     url                                         commit
 authkit    https://github.com/authfly/authkit.git      a43c8c792ad18d5b55b4bb4a1e23b7728d813837
 authfly    https://github.com/authfly/authfly.git      d640287a37d94559dfce22111e35e1ebb14f0dc0
+stalwart   https://github.com/authfly/stalwart.git     17e5f77607dae9ef6d561ff573c4cbf5cce93349   # release only: the Console binary

@@ -15,7 +15,7 @@ export STALWART_ADMIN="admin:$(sec stalwart_admin_password)" CONSOLE_ADMIN="cons
 if [ "$target" = incus ]; then export E2E_EXEC="sudo -n incus exec $name-authfly --" E2E_DATA=/var/lib/authfly
 else export E2E_EXEC="sudo -n docker compose -p authfly-$name -f $dir/.authfly/compose.yml exec -T authfly" E2E_DATA=/data; fi
 cd "$root/apps/demo-react"
-[ -d dist ] || bunx vite build >/dev/null
+if [ -n "${E2E_REBUILD:-}" ] || [ ! -d dist ]; then bunx vite build >/dev/null; fi
 AUTHFLY_URL=http://localhost:4000 STALWART_URL=http://localhost:4000 OIDC_CLIENT_ID=demo-react OIDC_REDIRECT_URI=http://localhost:5173/callback \
   SESSION_SECRET=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n') bun server.ts >/tmp/demo-react.log 2>&1 &
 demo=$!

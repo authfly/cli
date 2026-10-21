@@ -5,6 +5,7 @@
 # Source: $AUTHFLY_DEPS_SRC/authfly-<name> when that checkout exists (default: the parent directory, i.e. sibling
 # checkouts), else the GitHub URL in deps.lock. Exact commit pins: nothing floats.
 #   authkit: widgets (8 runtimes) — the hosted pages render its templ blocks, the React demo imports its React blocks
+#   stalwart: (release only) the Authfly Console, built by tools/release.sh against THIS checkout's server/core
 #   authfly: @authfly/core contract, providers, server SDKs (the demo uses @authfly/node, the e2e the PHP/Python SDKs)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -19,7 +20,7 @@ if [ "${1:-}" = "--bump" ]; then
   awk -v n="$name" -v c="$new" '$1==n{$3=c; printf "%-10s %-43s %s\n",$1,$2,$3; next}{print}' "$lock" > "$lock.tmp" && mv "$lock.tmp" "$lock"
   echo "$name -> $new"; exit 0
 fi
-grep -vE '^\s*(#|$)' "$lock" | while read -r name url commit; do
+grep -vE '^\s*(#|$)' "$lock" | while read -r name url commit _; do
   dir=.deps/$name
   if [ -d "$dir/.git" ] && [ "$(git -C "$dir" rev-parse HEAD)" = "$commit" ]; then echo "deps: $name @ ${commit:0:7} (ok)"; continue; fi
   src=$(src_of "$name" "$url")
