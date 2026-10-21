@@ -7,8 +7,12 @@ const api = async (path: string, init: RequestInit & { token?: string } = {}) =>
   const r = await fetch(AUTHFLY + path, { ...init, headers: { "Content-Type": "application/json", ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}) } });
   return { status: r.status, json: (await r.json().catch(() => ({}))) as any };
 };
+// read a file inside the Authfly instance. Default: the dev compose stack. For an `authfly deploy` install set
+// E2E_EXEC (command prefix, space separated) and E2E_DATA (Authfly data directory), see tools/e2e-deploy.sh.
+const EXEC = (process.env.E2E_EXEC ?? "sudo -n docker compose exec -T authfly").split(" ");
+const DATA = process.env.E2E_DATA ?? "/data";
 const docker = (cmd: string[]) => {
-  const p = Bun.spawnSync(["sudo", "-n", "docker", "compose", "exec", "-T", ...cmd], { cwd: import.meta.dir + "/.." });
+  const p = Bun.spawnSync([...EXEC, ...cmd.slice(1).map((a) => a.replace(/^\/data/, DATA))], { cwd: import.meta.dir + "/.." });
   return p.exitCode === 0 ? p.stdout.toString() : null;
 };
 const name = "gdpr-" + rand();
