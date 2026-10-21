@@ -34,6 +34,12 @@ await step("Stalwart HTTP answers on localhost only (for the ssh tunnel)", async
 });
 await step("Authkit Console is closed on the public address, open on localhost", async () => {
   assert((await tcp(publicIp, 4500)) === "closed", "4500 reachable from the network");
+  assert((await tcp("127.0.0.1", 4500)) === "open", "4500 not on localhost");
+  const r = await fetch("http://127.0.0.1:4500/login");
+  assert(r.status === 200 && (await r.text()).includes("Authkit Console"), `console login ${r.status}`);
+});
+await step("Authkit's internal admin API (:4001) is not published at all", async () => {
+  assert((await tcp(publicIp, 4001)) === "closed" && (await tcp("127.0.0.1", 4001)) === "closed", "4001 reachable from the host");
 });
 await step("mail ports are public (SMTP 2525, submissions 4465, IMAPS 9993)", async () => {
   assert((await tcp(publicIp, 2525)) === "open" && (await tcp(publicIp, 4465)) === "open" && (await tcp(publicIp, 9993)) === "open", "mail port closed");

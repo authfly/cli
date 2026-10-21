@@ -125,7 +125,13 @@ func (s *Service) PasswordSignIn(ctx context.Context, identifier, password strin
 	name := s.address(local)
 	code, err := s.SW.Authorize(ctx, AuthCodeRequest{AccountName: name, AccountSecret: password, ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce, CodeChallenge: challenge})
 	if err != nil {
-		s.Audit.Log("self", name, "sign_in", "denied", map[string]string{"method": "password"})
+		// data minimisation: a failed attempt for an address that is not an account is logged under a pseudonym, so the
+		// log never collects identifiers of non-users (or brings back an erased address)
+		subject := name
+		if _, ferr := s.SW.FindAccount(ctx, s.Cfg.Domain, local); errors.Is(ferr, ErrNotFound) {
+			subject = Pseudonym(name)
+		}
+		s.Audit.Log("self", subject, "sign_in", "denied", map[string]string{"method": "password"})
 		return nil, nil, err
 	}
 	tok, err := s.SW.Exchange(ctx, s.Cfg.ClientID, "", code, redirect, verifier)

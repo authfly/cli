@@ -329,6 +329,7 @@ func (c *Console) userErase(w http.ResponseWriter, r *http.Request) {
 		Pseudonym          string   `json:"pseudonym"`
 		MessagesBefore     int      `json:"messagesBefore"`
 		AuditPseudonymised int      `json:"auditPseudonymised"`
+		Verified           bool     `json:"verified"`
 		Steps              []string `json:"steps"`
 	}
 	_, _, err = c.authkit(ctx, session(r).User, "POST", "/admin/v1/users/"+pathAddr(addr)+"/erase", &rep)
@@ -342,7 +343,14 @@ func (c *Console) userErase(w http.ResponseWriter, r *http.Request) {
 	_, gone := c.getOne(ctx, "x:Account", id)
 	steps := []Step{}
 	for _, s := range rep.Steps {
-		steps = append(steps, Step{s, "ok", ""})
+		st := "ok"
+		switch {
+		case strings.HasPrefix(s, "verified:") && !rep.Verified:
+			st = "fail"
+		case strings.Contains(s, "not scheduled"):
+			st = "warn"
+		}
+		steps = append(steps, Step{s, st, ""})
 	}
 	steps = append(steps, boolStep("Verified: x:Account/get "+id+" returns nothing", gone != nil, "checked live after erasure"))
 	c.log(r, "gdpr.erase", core.Pseudonym(addr), "ok", map[string]string{"messages": fmt.Sprint(rep.MessagesBefore)})

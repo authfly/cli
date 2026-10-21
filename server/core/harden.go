@@ -26,6 +26,8 @@ var ServicePermissions = []string{
 	"sysDomainGet", "sysDomainQuery",
 	// GDPR export: read another account's mailbox through JMAP (accountId of the user)
 	"impersonate", "fetchAnyBlob",
+	// GDPR erasure: purge the blob store right away instead of at the daily blobCleanupSchedule (StoreMaintenance/purgeBlob)
+	"sysTaskCreate", "taskStoreMaintenance",
 }
 
 const ServiceRoleName = "authkit-service"

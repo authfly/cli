@@ -78,7 +78,8 @@ type ErasureReport struct {
 	MessagesBefore     int      `json:"messagesBefore"`
 	AuditPseudonymised int      `json:"auditPseudonymised"`
 	Steps              []string `json:"steps"`
-	ArchiveWarning     string   `json:"archiveWarning,omitempty"`
+	Verified           bool     `json:"verified"`  // sampled messages are no longer readable
+	BlobPurge          string   `json:"blobPurge"` // scheduled | deferred
 }
 
 // Erase removes an account: the Stalwart account with its mailbox (x:Account/set destroy), every Authkit session
@@ -95,12 +96,14 @@ func (s *Service) Erase(ctx context.Context, addr, actor string) (*ErasureReport
 		return nil, err
 	}
 	rep := &ErasureReport{Subject: addr, Pseudonym: Pseudonym(addr), StalwartAccount: acc.ID}
-	if mr, err := s.SW.JMAPUsing(ctx, mailUsing, []any{"Email/query", map[string]any{"accountId": acc.ID, "calculateTotal": true, "limit": 1}, "q"}); err == nil {
+	var sample []string
+	if mr, err := s.SW.JMAPUsing(ctx, mailUsing, []any{"Email/query", map[string]any{"accountId": acc.ID, "calculateTotal": true, "limit": 50}, "q"}); err == nil {
 		var q struct {
-			Total int `json:"total"`
+			Total int      `json:"total"`
+			IDs   []string `json:"ids"`
 		}
 		_ = json.Unmarshal(mr[0][1], &q)
-		rep.MessagesBefore = q.Total
+		rep.MessagesBefore, sample = q.Total, q.IDs
 	}
 	r, err := s.SW.JMAP(ctx, []any{"x:Account/set", map[string]any{"destroy": []string{acc.ID}}, "d"})
 	if err != nil {
@@ -109,7 +112,36 @@ func (s *Service) Erase(ctx context.Context, addr, actor string) (*ErasureReport
 	if err := setOK(r, "destroy account"); err != nil {
 		return nil, err
 	}
-	rep.Steps = append(rep.Steps, "stalwart account "+acc.ID+" destroyed with its mailbox (x:Account/set destroy)")
+	rep.Steps = append(rep.Steps, "stalwart account "+acc.ID+" destroyed with its mailbox (x:Account/set destroy schedules DestroyAccount, which runs at once in the community edition)")
+	// verify: the messages are no longer readable (Email/get by id returns notFound)
+	if len(sample) > 0 {
+		time.Sleep(500 * time.Millisecond)
+		left := len(sample)
+		for i := 0; i < 10 && left > 0; i++ {
+			if mr, err := s.SW.JMAPUsing(ctx, mailUsing, []any{"Email/get", map[string]any{"accountId": acc.ID, "ids": sample, "properties": []string{"id"}}, "g"}); err == nil {
+				var g struct {
+					List []any `json:"list"`
+				}
+				_ = json.Unmarshal(mr[0][1], &g)
+				left = len(g.List)
+			}
+			if left > 0 {
+				time.Sleep(time.Second)
+			}
+		}
+		rep.Verified = left == 0
+		rep.Steps = append(rep.Steps, fmt.Sprintf("verified: %d of %d sampled messages still readable", left, len(sample)))
+	} else {
+		rep.Verified = true
+	}
+	// purge the blob store now (best effort; otherwise blobCleanupSchedule does it, daily by default)
+	if r, err := s.SW.JMAP(ctx, []any{"x:Task/set", map[string]any{"create": map[string]any{"p": map[string]any{"@type": "StoreMaintenance", "maintenanceType": "purgeBlob"}}}, "p"}); err == nil && setOK(r, "purge task") == nil {
+		rep.Steps = append(rep.Steps, "blob store purge scheduled (StoreMaintenance purgeBlob)")
+		rep.BlobPurge = "scheduled"
+	} else {
+		rep.Steps = append(rep.Steps, "blob store purge not scheduled (missing sysTaskCreate/taskStoreMaintenance?): blobs go at the next blobCleanupSchedule run")
+		rep.BlobPurge = "deferred"
+	}
 	s.Store.Forget(addr)
 	rep.Steps = append(rep.Steps, "authkit sessions revoked, verification and consent records deleted")
 	rep.AuditPseudonymised = s.Audit.Pseudonymise(addr)
