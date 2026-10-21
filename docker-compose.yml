@@ -1,6 +1,6 @@
 # Authkit dev stack: Stalwart (mail server, OIDC provider, directory), the Authkit server (Go/templ hosted pages + API)
 # and the React demo app (OIDC relying party). Dev only: fixed secrets, plain HTTP, the Stalwart recovery admin as the
-# management credential. See docs/install.md for production.
+# management credential. See docs/stalwart.md for production.
 services:
   stalwart:
     image: stalwartlabs/stalwart:v0.16
