@@ -8,8 +8,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/sha256"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -24,11 +24,12 @@ import (
 )
 
 // Stalwart talks to one Stalwart server (v0.16). Endpoints verified against stalw.art/docs and a live v0.16.27 server:
-//   POST /jmap                 JMAP, capability urn:stalwart:jmap: x:Domain/*, x:Account/* (docs show POST /api; the live server answers on /jmap)
-//   POST /api/auth             {type:"authCode", accountName, accountSecret, clientId, redirectUri, codeChallenge, ...} -> {type:"authenticated", client_code}
-//   POST /auth/token           standard OAuth token endpoint (authorization_code + code_verifier, refresh_token)
-//   GET  /auth/userinfo        OIDC userinfo
-//   GET  /.well-known/openid-configuration, /auth/jwks.json
+//
+//	POST /jmap                 JMAP, capability urn:stalwart:jmap: x:Domain/*, x:Account/* (docs show POST /api; the live server answers on /jmap)
+//	POST /api/auth             {type:"authCode", accountName, accountSecret, clientId, redirectUri, codeChallenge, ...} -> {type:"authenticated", client_code}
+//	POST /auth/token           standard OAuth token endpoint (authorization_code + code_verifier, refresh_token)
+//	GET  /auth/userinfo        OIDC userinfo
+//	GET  /.well-known/openid-configuration, /auth/jwks.json
 type Stalwart struct {
 	BaseURL    string // internal URL Authkit uses to reach Stalwart, e.g. http://stalwart:8080
 	AdminUser  string // management credential (dev: STALWART_RECOVERY_ADMIN; production: an API key as AdminToken)
@@ -88,7 +89,12 @@ func (s *Stalwart) do(ctx context.Context, method, path string, body io.Reader, 
 
 // JMAP runs management method calls with the admin credential and returns the responses in order.
 func (s *Stalwart) JMAP(ctx context.Context, calls ...[]any) ([][]json.RawMessage, error) {
-	body, _ := json.Marshal(map[string]any{"using": []string{"urn:ietf:params:jmap:core", "urn:stalwart:jmap"}, "methodCalls": calls})
+	return s.JMAPUsing(ctx, []string{"urn:ietf:params:jmap:core", "urn:stalwart:jmap"}, calls...)
+}
+
+// JMAPUsing posts method calls with the given capabilities; a method error fails the call.
+func (s *Stalwart) JMAPUsing(ctx context.Context, using []string, calls ...[]any) ([][]json.RawMessage, error) {
+	body, _ := json.Marshal(map[string]any{"using": using, "methodCalls": calls})
 	b, code, err := s.do(ctx, "POST", "/jmap", bytes.NewReader(body), "application/json", true)
 	if err != nil {
 		return nil, err
@@ -282,8 +288,8 @@ func (s *Stalwart) Authorize(ctx context.Context, a AuthCodeRequest) (string, er
 		return "", err
 	}
 	var out struct {
-		Type       string `json:"type"`
-		ClientCode string `json:"client_code"` // live v0.16.27 answers client_code (the docs say clientCode)
+		Type        string `json:"type"`
+		ClientCode  string `json:"client_code"` // live v0.16.27 answers client_code (the docs say clientCode)
 		ClientCode2 string `json:"clientCode"`
 	}
 	_ = json.Unmarshal(b, &out)
@@ -442,4 +448,15 @@ func RandomString(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// Raw posts a JMAP request body as the management credential and returns the HTTP status and body unchanged
+// (the Authkit Console's request runner).
+func (s *Stalwart) Raw(ctx context.Context, method, path string, body []byte, ctype string) (int, []byte, error) {
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	b, code, err := s.do(ctx, method, path, rd, ctype, true)
+	return code, b, err
 }

@@ -20,6 +20,7 @@ type Config struct {
 	MagicTTL        time.Duration
 	ResetTTL        time.Duration
 	VerifyTTL       time.Duration
+	AuditRetention  time.Duration // audit entries older than this are pruned (0: keep)
 }
 
 // Service is the Authkit core every adapter calls.
@@ -29,6 +30,7 @@ type Service struct {
 	Mail  *Mailer
 	Sign  Signer
 	Store *Store
+	Audit *Audit // nil: no audit log
 }
 
 // User is the signed-in identity.
@@ -84,6 +86,7 @@ func (s *Service) SignUp(ctx context.Context, name, username, password string) (
 		return nil, err
 	}
 	addr := s.address(local)
+	s.Audit.Log("self", addr, "sign_up", "ok", nil)
 	if err := s.SendVerification(addr); err != nil {
 		log.Printf("authkit: verification mail to %s failed: %v", addr, err)
 	}
@@ -104,6 +107,7 @@ func (s *Service) VerifyEmail(token string) (string, error) {
 		return "", ErrBadToken
 	}
 	s.Store.MarkVerified(c.Subject)
+	s.Audit.Log("self", c.Subject, "verify_email", "ok", nil)
 	return c.Subject, nil
 }
 
@@ -121,6 +125,7 @@ func (s *Service) PasswordSignIn(ctx context.Context, identifier, password strin
 	name := s.address(local)
 	code, err := s.SW.Authorize(ctx, AuthCodeRequest{AccountName: name, AccountSecret: password, ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce, CodeChallenge: challenge})
 	if err != nil {
+		s.Audit.Log("self", name, "sign_in", "denied", map[string]string{"method": "password"})
 		return nil, nil, err
 	}
 	tok, err := s.SW.Exchange(ctx, s.Cfg.ClientID, "", code, redirect, verifier)
@@ -137,8 +142,10 @@ func (s *Service) PasswordSignIn(ctx context.Context, identifier, password strin
 		u.Name = str(info["name"])
 	}
 	if s.Cfg.RequireVerified && !u.Verified {
+		s.Audit.Log("self", addr, "sign_in", "denied", map[string]string{"method": "password", "reason": "unverified"})
 		return u, tok, ErrUnverified
 	}
+	s.Audit.Log("self", addr, "sign_in", "ok", map[string]string{"method": "password"})
 	return u, tok, nil
 }
 
@@ -155,6 +162,7 @@ func (s *Service) RequestMagicLink(ctx context.Context, identifier string) (stri
 		}
 		return addr, err
 	}
+	s.Audit.Log("self", addr, "magic_link", "ok", nil)
 	tok := s.Sign.Sign(NewClaims("magic", addr, s.Cfg.MagicTTL))
 	link := s.Cfg.PublicURL + "/auth/magic/verify?token=" + tok
 	return addr, s.Mail.Send(addr, "Your sign-in link", fmt.Sprintf("Sign in to %s with this link (valid %s, single use):\n\n%s\n\nIf you did not ask for it, ignore this email.\n", s.Cfg.ProductName, s.Cfg.MagicTTL, link))
@@ -175,6 +183,7 @@ func (s *Service) VerifyMagicLink(ctx context.Context, token string) (*User, err
 		return nil, ErrBadToken
 	}
 	s.Store.MarkVerified(c.Subject)
+	s.Audit.Log("self", c.Subject, "sign_in", "ok", map[string]string{"method": "magic"})
 	return &User{Sub: acc.ID, Address: c.Subject, Username: local, Name: acc.Description, Verified: true, Method: "magic"}, nil
 }
 
@@ -223,6 +232,8 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) (st
 		return "", err
 	}
 	s.Store.MarkVerified(c.Subject)
+	s.Store.Revoke(c.Subject) // a new password signs out every existing session
+	s.Audit.Log("self", c.Subject, "password_reset", "ok", nil)
 	return c.Subject, nil
 }
 

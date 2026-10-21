@@ -17,8 +17,8 @@ type Mailer struct {
 	FromName string
 	User     string
 	Pass     string
-	TLS      bool // implicit TLS (465)
-	Insecure bool // accept self-signed certificates (dev only)
+	TLS      bool   // implicit TLS (465)
+	Insecure bool   // accept self-signed certificates (dev only)
 	Helo     string // EHLO name; default: the domain of From (Stalwart rejects "localhost")
 }
 

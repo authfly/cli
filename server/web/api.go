@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/ui8kit/authkit/server/core"
 )
@@ -22,7 +21,7 @@ func (s *Server) api(m *http.ServeMux) {
 				return
 			}
 			in := map[string]string{}
-			if r.Method == "POST" {
+			if r.Method == "POST" || r.Method == "DELETE" {
 				_ = json.NewDecoder(r.Body).Decode(&in)
 			}
 			code, out := f(r, in)
@@ -52,6 +51,9 @@ func (s *Server) api(m *http.ServeMux) {
 		u, err := s.Svc.SignUp(r.Context(), in["name"], in["username"], in["password"])
 		if err != nil {
 			return fail(400, err)
+		}
+		if in["terms"] != "" { // the relying party passes terms=<version> when its form collected the acceptance
+			s.Svc.Store.AddConsent(u.Address, core.Consent{Kind: "terms", Version: in["terms"], Granted: true})
 		}
 		return 201, map[string]any{"user": u}
 	})
@@ -98,15 +100,13 @@ func (s *Server) api(m *http.ServeMux) {
 		return 200, map[string]any{"email": addr}
 	})
 	h("GET /api/v1/me", func(r *http.Request, _ map[string]string) (int, any) {
-		tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		u := s.userFromToken(tok)
+		u := s.apiUser(r)
 		if u == nil {
-			if u = s.user(r); u == nil {
-				return 401, map[string]string{"error": "unauthenticated"}
-			}
+			return 401, map[string]string{"error": "unauthenticated"}
 		}
 		return 200, map[string]any{"user": u}
 	})
+	s.meGDPR(h, fail)
 	h("GET /api/v1/config", func(r *http.Request, _ map[string]string) (int, any) {
 		return 200, map[string]any{"domain": s.Svc.Cfg.Domain, "product": s.Svc.Cfg.ProductName, "methods": []string{"password", "magic_link"}, "methods_stubbed": []string{"social", "totp", "webauthn"}}
 	})

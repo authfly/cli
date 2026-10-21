@@ -49,6 +49,10 @@ services:
       AUTHKIT_SOCIAL_STUBS: "false"
       SMTP_ADDR: stalwart:25
       SMTP_FROM: noreply@authkit.test
+      AUTHKIT_AUDIT_RETENTION: 8760h       # GDPR retention of the audit log (docs/gdpr.md)
+      # internal admin API for the Console: compose network only, no port mapping
+      AUTHKIT_ADMIN_ADDR: ":4001"
+      AUTHKIT_ADMIN_KEY: ${AUTHKIT_ADMIN_KEY:-dev-only-admin-key-0123456789abcdef}
     volumes:
       - authkit-data:/data
     ports:
@@ -57,11 +61,13 @@ services:
     build: { context: ., dockerfile: deploy/console.Dockerfile }
     depends_on:
       stalwart-init: { condition: service_completed_successfully }
+      authkit: { condition: service_started }
     environment:
       CONSOLE_ADDR: ":4500"
       STALWART_URL: http://stalwart:8080
       STALWART_ADMIN: admin:${STALWART_ADMIN_PASSWORD:-authkit-dev-admin}
-      AUTHKIT_STORE: /authkit-data/store.json
+      AUTHKIT_ADMIN_URL: http://authkit:4001
+      AUTHKIT_ADMIN_KEY: ${AUTHKIT_ADMIN_KEY:-dev-only-admin-key-0123456789abcdef}
       AUTHKIT_DOMAIN: authkit.test
       AUTHKIT_PUBLIC_URL: http://localhost:4000
       CONSOLE_ADMIN: ${CONSOLE_ADMIN:-console:dev-only-console-password}
@@ -69,7 +75,6 @@ services:
       CONSOLE_DATA: /data
     volumes:
       - console-data:/data
-      - authkit-data:/authkit-data
     ports:
       - "127.0.0.1:4500:4500"   # localhost only: open with ssh -L 4500:127.0.0.1:4500 host
   demo-react:

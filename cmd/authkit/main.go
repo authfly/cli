@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -74,16 +75,30 @@ func main() {
 	}
 	admin := strings.SplitN(env("STALWART_ADMIN", "admin:admin"), ":", 2)
 	sw := &core.Stalwart{BaseURL: env("STALWART_URL", "http://localhost:8080"), AdminUser: admin[0], AdminPass: admin[len(admin)-1], AdminToken: env("STALWART_ADMIN_TOKEN", "")}
+	retention, err := time.ParseDuration(env("AUTHKIT_AUDIT_RETENTION", "8760h"))
+	if err != nil {
+		log.Fatalf("AUTHKIT_AUDIT_RETENTION: %v", err)
+	}
+	storePath := env("AUTHKIT_STORE", "authkit-store.json")
 	svc := &core.Service{
 		Cfg: core.Config{Domain: env("AUTHKIT_DOMAIN", "authkit.test"), PublicURL: strings.TrimRight(env("AUTHKIT_PUBLIC_URL", "http://localhost:4000"), "/"),
 			ClientID: env("AUTHKIT_CLIENT_ID", "authkit"), RequireVerified: env("AUTHKIT_REQUIRE_VERIFIED", "true") == "true", ProductName: env("AUTHKIT_PRODUCT", "Authkit"),
-			MagicTTL: 15 * time.Minute, ResetTTL: 30 * time.Minute, VerifyTTL: 48 * time.Hour},
+			MagicTTL: 15 * time.Minute, ResetTTL: 30 * time.Minute, VerifyTTL: 48 * time.Hour, AuditRetention: retention},
 		SW: sw,
 		Mail: &core.Mailer{Addr: env("SMTP_ADDR", "localhost:25"), From: env("SMTP_FROM", "noreply@authkit.test"), FromName: env("AUTHKIT_PRODUCT", "Authkit"),
 			User: env("SMTP_USER", ""), Pass: env("SMTP_PASS", ""), TLS: env("SMTP_TLS", "") == "true", Insecure: env("SMTP_INSECURE", "") == "true"},
 		Sign:  core.Signer{Key: []byte(secret)},
 		Store: store,
+		Audit: core.OpenAudit(env("AUTHKIT_AUDIT_LOG", strings.TrimSuffix(storePath, ".json")+"-audit.jsonl")),
 	}
+	go func() { // retention: prune the audit log daily
+		for {
+			if n := svc.Audit.Prune(retention); n > 0 {
+				svc.Audit.Log("system", "", "retention", "ok", map[string]string{"pruned": fmt.Sprint(n)})
+			}
+			time.Sleep(24 * time.Hour)
+		}
+	}()
 	var clients []web.Client
 	if c := env("AUTHKIT_CLIENTS", ""); c != "" {
 		if err := json.Unmarshal([]byte(c), &clients); err != nil {
@@ -98,5 +113,13 @@ func main() {
 	srv := web.New(svc, reg, clients, strings.HasPrefix(svc.Cfg.PublicURL, "https://"))
 	addr := env("AUTHKIT_ADDR", ":4000")
 	log.Printf("authkit listening on %s (public %s, domain %s, stalwart %s)", addr, svc.Cfg.PublicURL, svc.Cfg.Domain, sw.BaseURL)
+	if a := env("AUTHKIT_ADMIN_ADDR", ""); a != "" { // internal admin API for the console: never publish this port
+		key := env("AUTHKIT_ADMIN_KEY", "")
+		if len(key) < 24 {
+			log.Fatal("AUTHKIT_ADMIN_KEY must have at least 24 characters")
+		}
+		go func() { log.Fatal(http.ListenAndServe(a, srv.AdminHandler(key))) }()
+		log.Printf("authkit admin API on %s (internal)", a)
+	}
 	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
 }

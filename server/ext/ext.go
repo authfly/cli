@@ -56,23 +56,31 @@ type Registry struct {
 // Stub implementations, so the host can render the UI and the routes answer 501 until a real one is plugged in.
 type StubSocial struct{ IDValue, NameValue string }
 
-func (p StubSocial) ID() string                                   { return p.IDValue }
-func (p StubSocial) Name() string                                 { return p.NameValue }
-func (p StubSocial) AuthURL(string, string, string) string        { return "" }
+func (p StubSocial) ID() string                            { return p.IDValue }
+func (p StubSocial) Name() string                          { return p.NameValue }
+func (p StubSocial) AuthURL(string, string, string) string { return "" }
 func (p StubSocial) Exchange(context.Context, string, string, string) (*Identity, error) {
 	return nil, ErrNotImplemented
 }
 
 type StubTOTP struct{}
 
-func (StubTOTP) Kind() string                                          { return "totp" }
-func (StubTOTP) Enrolled(context.Context, string) (bool, error)        { return false, nil }
-func (StubTOTP) Enroll(context.Context, string) (string, error)        { return "", ErrNotImplemented }
-func (StubTOTP) Verify(context.Context, string, string) error          { return ErrNotImplemented }
+func (StubTOTP) Kind() string                                   { return "totp" }
+func (StubTOTP) Enrolled(context.Context, string) (bool, error) { return false, nil }
+func (StubTOTP) Enroll(context.Context, string) (string, error) { return "", ErrNotImplemented }
+func (StubTOTP) Verify(context.Context, string, string) error   { return ErrNotImplemented }
 
 type StubWebAuthn struct{}
 
-func (StubWebAuthn) BeginRegistration(context.Context, string) ([]byte, error)       { return nil, ErrNotImplemented }
-func (StubWebAuthn) FinishRegistration(context.Context, string, []byte) error        { return ErrNotImplemented }
-func (StubWebAuthn) BeginLogin(context.Context, string) ([]byte, error)              { return nil, ErrNotImplemented }
-func (StubWebAuthn) FinishLogin(context.Context, string, []byte) (string, error)     { return "", ErrNotImplemented }
+func (StubWebAuthn) BeginRegistration(context.Context, string) ([]byte, error) {
+	return nil, ErrNotImplemented
+}
+func (StubWebAuthn) FinishRegistration(context.Context, string, []byte) error {
+	return ErrNotImplemented
+}
+func (StubWebAuthn) BeginLogin(context.Context, string) ([]byte, error) {
+	return nil, ErrNotImplemented
+}
+func (StubWebAuthn) FinishLogin(context.Context, string, []byte) (string, error) {
+	return "", ErrNotImplemented
+}

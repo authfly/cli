@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,13 +142,17 @@ func (s *Server) csrfOK(r *http.Request) bool {
 // SessionToken signs a session for a user (cookie value, or bearer token of the JSON API).
 func (s *Server) SessionToken(u *core.User) string {
 	c := core.NewClaims("session", u.Address, 12*time.Hour)
-	c.Extra = map[string]string{"sub": u.Sub, "name": u.Name, "username": u.Username, "amr": u.Method}
+	c.Extra = map[string]string{"sub": u.Sub, "name": u.Name, "username": u.Username, "amr": u.Method, "iat": strconv.FormatInt(time.Now().UnixNano(), 10)}
 	return s.Svc.Sign.Sign(c)
 }
 
 func (s *Server) userFromToken(tok string) *core.User {
 	c, err := s.Svc.Sign.Verify(tok, "session")
 	if err != nil {
+		return nil
+	}
+	// revocation: erasure, password reset and "sign out everywhere" invalidate sessions issued before them
+	if iat, _ := strconv.ParseInt(c.Extra["iat"], 10, 64); iat <= s.Svc.Store.RevokedAt(c.Subject) && s.Svc.Store.RevokedAt(c.Subject) > 0 {
 		return nil
 	}
 	return &core.User{Sub: c.Extra["sub"], Address: c.Subject, Username: c.Extra["username"], Name: c.Extra["name"], Method: c.Extra["amr"], Verified: s.Svc.Store.IsVerified(c.Subject)}
@@ -228,7 +233,9 @@ func (s *Server) signInView(w http.ResponseWriter, r *http.Request, status int, 
 
 // ---- pages
 
-func (s *Server) signInPage(w http.ResponseWriter, r *http.Request) { s.signInView(w, r, 200, "password", "", "") }
+func (s *Server) signInPage(w http.ResponseWriter, r *http.Request) {
+	s.signInView(w, r, 200, "password", "", "")
+}
 
 func (s *Server) signInPost(w http.ResponseWriter, r *http.Request) {
 	if !s.csrfOK(r) {
@@ -266,10 +273,13 @@ func (s *Server) signUpPost(w http.ResponseWriter, r *http.Request) {
 		s.signUpView(w, r, 400, errText(err))
 		return
 	}
+	s.Svc.Store.AddConsent(u.Address, core.Consent{Kind: "terms", Version: TermsVersion, Granted: true})
 	s.notice(w, r, 200, "check", "default", "mail-check", u.Address, map[string]any{"secondary": "", "secondaryHref": ""})
 }
 
-func (s *Server) magicPage(w http.ResponseWriter, r *http.Request) { s.signInView(w, r, 200, "magic", "", "") }
+func (s *Server) magicPage(w http.ResponseWriter, r *http.Request) {
+	s.signInView(w, r, 200, "magic", "", "")
+}
 func (s *Server) magicPost(w http.ResponseWriter, r *http.Request) {
 	if !s.csrfOK(r) {
 		s.signInView(w, r, 403, "magic", "Your session expired. Try again.", "")
@@ -304,7 +314,9 @@ func (s *Server) requestView(w http.ResponseWriter, r *http.Request, status int,
 	s.render(w, r, status, s.text(page, "title"), blocks.AuthkitRequest(blocks.AuthkitRequestProps{Id: "authkit", Title: s.text(page, "title"), Text: s.text(page, "text"),
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab(page), Token: token, Kind: kind}))
 }
-func (s *Server) forgotPage(w http.ResponseWriter, r *http.Request) { s.requestView(w, r, 200, "forgot", "email", "/auth/forgot", "", "") }
+func (s *Server) forgotPage(w http.ResponseWriter, r *http.Request) {
+	s.requestView(w, r, 200, "forgot", "email", "/auth/forgot", "", "")
+}
 func (s *Server) forgotPost(w http.ResponseWriter, r *http.Request) {
 	if !s.csrfOK(r) {
 		s.requestView(w, r, 403, "forgot", "email", "/auth/forgot", "", "Your session expired. Try again.")
@@ -351,6 +363,9 @@ func (s *Server) signOutPost(w http.ResponseWriter, r *http.Request) {
 	if !s.csrfOK(r) {
 		http.Redirect(w, r, "/auth/sign-out", http.StatusSeeOther)
 		return
+	}
+	if u := s.user(r); u != nil {
+		s.Svc.Audit.Log("self", u.Address, "sign_out", "ok", nil)
 	}
 	s.clearCookie(w, cookieSession)
 	s.render(w, r, 200, "Signed out", blocks.AuthkitNotice(blocks.AuthkitNoticeProps{Id: "authkit", Title: "You are signed out", Text: "See you soon.",
@@ -475,12 +490,18 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) consentPost(w http.ResponseWriter, r *http.Request) {
-	or, _ := s.pending(r)
+	or, cl := s.pending(r)
 	if or == nil || or.Code == "" || !s.csrfOK(r) {
 		s.notice(w, r, 400, "linkerror", "error", "shield-alert", "", nil)
 		return
 	}
 	s.clearCookie(w, cookieOAuth)
+	if local, err := s.Svc.LocalPart(cl.Extra["account"]); err == nil {
+		addr := s.Svc.Address(local)
+		ok := r.PostFormValue("decision") == "approve"
+		s.Svc.Store.AddConsent(addr, core.Consent{Kind: "oidc", Client: or.ClientID, Scopes: strings.Fields(or.Scope), Granted: ok})
+		s.Svc.Audit.Log(or.ClientID, addr, "consent", map[bool]string{true: "ok", false: "denied"}[ok], map[string]string{"scope": or.Scope})
+	}
 	if r.PostFormValue("decision") != "approve" {
 		redirectErr(w, r, or.RedirectURI, or.State, "access_denied")
 		return
