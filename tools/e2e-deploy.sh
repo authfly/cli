@@ -19,7 +19,7 @@ cd "$root/apps/demo-react"
 AUTHFLY_URL=http://localhost:4000 STALWART_URL=http://localhost:4000 OIDC_CLIENT_ID=demo-react OIDC_REDIRECT_URI=http://localhost:5173/callback \
   SESSION_SECRET=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n') bun server.ts >/tmp/demo-react.log 2>&1 &
 demo=$!
-trap 'kill $demo 2>/dev/null' EXIT
+trap 'kill $demo 2>/dev/null || true' EXIT
 for i in $(seq 30); do curl -s -o /dev/null localhost:5173 && break; sleep 1; done
 cd "$root"
 fail=0
