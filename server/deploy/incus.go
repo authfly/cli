@@ -58,8 +58,14 @@ func (x Incus) exec(inst string, args ...string) (string, error) {
 	return incus(append([]string{"exec", inst, "--"}, args...)...)
 }
 
+// push writes src to dst atomically: upload next to it, then rename. Overwriting a running binary in place fails
+// ("text file busy"); a rename swaps the inode and the service picks the new one up on restart.
 func (x Incus) push(inst, src, dst, mode string) error {
-	_, err := incus("file", "push", "--create-dirs", "--mode", mode, src, inst+dst)
+	tmp := dst + ".authfly-new"
+	if _, err := incus("file", "push", "--create-dirs", "--mode", mode, src, inst+tmp); err != nil {
+		return err
+	}
+	_, err := x.exec(inst, "mv", "-f", tmp, dst)
 	return err
 }
 
