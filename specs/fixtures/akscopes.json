@@ -1,0 +1,69 @@
+{
+  "collection": "akscopes",
+  "kind": "feature",
+  "entries": [
+    {
+      "id": "openid",
+      "locale": "en",
+      "kind": "feature",
+      "status": "published",
+      "visibility": "public",
+      "slug": "openid",
+      "title": "Your account identifier",
+      "metadata": {
+        "text": {
+          "value": "openid"
+        },
+        "icon": {
+          "value": "id-card"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    },
+    {
+      "id": "email",
+      "locale": "en",
+      "kind": "feature",
+      "status": "published",
+      "visibility": "public",
+      "slug": "email",
+      "title": "Your email address",
+      "metadata": {
+        "text": {
+          "value": "email"
+        },
+        "icon": {
+          "value": "mail"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    },
+    {
+      "id": "profile",
+      "locale": "en",
+      "kind": "feature",
+      "status": "published",
+      "visibility": "public",
+      "slug": "profile",
+      "title": "Your name",
+      "metadata": {
+        "text": {
+          "value": "profile"
+        },
+        "icon": {
+          "value": "user"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    }
+  ]
+}

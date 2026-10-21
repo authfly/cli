@@ -1,0 +1,90 @@
+{
+  "collection": "akmethods",
+  "kind": "perk",
+  "entries": [
+    {
+      "id": "password",
+      "locale": "en",
+      "kind": "perk",
+      "status": "published",
+      "visibility": "public",
+      "slug": "password",
+      "title": "Password",
+      "metadata": {
+        "text": {
+          "value": "On"
+        },
+        "icon": {
+          "value": "key-round"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    },
+    {
+      "id": "magic",
+      "locale": "en",
+      "kind": "perk",
+      "status": "published",
+      "visibility": "public",
+      "slug": "magic",
+      "title": "Magic link",
+      "metadata": {
+        "text": {
+          "value": "On"
+        },
+        "icon": {
+          "value": "mail"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    },
+    {
+      "id": "totp",
+      "locale": "en",
+      "kind": "perk",
+      "status": "published",
+      "visibility": "public",
+      "slug": "totp",
+      "title": "Authenticator app",
+      "metadata": {
+        "text": {
+          "value": "Soon"
+        },
+        "icon": {
+          "value": "smartphone"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    },
+    {
+      "id": "webauthn",
+      "locale": "en",
+      "kind": "perk",
+      "status": "published",
+      "visibility": "public",
+      "slug": "webauthn",
+      "title": "Security key",
+      "metadata": {
+        "text": {
+          "value": "Soon"
+        },
+        "icon": {
+          "value": "key"
+        }
+      },
+      "version": 1,
+      "created_at": "2026-10-21T00:00:00Z",
+      "updated_at": "2026-10-21T00:00:00Z",
+      "published_at": "2026-10-21T00:00:00Z"
+    }
+  ]
+}
