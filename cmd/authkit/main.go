@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/crypto/acme/autocert"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +17,14 @@ import (
 	"github.com/ui8kit/authkit/server/web"
 )
 
+// env reads a setting; K_FILE (a mounted secret file, docker/incus secrets) wins over K so secrets never sit in the
+// process environment.
 func env(k, d string) string {
+	if p := os.Getenv(k + "_FILE"); p != "" {
+		if b, err := os.ReadFile(p); err == nil {
+			return strings.TrimSpace(string(b))
+		}
+	}
 	if v := os.Getenv(k); v != "" {
 		return v
 	}
@@ -121,5 +129,24 @@ func main() {
 		go func() { log.Fatal(http.ListenAndServe(a, srv.AdminHandler(key))) }()
 		log.Printf("authkit admin API on %s (internal)", a)
 	}
-	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
+	log.Fatal(serveTLS(addr, srv.Handler()))
+}
+
+// serveTLS: AUTHKIT_TLS_MODE=acme (Let's Encrypt via autocert: HTTP-01 on AUTHKIT_HTTP_ADDR, TLS-ALPN-01 on addr),
+// manual (AUTHKIT_TLS_CERT/AUTHKIT_TLS_KEY files) or off (plain HTTP behind your own TLS terminator / local tests).
+func serveTLS(addr string, h http.Handler) error {
+	switch env("AUTHKIT_TLS_MODE", "off") {
+	case "acme":
+		m := &autocert.Manager{Prompt: autocert.AcceptTOS, Cache: autocert.DirCache(env("AUTHKIT_TLS_CACHE", "/data/acme")),
+			HostPolicy: autocert.HostWhitelist(strings.Split(env("AUTHKIT_TLS_HOSTS", ""), ",")...), Email: env("AUTHKIT_ACME_EMAIL", "")}
+		go func() { log.Fatal(http.ListenAndServe(env("AUTHKIT_HTTP_ADDR", ":80"), m.HTTPHandler(nil))) }()
+		s := &http.Server{Addr: addr, Handler: h, TLSConfig: m.TLSConfig(), ReadHeaderTimeout: 10 * time.Second}
+		return s.ListenAndServeTLS("", "")
+	case "manual":
+		s := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
+		return s.ListenAndServeTLS(env("AUTHKIT_TLS_CERT", ""), env("AUTHKIT_TLS_KEY", ""))
+	default:
+		s := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
+		return s.ListenAndServe()
+	}
 }

@@ -49,7 +49,14 @@ type cachedOpts struct {
 	opts []EnumItem
 }
 
+// env reads a setting; K_FILE (a mounted secret file, docker/incus secrets) wins over K so secrets never sit in the
+// process environment.
 func env(k, d string) string {
+	if p := os.Getenv(k + "_FILE"); p != "" {
+		if b, err := os.ReadFile(p); err == nil {
+			return strings.TrimSpace(string(b))
+		}
+	}
 	if v := os.Getenv(k); v != "" {
 		return v
 	}
