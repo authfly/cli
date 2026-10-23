@@ -1,8 +1,8 @@
-/* Authfly server styles: the generated ui8kit theme (shadcn tokens, dark class) and kit, scanned over the templ set. */
+/* Authfly server styles: the authkit theme (shadcn tokens, dark class), scanned over the UI8Kit 3 templ primitives and
+   the Authfly templ layer (no kit.css in v3). */
 @import "../../.deps/authkit/packages/ui/react/src/styles/theme.css";
-@import "../../.deps/authkit/packages/ui/react/src/styles/kit.css";
 @source "../../.deps/authkit/packages/ui/templ/ui";
-@source "../../.deps/authkit/packages/ui/templ/blocks";
+@source "../../.deps/authkit/packages/ui/templ/authfly";
 @source "./";
 
 /* page body: full height, smoothed text (plain CSS, kept out of class lists) */

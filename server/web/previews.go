@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/a-h/templ"
 	"github.com/authfly/cli/server/ext"
-	blocks "github.com/ui8kit/codegen/packages/templ/ui/blocks"
+	blocks "github.com/authfly/authkit/widgets/templ/authfly"
 )
 
 // Preview is one widget state rendered with the hosted pages' labels, for the docs site's live previews.

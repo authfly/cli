@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/a-h/templ v0.3.1070
-	github.com/ui8kit/codegen/packages/templ/ui v0.0.0
+	github.com/authfly/authkit/widgets/templ v0.0.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -16,4 +16,4 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-replace github.com/ui8kit/codegen/packages/templ/ui => ./.deps/authkit/packages/ui/templ
+replace github.com/authfly/authkit/widgets/templ => ./.deps/authkit/packages/ui/templ
