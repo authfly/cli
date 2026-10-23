@@ -1,0 +1,5 @@
+---
+description: Authfly CLI web/demo UI rules (UI8Kit 3)
+globs: server/web/**, apps/demo-react/**
+---
+See AGENTS.md. Use authkit templ primitives/widgets (Go) and @authfly/react (demo). className/tokens only; regenerate templ + CSS after edits.

@@ -2,4 +2,4 @@
 # name     url                                         commit
 authkit    https://github.com/authfly/authkit.git      9b626be193ba8739544bbf3291e082097c647bff
 authfly    https://github.com/authfly/authfly.git      d640287a37d94559dfce22111e35e1ebb14f0dc0
-stalwart   https://github.com/authfly/stalwart.git     f24457dfa7b2cf789f1bb6e24b8c0a9af4b7ef56
+stalwart   https://github.com/authfly/stalwart.git     95f00ebb326810fa405f1d4b212e6cae63bca89a

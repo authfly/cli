@@ -33,3 +33,7 @@ bash tools/e2e-cross.sh               # cross-repo e2e: deploy via CLI → widge
 ## License
 
 MIT, © Auth Fly
+
+## UI (UI8Kit 3)
+
+`server/web` renders with UI8Kit 3 templ primitives and Authfly widgets from `github.com/authfly/authkit/widgets/templ` (pinned in `deps.lock`, `go.mod` replace → `./.deps/authkit/packages/ui/templ`). `apps/demo-react` uses `@authfly/react` primitives (`src/ui/*`) and widgets (`src/authfly`). After `.templ` edits: `templ generate`, rebuild `server/web/assets/app.css`, `go vet ./... && go test ./...`.
