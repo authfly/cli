@@ -1,5 +1,5 @@
 # Pinned sibling repos (tools/deps.sh checks them out into .deps/<name>). Update a pin: tools/deps.sh --bump <name>.
 # name     url                                         commit
-authkit    https://github.com/authfly/authkit.git      9b626be193ba8739544bbf3291e082097c647bff
+authkit    https://github.com/authfly/authkit.git      fb6e7223163e749d3fa6c40edde642f686a31470
 authfly    https://github.com/authfly/authfly.git      d640287a37d94559dfce22111e35e1ebb14f0dc0
 stalwart   https://github.com/authfly/stalwart.git     95f00ebb326810fa405f1d4b212e6cae63bca89a
