@@ -17,7 +17,7 @@ import (
 	"github.com/a-h/templ"
 	"github.com/authfly/cli/server/core"
 	"github.com/authfly/cli/server/ext"
-	blocks "github.com/authfly/authkit/widgets/templ/authfly"
+	blocks "github.com/authfly/authkit/packages/ui/templ/authfly"
 )
 
 //go:embed labels.json

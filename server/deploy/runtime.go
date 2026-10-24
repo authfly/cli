@@ -13,7 +13,7 @@ var widgetSet = map[string]string{
 	"vue":    "npm i @authfly/vue        # .vue blocks under @authfly/vue/blocks",
 	"svelte": "npm i @authfly/svelte     # .svelte blocks under @authfly/svelte/blocks",
 	"solid":  "npm i @authfly/solid      # .tsx blocks under @authfly/solid/blocks",
-	"templ":  "authfly/authkit packages/ui/templ: require github.com/authfly/authkit/widgets/templ + replace it with your checkout   # authfly.AuthflySignIn(...)",
+	"templ":  "authfly/authkit packages/ui/templ: require github.com/authfly/authkit/packages/ui/templ + replace it with your checkout   # authfly.AuthflySignIn(...)",
 	"twig":   "copy authfly/authkit packages/ui/twig (blocks/, authfly/, ui/, runtime/, src/; composer autoload) into your templates path",
 	"latte":  "copy authfly/authkit packages/ui/latte (blocks/, authfly/, ui/, runtime/, src/; composer autoload) into your templates path",
 	"jinja2": "copy authfly/authkit packages/ui/jinja2 (blocks/, authfly/, ui/, authfly_jinja/, ui8kit_jinja/) into your templates folder",

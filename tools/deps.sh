@@ -4,7 +4,7 @@
 #   tools/deps.sh --bump <name> move the pin to the source's current HEAD
 # Source: $AUTHFLY_DEPS_SRC/authfly-<name> when that checkout exists (default: the parent directory, i.e. sibling
 # checkouts), else the GitHub URL in deps.lock. Exact commit pins: nothing floats.
-#   authkit: widgets (8 runtimes) — the hosted pages render its templ blocks, the React demo imports its React blocks
+#   authkit: widgets (9 runtimes) — the hosted pages render its templ blocks, the React demo imports its React blocks
 #   stalwart: (release only) the Authfly Console, built by tools/release.sh against THIS checkout's server/core
 #   authfly: @authfly/core contract, providers, server SDKs (the demo uses @authfly/node, the e2e the PHP/Python SDKs)
 set -euo pipefail

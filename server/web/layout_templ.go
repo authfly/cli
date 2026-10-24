@@ -9,11 +9,11 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	af "github.com/authfly/authkit/widgets/templ/authfly"
-	"github.com/authfly/authkit/widgets/templ/ui/box"
-	"github.com/authfly/authkit/widgets/templ/ui/button"
-	"github.com/authfly/authkit/widgets/templ/ui/link"
-	"github.com/authfly/authkit/widgets/templ/ui/text"
+	af "github.com/authfly/authkit/packages/ui/templ/authfly"
+	"github.com/authfly/authkit/packages/ui/templ/ui/box"
+	"github.com/authfly/authkit/packages/ui/templ/ui/button"
+	"github.com/authfly/authkit/packages/ui/templ/ui/link"
+	"github.com/authfly/authkit/packages/ui/templ/ui/text"
 )
 
 // Document is the HTML document skeleton (html, head, body). It is the one place that names document tags: ui8kit has
