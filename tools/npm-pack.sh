@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the npm packages (NOT published — the maintainer runs `npm publish` for each tarball):
 #   authfly (bin authfly, runs the verified platform binary) + @authfly/cli-<os>-<arch> (one Go binary each).
-#   tools/npm-pack.sh 0.4.0   -> dist/npm/*.tgz
+#   tools/npm-pack.sh 0.4.1   -> dist/npm/*.tgz
 set -euo pipefail
 v=${1:?version}
 root=$(cd "$(dirname "$0")/.." && pwd)

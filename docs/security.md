@@ -51,6 +51,25 @@ Then open `http://localhost:4500` (Authfly Console). `http://localhost:8080` rea
 - Every action is written to a hash-chained audit log (`CONSOLE_DATA/console-audit.jsonl`), including refused CSRF attempts and failed logins.
 - Typed confirmation before destructive and GDPR actions. Secrets are masked in responses and in curl exports.
 
+## Release channel: signatures and pins
+
+`authfly deploy`, `upgrade`, `rollback` and `doctor` read the channel manifest (`channel.json`, by default from the
+latest GitHub release of authfly/cli) and trust nothing in it until its detached signature `channel.json.sig` checks
+out:
+
+- Ed25519 (Go standard library) over the exact bytes of `channel.json`: every release, binary sha256 and image digest
+  in the file is covered.
+- The CLI has the trusted public keys built in, by key id (`server/deploy/sign.go`, `TrustedKeys`). A signature by an
+  unknown key id, a modified manifest, or a missing `.sig` on an `https://` channel is refused with an error that
+  names the reason; `doctor` reports it as `FAIL channel`.
+- Dev channels (`tools/release.sh`, local files, `http://` test servers) can be accepted unsigned with
+  `channel.allow_unsigned: true` (`authfly init --allow-unsigned-channel`). Off by default, refused for `https://`,
+  and a present but wrong signature is refused anyway. `doctor` warns while it is on.
+- Inside the signed manifest, binaries are pinned by sha256 and images by the digest of their multi-arch index
+  (`docker pull repo@sha256:…`), so the registry cannot substitute content.
+
+Key handling and rotation: [Releasing](release.md#signing).
+
 ## Production checklist
 
 - Replace every `dev-only-*` secret: `STALWART_ADMIN_PASSWORD`, `AUTHFLY_SERVICE_PASSWORD`, `AUTHFLY_SECRET`, `AUTHFLY_ADMIN_KEY`, `CONSOLE_ADMIN`, `CONSOLE_SECRET`.

@@ -88,6 +88,9 @@ type Config struct {
 		Name     string `yaml:"name"`     // stable
 		Manifest string `yaml:"manifest"` // URL or file of channel.json
 		Version  string `yaml:"version"`  // release of the first deploy (empty = newest); later moves are `authfly upgrade`
+		// AllowUnsigned accepts a channel without channel.json.sig (local file or http:// dev channel). Off by default;
+		// never honored for https:// channels. A present but wrong signature is refused either way.
+		AllowUnsigned bool `yaml:"allow_unsigned,omitempty"`
 	} `yaml:"channel"`
 	Incus struct {
 		Network  string `yaml:"network"` // private bridge
@@ -210,6 +213,9 @@ func (c *Config) Validate() error {
 	} // https with http.tls=off is allowed: TLS terminated by your own reverse proxy
 	if c.HTTP.TLS == "manual" && (c.HTTP.CertFile == "" || c.HTTP.KeyFile == "") {
 		bad("http.tls=manual needs http.cert_file and http.key_file")
+	}
+	if c.Channel.AllowUnsigned && strings.HasPrefix(c.Channel.Manifest, "https://") {
+		bad("channel.allow_unsigned: only for local file and http:// dev channels; https channels must be signed")
 	}
 	if c.SignIn.Social || c.SignIn.TwoFactor || c.SignIn.WebAuthn {
 		bad("sign_in: social, two_factor and webauthn are coming; leave them false")

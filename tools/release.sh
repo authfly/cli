@@ -3,7 +3,8 @@
 # Build a local release into dist/<version> and add it to dist/channel.json (the channel manifest).
 #   tools/release.sh 0.3.0
 # Static binaries + SHA256SUMS, docker images authfly/authfly:<v> and authfly/console:<v> built FROM those binaries,
-# and the upstream Stalwart release pinned by its published sha256. Signing: TODO (docs/deploy.md).
+# and the upstream Stalwart release pinned by its published sha256. The local channel is NOT signed: deploy it with
+# channel.allow_unsigned: true (authfly init --allow-unsigned-channel); public releases are signed (docs/release.md).
 set -euo pipefail
 v=${1:?version}
 cd "$(dirname "$0")/.."

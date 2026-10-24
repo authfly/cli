@@ -3,7 +3,7 @@
 # → magic link. Every sibling repo comes from deps.lock (.deps/), nothing is copied.
 #   tools/e2e-cross.sh [dir]      default dir: /tmp/authfly-xrepo (docker target, gdpr pack, ports 4000/8080/4500)
 # Steps:
-#   1. tools/deps.sh; release $XREPO_VERSION (default 0.4.0) from this checkout + .deps/stalwart (Console)
+#   1. tools/deps.sh; release $XREPO_VERSION (default 0.4.1) from this checkout + .deps/stalwart (Console)
 #   2. authfly init -y (provider stalwart) + deploy + doctor (0 FAIL)
 #   3. /api/v1/capabilities → @authfly/core widgetProps; the hosted sign-in page renders authkit's templ block
 #      (data-testid=authfly-sign-in) and the React demo bundle is built from authkit's React blocks
@@ -12,7 +12,7 @@
 #   5. the flow suite (hosted pages + OIDC into the React demo + the Python/PHP SDKs from .deps/authfly)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd); cd "$root"
-dir=${1:-/tmp/authfly-xrepo}; v=${XREPO_VERSION:-0.4.0}
+dir=${1:-/tmp/authfly-xrepo}; v=${XREPO_VERSION:-0.4.1}
 AF="sudo -n $root/dist/$v/authfly-linux-amd64"
 step() { echo; echo "### $*"; }
 step "1. deps + release $v"
@@ -24,7 +24,7 @@ $AF init -y --force --name xrepo --target docker --provider stalwart --runtime r
   --operator "Auth Fly Test" --domain authfly.test --public-url http://localhost:4000 --tls off --http-port 4000 \
   --smtp-port 2525 --submissions-port 4465 --imaps-port 9993 --signin magic,password,username \
   --client "demo-react:Demo app (React)=http://localhost:5173/callback;adapters:Adapter test=http://localhost:9999/callback" \
-  --channel "$root/dist/channel.json"
+  --channel "$root/dist/channel.json" --allow-unsigned-channel
 sudo -n sed -i "s/^    version: \"\"/    version: $v/" authfly.yaml
 grep -q '^provider: stalwart' authfly.yaml
 $AF deploy | tail -3

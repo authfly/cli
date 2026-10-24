@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -234,10 +235,11 @@ func (x Incus) Deploy(rel *Release, p Pack) error {
 		return err
 	}
 	bins := map[string]string{}
-	for _, n := range []string{"authfly-linux-amd64", "console-linux-amd64", "stalwart-linux-amd64"} {
+	fa, fc, fs := ArchFile("authfly"), ArchFile("console"), ArchFile("stalwart") // binaries for this host's arch
+	for _, n := range []string{fa, fc, fs} {
 		a, ok := rel.Files[n]
 		if !ok {
-			return fmt.Errorf("release %s has no %s", rel.Version, n)
+			return fmt.Errorf("release %s has no %s (this host is linux/%s)", rel.Version, n, runtime.GOARCH)
 		}
 		path, err := c.FetchVerified(n, a)
 		if err != nil {
@@ -246,8 +248,8 @@ func (x Incus) Deploy(rel *Release, p Pack) error {
 		Log("verified %s sha256 %s…", n, a.SHA256[:12])
 		bins[n] = path
 	}
-	sw := filepath.Join(c.State(), "cache", "stalwart-"+rel.Files["stalwart-linux-amd64"].SHA256[:16])
-	if err := extractStalwart(bins["stalwart-linux-amd64"], sw); err != nil {
+	sw := filepath.Join(c.State(), "cache", "stalwart-"+rel.Files[fs].SHA256[:16])
+	if err := extractStalwart(bins[fs], sw); err != nil {
 		return err
 	}
 	if err := x.infra(); err != nil {
@@ -283,10 +285,10 @@ func (x Incus) Deploy(rel *Release, p Pack) error {
 		}
 		x.exec(inst, "sh", "-c", "chown -R "+user+": /etc/authfly && chmod 0700 "+sd)
 	}
-	if err := x.push(A, bins["authfly-linux-amd64"], "/usr/local/bin/authfly", "0755"); err != nil {
+	if err := x.push(A, bins[fa], "/usr/local/bin/authfly", "0755"); err != nil {
 		return err
 	}
-	if err := x.push(C, bins["console-linux-amd64"], "/usr/local/bin/authfly-console", "0755"); err != nil {
+	if err := x.push(C, bins[fc], "/usr/local/bin/authfly-console", "0755"); err != nil {
 		return err
 	}
 	for n, d := range p.Documents {

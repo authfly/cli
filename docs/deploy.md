@@ -52,8 +52,11 @@ delegation. Incus 6.3 or later can run OCI images, but this target does not need
 - **TLS.** `acme` (autocert), `manual` (cert/key files) or `off` (localhost only). Mail ACME is **stubbed**.
 - **Backups.** `AFBK1`: AES-256-GCM in 1 MiB chunks with a counter nonce and last-chunk AAD, so truncation and
   tampering are detected. Copy the `backup_key` off the server.
-- **Updates.** The channel manifest lists the version, the binary sha256 and the image digests. Anything that doesn't
-  match is refused. **Signing (sigstore/cosign) is TODO**: the manifest itself is not signed yet.
+- **Updates.** The channel manifest lists the version, the binary sha256 and the image digests (multi-arch index
+  digests). Anything that doesn't match is refused. The manifest itself is signed (Ed25519, detached
+  `channel.json.sig`, key ids built into the CLI): deploy, upgrade, rollback and doctor refuse an unsigned, tampered
+  or unknown-key channel before reading any digest from it. `channel.allow_unsigned` (dev only, never for https)
+  accepts an unsigned local channel. See [Releasing](release.md#signing).
 - **Rollback safety.** `upgrade` takes a backup or snapshot first and rolls back automatically if health or doctor
   fails. `rollback` restores the pre-upgrade data and release.
 
@@ -68,7 +71,8 @@ delegation. Incus 6.3 or later can run OCI images, but this target does not need
 
 - sqlite and postgres stores: `store: json` only.
 - Mail ACME.
-- Signature verification of the channel (sigstore bundles of the Stalwart release are not verified yet).
+- Stalwart's upstream sigstore bundles are not verified (its tarballs and image are pinned by sha256 / index digest
+  inside the signed channel).
 - The username toggle is coarse.
 - Firewall rules are generated and validated but were not loaded on the test box (it shares its netns with other
   workloads).

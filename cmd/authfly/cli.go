@@ -32,7 +32,7 @@ Usage: npx authfly <command> [flags]      (or the authfly binary)
 Common flag: -f authfly.yaml (default ./authfly.yaml). Docs: docs/deploy.md, docs/policies.md
 `
 
-var Version = "0.3.0"
+var Version = "0.4.1"
 
 func cliMain(cmd string, args []string) {
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
@@ -162,6 +162,7 @@ func initCmd(fs *flag.FlagSet, file *string, args []string) {
 	encrypt := fs.Bool("encryption-at-rest", false, "require encrypted storage")
 	firewall := fs.Bool("firewall", false, "incus: load the generated nftables rules")
 	noLimits := fs.Bool("incus-no-limits", false, "incus: no memory/process limits (hosts without cgroup memory delegation)")
+	fs.BoolVar(&c.Channel.AllowUnsigned, "allow-unsigned-channel", false, "accept a channel without signature (local file / http:// dev channel only; never https)")
 	verify := fs.String("require-verify", "true", "require email verification")
 	fs.Parse(args)
 	if *from != "" {

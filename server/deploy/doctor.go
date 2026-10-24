@@ -3,6 +3,7 @@ package deploy
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -207,12 +208,19 @@ func (c *Config) Doctor() []Finding {
 	// releases
 	st := c.LoadState()
 	if m, err := c.LoadManifest(); err == nil {
+		if m.SignedBy != "" {
+			add("PASS", "channel", "channel.json signature verified (Ed25519, key %s)", m.SignedBy)
+		} else {
+			add("WARN", "channel", "unsigned channel accepted (channel.allow_unsigned, dev only): %s", c.Channel.Manifest)
+		}
 		if rel, err := m.Find(st.Current); err == nil {
 			f = append(f, c.verifyRunning(rel)...)
 		}
 		if latest, _ := m.Find(""); latest != nil && latest.Version != st.Current {
 			add("INFO", "update", "release %s is available (running %s): authfly upgrade", latest.Version, st.Current)
 		}
+	} else if errors.Is(err, ErrChannelSignature) {
+		add("FAIL", "channel", "%v", err)
 	} else {
 		add("WARN", "update", "%v", err)
 	}
@@ -238,9 +246,9 @@ func (c *Config) Doctor() []Finding {
 func (c *Config) verifyRunning(rel *Release) []Finding {
 	var f []Finding
 	if c.Target == "incus" {
-		for inst, file := range map[string][2]string{c.Name + "-authfly": {"/usr/local/bin/authfly", "authfly-linux-amd64"}, c.Name + "-console": {"/usr/local/bin/authfly-console", "console-linux-amd64"}} {
+		for inst, file := range map[string][2]string{c.Name + "-authfly": {"/usr/local/bin/authfly", ArchFile("authfly")}, c.Name + "-console": {"/usr/local/bin/authfly-console", ArchFile("console")}} {
 			out, err := incus("exec", inst, "--", "sha256sum", file[0])
-			if err == nil && strings.HasPrefix(out, rel.Files[file[1]].SHA256) {
+			if a, ok := rel.Files[file[1]]; err == nil && ok && strings.HasPrefix(out, a.SHA256) {
 				f = append(f, Finding{"PASS", "integrity", fmt.Sprintf("%s:%s matches channel %s", inst, file[0], rel.Version)})
 			} else {
 				f = append(f, Finding{"FAIL", "integrity", fmt.Sprintf("%s:%s does not match the channel checksum", inst, file[0])})

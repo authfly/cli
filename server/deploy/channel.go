@@ -9,14 +9,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
 
-// Channel manifest (channel.json). Every artifact is pinned by sha256; deploy/upgrade refuse anything that does not
-// match. Signing: TODO — no signing infrastructure exists yet. Design (docs/deploy.md): the release workflow signs
-// channel.json with minisign/cosign keyless, the CLI embeds the public key and verifies channel.json before trusting
-// any digest in it. Stalwart's upstream tarballs already ship sigstore bundles; verifying them is part of that TODO.
+// Channel manifest (channel.json). Every artifact is pinned by sha256 (files) or registry digest (images);
+// deploy/upgrade refuse anything that does not match. The manifest itself is signed: LoadManifest verifies the
+// detached channel.json.sig (Ed25519, sign.go) against the keys built into the CLI before trusting any digest in it.
 type Artifact struct {
 	URL    string `json:"url"`
 	SHA256 string `json:"sha256"`
@@ -24,20 +24,31 @@ type Artifact struct {
 
 type Release struct {
 	Version string              `json:"version"`
-	Files   map[string]Artifact `json:"files"`  // authfly-linux-amd64, console-linux-amd64, stalwart-linux-amd64 (tar.gz)
-	Images  map[string]string   `json:"images"` // authfly, console, stalwart -> ref@sha256:digest, or ref with "id" sha256 for local builds
+	Files   map[string]Artifact `json:"files"`  // <authfly|console|stalwart>-linux-<amd64|arm64> (stalwart: upstream tar.gz); see ArchFile
+	Images  map[string]string   `json:"images"` // authfly, console, stalwart -> ref@sha256:<multi-arch index digest>, or ref@<image id> for local builds
 	Notes   string              `json:"notes,omitempty"`
 }
 
 type Manifest struct {
 	Channel  string    `json:"channel"`
 	Releases []Release `json:"releases"` // newest last
+	SignedBy string    `json:"-"`        // key id that signed it; "" = unsigned dev channel (channel.allow_unsigned)
 }
+
+// ArchFile is the files key of a binary for this host's architecture (Incus runs the binaries on the host's arch).
+func ArchFile(base string) string { return base + "-linux-" + runtime.GOARCH }
+
+// signatureRequired: https channels must always be signed; channel.allow_unsigned only covers file paths, file:// and
+// plain http:// dev servers (tools/release.sh, e2e).
+func (c *Config) signatureRequired() bool {
+	return !c.Channel.AllowUnsigned || strings.HasPrefix(c.Channel.Manifest, "https://")
+}
+
+var httpClient = &http.Client{Timeout: 60 * time.Second}
 
 func fetch(src string) ([]byte, error) {
 	if strings.HasPrefix(src, "https://") || strings.HasPrefix(src, "http://") {
-		cl := &http.Client{Timeout: 60 * time.Second}
-		r, err := cl.Get(src)
+		r, err := httpClient.Get(src)
 		if err != nil {
 			return nil, err
 		}
@@ -61,6 +72,19 @@ func (c *Config) LoadManifest() (*Manifest, error) {
 		return nil, fmt.Errorf("channel manifest: %w", err)
 	}
 	m := &Manifest{}
+	// The signature is checked on the raw bytes before anything in them is parsed or trusted.
+	if sig, serr := fetch(src + ".sig"); serr == nil {
+		ring, err := Keyring(trustedKeys)
+		if err != nil {
+			return nil, err
+		}
+		if m.SignedBy, err = VerifyChannel(b, sig, ring); err != nil {
+			return nil, fmt.Errorf("channel %s: %w", src, err)
+		}
+	} else if c.signatureRequired() {
+		return nil, fmt.Errorf("channel %s: %w: no channel.json.sig (%v): refusing an unsigned channel. Official channels are signed; "+
+			"for a local or dev channel (file or http://) set channel.allow_unsigned: true (authfly init --allow-unsigned-channel)", src, ErrChannelSignature, serr)
+	}
 	if err := json.Unmarshal(b, m); err != nil {
 		return nil, fmt.Errorf("channel manifest: %w", err)
 	}

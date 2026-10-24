@@ -1,6 +1,6 @@
 {
   "name": "authfly",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Self-hosted auth + secure personal-data storage (Authfly + Stalwart): npx authfly init / deploy / doctor",
   "license": "MIT",
   "homepage": "https://github.com/authfly/cli",
@@ -9,10 +9,10 @@
   "files": ["bin", "checksums.json"],
   "engines": { "node": ">=18" },
   "optionalDependencies": {
-    "@authfly/cli-linux-x64": "0.4.0",
-    "@authfly/cli-linux-arm64": "0.4.0",
-    "@authfly/cli-darwin-x64": "0.4.0",
-    "@authfly/cli-darwin-arm64": "0.4.0",
-    "@authfly/cli-win32-x64": "0.4.0"
+    "@authfly/cli-linux-x64": "0.4.1",
+    "@authfly/cli-linux-arm64": "0.4.1",
+    "@authfly/cli-darwin-x64": "0.4.1",
+    "@authfly/cli-darwin-arm64": "0.4.1",
+    "@authfly/cli-win32-x64": "0.4.1"
   }
 }
