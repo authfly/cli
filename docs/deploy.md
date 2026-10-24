@@ -53,8 +53,8 @@ delegation. Incus 6.3 or later can run OCI images, but this target does not need
 - **Backups.** `AFBK1`: AES-256-GCM in 1 MiB chunks with a counter nonce and last-chunk AAD, so truncation and
   tampering are detected. Copy the `backup_key` off the server.
 - **Updates.** The channel manifest lists the version, the binary sha256 and the image digests (multi-arch index
-  digests). Anything that doesn't match is refused. The manifest itself is signed (Ed25519, detached
-  `channel.json.sig`, key ids built into the CLI): deploy, upgrade, rollback and doctor refuse an unsigned, tampered
+  digests). Anything that doesn't match is refused. The manifest itself is signed (OpenSSH SSHSIG by the release
+  YubiKey, detached `channel.json.sig`, trusted keys built into the CLI): deploy, upgrade, rollback and doctor refuse an unsigned, tampered
   or unknown-key channel before reading any digest from it. `channel.allow_unsigned` (dev only, never for https)
   accepts an unsigned local channel. See [Releasing](release.md#signing).
 - **Rollback safety.** `upgrade` takes a backup or snapshot first and rolls back automatically if health or doctor

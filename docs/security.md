@@ -57,18 +57,22 @@ Then open `http://localhost:4500` (Authfly Console). `http://localhost:8080` rea
 latest GitHub release of authfly/cli) and trust nothing in it until its detached signature `channel.json.sig` checks
 out:
 
-- Ed25519 (Go standard library) over the exact bytes of `channel.json`: every release, binary sha256 and image digest
-  in the file is covered.
-- The CLI has the trusted public keys built in, by key id (`server/deploy/sign.go`, `TrustedKeys`). A signature by an
-  unknown key id, a modified manifest, or a missing `.sig` on an `https://` channel is refused with an error that
-  names the reason; `doctor` reports it as `FAIL channel`.
+- OpenSSH SSHSIG, namespace `authfly-channel`, sha512, over the exact bytes of `channel.json`: every release, binary
+  sha256 and image digest in the file is covered.
+- The signing key is a FIDO2 security key (`sk-ssh-ed25519@openssh.com`, application `ssh:authfly-release`, on a
+  YubiKey): the private key never exists outside the hardware, and every signature needs a touch. The CLI requires
+  the user-presence flag in the signature.
+- The CLI has the trusted public keys built in (`TrustedKeys` in `server/deploy/sign.go`, `authorized_keys` format).
+  A signature by an unknown key, for another namespace or application, without touch, a modified manifest, or a
+  missing `.sig` on an `https://` channel is refused with an error that names the reason; `doctor` reports it as
+  `FAIL channel` and shows the signing key and counter on `PASS`.
 - Dev channels (`tools/release.sh`, local files, `http://` test servers) can be accepted unsigned with
   `channel.allow_unsigned: true` (`authfly init --allow-unsigned-channel`). Off by default, refused for `https://`,
   and a present but wrong signature is refused anyway. `doctor` warns while it is on.
 - Inside the signed manifest, binaries are pinned by sha256 and images by the digest of their multi-arch index
   (`docker pull repo@sha256:…`), so the registry cannot substitute content.
 
-Key handling and rotation: [Releasing](release.md#signing).
+Signing on Windows/macOS/Linux, the spare key, loss and rotation: [Releasing](release.md#signing).
 
 ## Production checklist
 

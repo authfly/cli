@@ -209,7 +209,7 @@ func (c *Config) Doctor() []Finding {
 	st := c.LoadState()
 	if m, err := c.LoadManifest(); err == nil {
 		if m.SignedBy != "" {
-			add("PASS", "channel", "channel.json signature verified (Ed25519, key %s)", m.SignedBy)
+			add("PASS", "channel", "channel.json signature verified (SSHSIG, namespace %s): %s", SigNamespace, m.SignedBy)
 		} else {
 			add("WARN", "channel", "unsigned channel accepted (channel.allow_unsigned, dev only): %s", c.Channel.Manifest)
 		}

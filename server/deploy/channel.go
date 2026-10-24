@@ -16,7 +16,7 @@ import (
 
 // Channel manifest (channel.json). Every artifact is pinned by sha256 (files) or registry digest (images);
 // deploy/upgrade refuse anything that does not match. The manifest itself is signed: LoadManifest verifies the
-// detached channel.json.sig (Ed25519, sign.go) against the keys built into the CLI before trusting any digest in it.
+// detached channel.json.sig (OpenSSH SSHSIG by the release YubiKey, sign.go) against the keys built into the CLI before trusting any digest in it.
 type Artifact struct {
 	URL    string `json:"url"`
 	SHA256 string `json:"sha256"`
@@ -32,7 +32,7 @@ type Release struct {
 type Manifest struct {
 	Channel  string    `json:"channel"`
 	Releases []Release `json:"releases"` // newest last
-	SignedBy string    `json:"-"`        // key id that signed it; "" = unsigned dev channel (channel.allow_unsigned)
+	SignedBy string    `json:"-"`        // trusted key(s) that signed it; "" = unsigned dev channel (channel.allow_unsigned)
 }
 
 // ArchFile is the files key of a binary for this host's architecture (Incus runs the binaries on the host's arch).
