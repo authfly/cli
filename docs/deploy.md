@@ -13,7 +13,7 @@ The `authfly` npm package carries no install script and downloads nothing. Its p
 
 ## Wizard (`authfly init`)
 
-1. **App:** runtime (react, vue, svelte, solid, templ, twig, latte, jinja2), name, and adapter (node, go, php, python).
+1. **App:** runtime (react, vue, svelte, solid, templ, twig, latte, jinja2; the web-component widgets are used directly from authfly/authkit), name, and adapter (node, go, php, python).
 2. **Domain:** mail domain, public URL, TLS mode (`acme` / `manual` / `off` for localhost), and ports.
 3. **Sign-in:** methods (magic link and/or password) and OIDC clients (`id:Name=redirect_uri;…`).
 4. **Policy:** pack (gdpr / us-pii / ru-152fz / none), operator, host country, and US states.

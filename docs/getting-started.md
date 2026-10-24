@@ -1,6 +1,6 @@
 # Getting started
 
-Authfly is a self-hosted sign-in kit in the spirit of WorkOS Authfly, built on **Stalwart**, the mail server with a built-in directory and OpenID Connect provider. Your users' accounts are mailboxes in Stalwart; Authfly adds the flows (sign up, sign in, magic link, verification, password reset, sign out, consent) and widgets for eight runtimes.
+Authfly is a self-hosted sign-in kit in the spirit of WorkOS AuthKit, built on **Stalwart**, the mail server with a built-in directory and OpenID Connect provider. Your users' accounts are mailboxes in Stalwart; Authfly adds the flows (sign up, sign in, magic link, verification, password reset, sign out, consent) and widgets for nine runtimes.
 
 ## Run it
 

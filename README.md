@@ -8,14 +8,14 @@ rollback, backup, restore and doctor.
     npx authfly deploy    # then status | doctor | backup | restore | upgrade | rollback | down
 
 Docs: `docs/deploy.md` (CLI, targets, security model), `docs/policies.md` (packs, citations, not legal advice),
-`docs/getting-started.md`, `docs/architecture.md`, `docs/security.md`, `docs/gdpr.md`, `docs/oidc.md`.
+`docs/getting-started.md`, `docs/architecture.md`, `docs/security.md`, `docs/gdpr.md`, `docs/oidc.md`, `docs/extensions.md`.
 
 ## The four repos
 
 | Repo | Role | How this repo uses it |
 |---|---|---|
 | **authfly/cli** (this) | server, CLI, deploy, policy packs, user docs, deploy e2e | — |
-| authfly/authkit | widgets for 8 runtimes + docs site | pinned in `deps.lock` → `.deps/authkit`. The hosted pages render its templ blocks; the React demo imports its React blocks |
+| authfly/authkit | widgets for 9 runtimes (UI8Kit 3) + docs site | pinned in `deps.lock` → `.deps/authkit`. The hosted pages render its templ blocks; the React demo imports its React blocks |
 | authfly/authfly | `@authfly/core` contract, providers, server SDKs, contract tests | pinned → `.deps/authfly`. The demo uses `@authfly/node`; the e2e drives the Python/PHP SDKs. `provider: stalwart` = `@authfly/provider-stalwart` |
 | authfly/stalwart | internal: Stalwart dev stack, JMAP audit, Console, compat e2e | imports this repo's `server/core` (owner of the Go JMAP client). The release ships its Console binary |
 
@@ -25,7 +25,7 @@ Docs: `docs/deploy.md` (CLI, targets, security model), `docs/policies.md` (packs
 bun install && bash tools/deps.sh     # check out the pinned repos into .deps/ (sibling checkouts preferred)
 go build ./... && go vet ./... && go test ./...
 npx ui8px@latest lint
-bash tools/release.sh 0.3.1           # dist/<v> binaries + SHA256SUMS + images + dist/channel.json
+bash tools/release.sh 0.4.0           # dist/<v> binaries + SHA256SUMS + images + dist/channel.json
 bash tools/e2e-deploy.sh <deploy dir> # flow / security / gdpr suites against a deployment
 bash tools/e2e-cross.sh               # cross-repo e2e: deploy via CLI → widgets → Stalwart adapter → magic link
 ```
