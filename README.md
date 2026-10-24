@@ -8,7 +8,7 @@ rollback, backup, restore and doctor.
     npx authfly deploy    # then status | doctor | backup | restore | upgrade | rollback | down
 
 Docs: `docs/deploy.md` (CLI, targets, security model), `docs/policies.md` (packs, citations, not legal advice),
-`docs/getting-started.md`, `docs/architecture.md`, `docs/security.md`, `docs/gdpr.md`, `docs/oidc.md`, `docs/extensions.md`.
+`docs/getting-started.md`, `docs/architecture.md`, `docs/security.md`, `docs/gdpr.md`, `docs/oidc.md`, `docs/extensions.md`, `docs/release.md` (public release channel).
 
 ## The four repos
 
@@ -25,7 +25,8 @@ Docs: `docs/deploy.md` (CLI, targets, security model), `docs/policies.md` (packs
 bun install && bash tools/deps.sh     # check out the pinned repos into .deps/ (sibling checkouts preferred)
 go build ./... && go vet ./... && go test ./...
 npx ui8px@latest lint
-bash tools/release.sh 0.4.0           # dist/<v> binaries + SHA256SUMS + images + dist/channel.json
+bash tools/release.sh 0.4.0           # local release: dist/<v> binaries + SHA256SUMS + images + dist/channel.json
+bash tools/release-public.sh 0.4.0    # public channel (dry run by default): dist/release/<v>, see docs/release.md
 bash tools/e2e-deploy.sh <deploy dir> # flow / security / gdpr suites against a deployment
 bash tools/e2e-cross.sh               # cross-repo e2e: deploy via CLI → widgets → Stalwart adapter → magic link
 ```

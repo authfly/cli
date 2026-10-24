@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Build a LOCAL release (file:// URLs, local image IDs) into dist/<version>; the public channel is tools/release-public.sh.
 # Build a local release into dist/<version> and add it to dist/channel.json (the channel manifest).
 #   tools/release.sh 0.3.0
 # Static binaries + SHA256SUMS, docker images authfly/authfly:<v> and authfly/console:<v> built FROM those binaries,
