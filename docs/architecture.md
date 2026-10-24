@@ -16,7 +16,7 @@
 - **Authfly core** (`server/core`, Go): creates accounts and changes passwords over JMAP, gets authorization codes from `/api/auth`, exchanges codes at `/auth/token`, verifies ID tokens (ES256, JWKS), sends mail over SMTP, signs single-use links (HMAC) and keeps a small state file (verified addresses, used links).
 - **Hosted pages** (`server/web`, templ): every flow as server-rendered HTML forms with CSRF protection (double-submit cookie). They work without JavaScript.
 - **JSON API** (`/api/v1`): the same flows for adapters and single-page apps.
-- **Widgets** (authfly/authkit, pinned in `deps.lock`): the forms as components for nine runtimes (react, vue, svelte, solid, webcomponent, templ, twig, latte, jinja2), built on UI8Kit 3 primitives (`npx ui8kit@3`, `@ui8kit/registry` 3.2.2) with the same DOM. They depend only on the `@authfly/core` contract (authfly/authfly).
+- **Widgets** (authfly/authkit, pinned in `deps.lock`): the forms as components for nine runtimes (react, vue, svelte, solid, webcomponent, templ, twig, latte, jinja2), built on UI8Kit 3 primitives (`npx ui8kit@3`, `@ui8kit/registry` 3.3.0) with the same DOM. They depend only on the `@authfly/core` contract (authfly/authfly).
 
 ## Sessions
 
