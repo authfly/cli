@@ -36,7 +36,7 @@ func TestStalwartV1LiveAuthShape(t *testing.T) {
 	}
 	_, err = sw.AuthorizeEx(ctx, AuthCodeRequest{
 		AccountName: "nobody-live-check@example.invalid", AccountSecret: "not-a-password",
-		Query: "client_id=authfly&redirect_uri=http://127.0.0.1/cb&response_type=code&code_challenge=abc&code_challenge_method=S256",
+		Query:   "client_id=authfly&redirect_uri=http://127.0.0.1/cb&response_type=code&code_challenge=abc&code_challenge_method=S256&state=live",
 		Consent: true,
 	})
 	if err != ErrInvalidCredentials && err != ErrMFARequired && err != ErrExpired {

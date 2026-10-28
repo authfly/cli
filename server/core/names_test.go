@@ -54,3 +54,16 @@ func TestConfigDomains(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+func TestParseMethods(t *testing.T) {
+	if got := ParseMethods("password"); len(got) != 1 || got[0] != "password" {
+		t.Fatalf("%v", got)
+	}
+	c := Config{Methods: ParseMethods("password")}
+	if c.HasMethod("magic") || !c.HasMethod("password") {
+		t.Fatal("password-only")
+	}
+	if !((Config{}).HasMethod("magic") && (Config{}).HasMethod("password")) {
+		t.Fatal("empty Methods means both")
+	}
+}

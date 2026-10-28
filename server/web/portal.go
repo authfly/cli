@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/authfly/cli/server/core"
 	blocks "github.com/authfly/authkit/packages/ui/templ/authfly"
+	"github.com/authfly/cli/server/core"
 )
 
 type mfaPending struct {
@@ -445,7 +445,7 @@ func (s *Server) showConsent(w http.ResponseWriter, r *http.Request, or *oauthRe
 	}
 	s.render(w, r, 200, s.text(r, "consent", "title"), blocks.AuthflyConsent(blocks.AuthflyConsentProps{
 		Id: "authfly", Title: s.text(r, "consent", "title"),
-		Text: s.Clients[or.ClientID].Name + " wants to sign you in with your mail account.",
+		Text:   s.Clients[or.ClientID].Name + " wants to sign you in with your mail account.",
 		Action: "/oauth/consent", Csrf: s.csrf(w, r),
 		Client: s.Clients[or.ClientID].Name, Account: account, Scopes: scopes, Labels: s.lab(r, "consent"),
 	}))

@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
+	blocks "github.com/authfly/authkit/packages/ui/templ/authfly"
 	"github.com/authfly/cli/server/core"
 	"github.com/authfly/cli/server/ext"
-	blocks "github.com/authfly/authkit/packages/ui/templ/authfly"
 )
 
 //go:embed labels.json
@@ -46,6 +46,7 @@ type Server struct {
 	labels  map[string]map[string]map[string]any
 	mfaMu   sync.Mutex
 	mfa     map[string]mfaPending
+	Limiter *RateLimiter
 }
 
 func New(svc *core.Service, reg ext.Registry, clients []Client, secure bool) *Server {
@@ -106,7 +107,11 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("POST /oauth/consent", s.consentPost)
 	s.api(m)
 	s.oidcProxy(m)
-	return logRequests(m)
+	h := logRequests(m)
+	if s.Limiter != nil {
+		h = s.Limiter.Wrap(h)
+	}
+	return h
 }
 
 func logRequests(h http.Handler) http.Handler {
@@ -263,7 +268,18 @@ func (s *Server) signInView(w http.ResponseWriter, r *http.Request, status int, 
 	if action == "" {
 		action = r.URL.Path
 	}
-	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflySignIn(blocks.AuthflySignInProps{Id: "authfly", Title: s.text(r, page, "title"), Text: s.text(r, page, "text"),
+	text := s.text(r, page, "text")
+	if method == "password" && action == "/oauth/authorize" {
+		if u := s.user(r); u != nil {
+			text = s.text(r, "consent", "reauth")
+			if text == "" {
+				text = "You're signed in as " + u.Address + ". Enter your password to authorize this app."
+			} else {
+				text = strings.ReplaceAll(text, "{account}", u.Address)
+			}
+		}
+	}
+	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflySignIn(blocks.AuthflySignInProps{Id: "authfly", Title: s.text(r, page, "title"), Text: text,
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: labels, Providers: s.providers(), Method: method, Identifier: map[bool]string{true: "email", false: "any"}[method == "magic"], Social: social}))
 }
 
@@ -378,9 +394,19 @@ func (s *Server) requestView(w http.ResponseWriter, r *http.Request, status int,
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab(r, page), Token: token, Kind: kind}))
 }
 func (s *Server) forgotPage(w http.ResponseWriter, r *http.Request) {
+	if !s.Svc.MailEnabled() {
+		s.notice(w, r, 503, "linkerror", "error", "mail", s.text(r, "forgot", "nomail"), map[string]any{
+			"title": s.text(r, "forgot", "title"), "cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
+		})
+		return
+	}
 	s.requestView(w, r, 200, "forgot", "email", "/auth/forgot", "", "")
 }
 func (s *Server) forgotPost(w http.ResponseWriter, r *http.Request) {
+	if !s.Svc.MailEnabled() {
+		s.forgotPage(w, r)
+		return
+	}
 	if !s.csrfOK(r) {
 		s.requestView(w, r, 403, "forgot", "email", "/auth/forgot", "", "Your session expired. Try again.")
 		return
@@ -464,6 +490,7 @@ func Methods(reg ext.Registry) []map[string]any {
 func (s *Server) socialStub(w http.ResponseWriter, r *http.Request) {
 	s.notice(w, r, 501, "linkerror", "error", "globe", r.PathValue("provider"), map[string]any{"cta": "Back to sign in", "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": ""})
 }
+
 // ---- OIDC handoff: a relying party sends the browser here instead of Stalwart's /login; Authfly shows its sign-in,
 // asks Stalwart for an authorization code bound to the relying party's client id, redirect URI and PKCE challenge
 // (POST /api/auth), shows the consent, then redirects back with Stalwart's code. The relying party exchanges the code

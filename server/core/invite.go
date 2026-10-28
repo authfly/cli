@@ -18,9 +18,9 @@ var (
 // Invite is a single-use, expiring token that allows sign-up of one local-part kind.
 type Invite struct {
 	ID      string `json:"id"`
-	Hash    string `json:"hash"`              // sha256 of the secret token (the secret is shown once)
-	Kind    string `json:"kind"`              // KindUser | KindOrg
-	Note    string `json:"note,omitempty"`    // operator memo, not shown to the invitee
+	Hash    string `json:"hash"`           // sha256 of the secret token (the secret is shown once)
+	Kind    string `json:"kind"`           // KindUser | KindOrg
+	Note    string `json:"note,omitempty"` // operator memo, not shown to the invitee
 	Created int64  `json:"created"`
 	Expires int64  `json:"expires"`
 	Used    int64  `json:"used,omitempty"`
@@ -50,13 +50,12 @@ func (s *Store) CreateInvite(kind, note string, ttl time.Duration) (token string
 		Created: now,
 		Expires: now + int64(ttl.Seconds()),
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.data.Invites == nil {
-		s.data.Invites = map[string]Invite{}
-	}
-	s.data.Invites[inv.ID] = inv
-	s.save()
+	s.do(true, func() {
+		if s.data.Invites == nil {
+			s.data.Invites = map[string]Invite{}
+		}
+		s.data.Invites[inv.ID] = inv
+	})
 	return token, inv, nil
 }
 
@@ -67,71 +66,80 @@ func (s *Store) PeekInvite(token string) (*Invite, error) {
 	}
 	h := hashInvite(token)
 	now := time.Now().Unix()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, inv := range s.data.Invites {
-		if inv.Hash != h {
-			continue
+	var out *Invite
+	var err error = ErrBadInvite
+	s.do(false, func() {
+		for id, inv := range s.data.Invites {
+			if inv.Hash != h {
+				continue
+			}
+			if inv.Used > 0 || inv.Expires < now {
+				err = ErrBadInvite
+				return
+			}
+			inv.ID = id
+			cp := inv
+			out = &cp
+			err = nil
+			return
 		}
-		if inv.Used > 0 || inv.Expires < now {
-			return nil, ErrBadInvite
-		}
-		inv.ID = id
-		out := inv
-		return &out, nil
-	}
-	return nil, ErrBadInvite
+	})
+	return out, err
 }
 
 // ConsumeInvite marks the invite used by accountID (internal id, never an email).
 func (s *Store) ConsumeInvite(token, accountID string) error {
 	h := hashInvite(token)
 	now := time.Now().Unix()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, inv := range s.data.Invites {
-		if inv.Hash != h {
-			continue
+	err := ErrBadInvite
+	s.do(true, func() {
+		for id, inv := range s.data.Invites {
+			if inv.Hash != h {
+				continue
+			}
+			if inv.Used > 0 || inv.Expires < now {
+				err = ErrBadInvite
+				return
+			}
+			inv.Used = now
+			inv.UsedBy = accountID
+			s.data.Invites[id] = inv
+			err = nil
+			return
 		}
-		if inv.Used > 0 || inv.Expires < now {
-			return ErrBadInvite
-		}
-		inv.Used = now
-		inv.UsedBy = accountID
-		s.data.Invites[id] = inv
-		s.save()
-		return nil
-	}
-	return ErrBadInvite
+	})
+	return err
 }
 
 // ListInvites returns invites, newest first. Include used/expired.
 func (s *Store) ListInvites() []Invite {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]Invite, 0, len(s.data.Invites))
-	for id, inv := range s.data.Invites {
-		inv.ID = id
-		out = append(out, inv)
-	}
-	for i := 0; i < len(out); i++ {
-		for j := i + 1; j < len(out); j++ {
-			if out[j].Created > out[i].Created {
-				out[i], out[j] = out[j], out[i]
+	var out []Invite
+	s.do(false, func() {
+		out = make([]Invite, 0, len(s.data.Invites))
+		for id, inv := range s.data.Invites {
+			inv.ID = id
+			out = append(out, inv)
+		}
+		for i := 0; i < len(out); i++ {
+			for j := i + 1; j < len(out); j++ {
+				if out[j].Created > out[i].Created {
+					out[i], out[j] = out[j], out[i]
+				}
 			}
 		}
-	}
+	})
 	return out
 }
 
 // RevokeInvite deletes an unused invite.
 func (s *Store) RevokeInvite(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.data.Invites[id]; !ok {
-		return false
-	}
-	delete(s.data.Invites, id)
-	s.save()
-	return true
+	ok := false
+	s.do(true, func() {
+		if _, exists := s.data.Invites[id]; !exists {
+			return
+		}
+		delete(s.data.Invites, id)
+		ok = true
+	})
+	return ok
 }

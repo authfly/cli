@@ -48,6 +48,58 @@ func TestAuthorizeV1Body(t *testing.T) {
 	if q.Get("client_id") != "yself" || q.Get("code_challenge_method") != "S256" || q.Get("code_challenge") != "challenge" {
 		t.Fatalf("query %v", q)
 	}
+	if q.Get("state") != "s" {
+		t.Fatalf("state %v", q)
+	}
+}
+
+func TestAuthorizeSynthesizesState(t *testing.T) {
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var got map[string]any
+		b, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(b, &got)
+		query, _ = got["query"].(string)
+		_, _ = w.Write([]byte(`{"type":"authenticated","location":"https://x/?code=c"}`))
+	}))
+	defer srv.Close()
+	sw := &Stalwart{BaseURL: srv.URL, HTTP: srv.Client()}
+	if _, err := sw.Authorize(context.Background(), AuthCodeRequest{
+		AccountName: "a@b", AccountSecret: "x", ClientID: "c", RedirectURI: "https://x/cb", Consent: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	q, _ := url.ParseQuery(query)
+	if q.Get("state") == "" {
+		t.Fatalf("Stalwart 1.0 requires state, query=%q", query)
+	}
+}
+
+func TestPasswordSignInSendsState(t *testing.T) {
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth" {
+			var got map[string]any
+			b, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(b, &got)
+			query, _ = got["query"].(string)
+			_, _ = w.Write([]byte(`{"type":"authenticated","location":"https://x/?code=THECODE"}`))
+			return
+		}
+		http.Error(w, "no", 500)
+	}))
+	defer srv.Close()
+	st, _ := OpenStore("")
+	s := &Service{
+		Cfg:   Config{Domain: "cab.yself.link", UserDomainName: "cab.yself.link", PublicURL: "http://accounts.test", ClientID: "authfly"},
+		SW:    &Stalwart{BaseURL: srv.URL, HTTP: srv.Client()},
+		Store: st,
+	}
+	_, _, _ = s.PasswordSignIn(context.Background(), "alice", "password-ok-long")
+	q, _ := url.ParseQuery(query)
+	if q.Get("state") == "" {
+		t.Fatalf("password sign-in omitted state: %q", query)
+	}
 }
 
 func TestAuthorizeMFARequired(t *testing.T) {

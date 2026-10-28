@@ -100,6 +100,16 @@ func (s *Server) labLang(lang, page string) map[string]any {
 			m["signupLink"] = s.textLang(lang, "invite", "link")
 			m["signupHref"] = "/auth/sign-up"
 		}
+		if page == "signin" || page == "magic" {
+			if !s.Svc.Cfg.HasMethod("magic") {
+				m["magic"] = ""
+				m["magicHref"] = ""
+			}
+			if !s.Svc.MailEnabled() {
+				m["forgot"] = ""
+				m["forgotHref"] = ""
+			}
+		}
 	}
 	return m
 }

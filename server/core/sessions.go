@@ -12,66 +12,66 @@ type SessionRec struct {
 
 // PutSession records a new session.
 func (s *Store) PutSession(rec SessionRec) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.data.Sessions == nil {
-		s.data.Sessions = map[string][]SessionRec{}
-	}
-	if rec.Created == 0 {
-		rec.Created = time.Now().Unix()
-	}
-	s.data.Sessions[rec.AccountID] = append(s.data.Sessions[rec.AccountID], rec)
-	s.save()
+	s.do(true, func() {
+		if s.data.Sessions == nil {
+			s.data.Sessions = map[string][]SessionRec{}
+		}
+		if rec.Created == 0 {
+			rec.Created = time.Now().Unix()
+		}
+		s.data.Sessions[rec.AccountID] = append(s.data.Sessions[rec.AccountID], rec)
+	})
 }
 
 // SessionsOf lists sessions of an account id, newest first.
 func (s *Store) SessionsOf(accountID string) []SessionRec {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	in := s.data.Sessions[accountID]
-	out := make([]SessionRec, len(in))
-	copy(out, in)
-	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
-		out[i], out[j] = out[j], out[i]
-	}
+	var out []SessionRec
+	s.do(false, func() {
+		in := s.data.Sessions[accountID]
+		out = make([]SessionRec, len(in))
+		copy(out, in)
+		for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+			out[i], out[j] = out[j], out[i]
+		}
+	})
 	return out
 }
 
 // DropSession removes one session.
 func (s *Store) DropSession(accountID, sessionID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	cur := s.data.Sessions[accountID]
-	next := cur[:0]
-	for _, rec := range cur {
-		if rec.ID != sessionID {
-			next = append(next, rec)
+	s.do(true, func() {
+		cur := s.data.Sessions[accountID]
+		next := cur[:0]
+		for _, rec := range cur {
+			if rec.ID != sessionID {
+				next = append(next, rec)
+			}
 		}
-	}
-	if len(next) == 0 {
-		delete(s.data.Sessions, accountID)
-	} else {
-		s.data.Sessions[accountID] = next
-	}
-	s.save()
+		if len(next) == 0 {
+			delete(s.data.Sessions, accountID)
+		} else {
+			s.data.Sessions[accountID] = next
+		}
+	})
 }
 
 // DropSessions removes every session of an account (sign out everywhere).
 func (s *Store) DropSessions(accountID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.data.Sessions, accountID)
-	s.save()
+	s.do(true, func() {
+		delete(s.data.Sessions, accountID)
+	})
 }
 
 // HasSession reports whether the session id is still recorded (false after sign-out-everywhere).
 func (s *Store) HasSession(accountID, sessionID string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, rec := range s.data.Sessions[accountID] {
-		if rec.ID == sessionID {
-			return true
+	found := false
+	s.do(false, func() {
+		for _, rec := range s.data.Sessions[accountID] {
+			if rec.ID == sessionID {
+				found = true
+				return
+			}
 		}
-	}
-	return false
+	})
+	return found
 }

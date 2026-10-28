@@ -20,6 +20,7 @@ type Config struct {
 	RequireVerified bool   // refuse password sign-in until the address is verified
 	PublicSignup    bool   // when false (default), sign-up needs a single-use invite
 	ProductName     string
+	Methods         []string // password, magic; empty means both (tests / default)
 	MagicTTL        time.Duration
 	ResetTTL        time.Duration
 	VerifyTTL       time.Duration
@@ -34,6 +35,11 @@ type Service struct {
 	Sign  Signer
 	Store *Store
 	Audit *Audit // nil: no audit log
+}
+
+// MailEnabled reports whether SMTP is configured (forgot-password and magic links need it).
+func (s *Service) MailEnabled() bool {
+	return s != nil && s.Mail.Enabled()
 }
 
 // User is the signed-in identity.
@@ -199,7 +205,8 @@ func (s *Service) PasswordSignInMFA(ctx context.Context, identifier, password, m
 	name := ident.Address()
 	code, err := s.SW.Authorize(ctx, AuthCodeRequest{
 		AccountName: name, AccountSecret: password, MFAToken: mfaToken,
-		ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce, CodeChallenge: challenge,
+		ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce,
+		State: RandomString(12), CodeChallenge: challenge,
 		Consent: true,
 	})
 	if err != nil {

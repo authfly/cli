@@ -45,5 +45,7 @@ const { user } = await auth.callback(new URL(req.url).searchParams, pending);
 
 ## Limits
 
+- **Portal session cannot skip the RP password prompt.** Stalwart 1.0 `POST /api/auth` (type `authCode`) always requires `accountSecret`. Authfly does not store passwords, and a portal session (password or magic link) is not a Stalwart grant that can mint a code for another `client_id`. `/oauth/authorize` therefore asks for the password even when `authfly_session` is already set. The sign-in copy names the signed-in account; that is the limit of the `/api/auth` model.
 - **Magic link and SSO**: Stalwart issues codes only for a password it can check. A user signed in to Authfly by magic link is asked for the password once when an app starts SSO. Magic links sign in to Authfly itself and to apps that use the Authfly session or JSON API.
 - **Stalwart's own login page**: set `loginVia: "stalwart"` in the Node adapter to skip Authfly and use Stalwart's `/login` page instead.
+- **Discovery rewrite**: Authfly drops `device_authorization_endpoint`, `registration_endpoint`, `introspection_endpoint`, `client_id_metadata_document_supported`, and the `device_code` grant from `grant_types_supported`. `authorization_endpoint` is Authfly's `/oauth/authorize`.

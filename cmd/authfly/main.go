@@ -51,15 +51,17 @@ func initStalwart() {
 		clients = append(clients, core.OAuthClient{ID: c.ID, Name: c.Name, RedirectURIs: c.RedirectURIs})
 	}
 	var lines []string
-	var err error
-	for i := 0; i < 30; i++ { // Stalwart may still be starting
-		if lines, err = sw.Harden(context.Background(), core.HardenOptions{Domain: env("AUTHFLY_DOMAIN", env("AUTHFLY_USER_DOMAIN", "authfly.test")), OrgDomain: env("AUTHFLY_ORG_DOMAIN", ""), ServiceName: env("AUTHFLY_SERVICE_NAME", "authfly-svc"),
-			ServicePassword: pw, KeepWebUI: env("STALWART_KEEP_WEBUI", "") == "true", Clients: clients}); err == nil {
-			break
+	err := core.RetryHarden(30, 2*time.Second, func() error {
+		var herr error
+		lines, herr = sw.Harden(context.Background(), core.HardenOptions{Domain: env("AUTHFLY_DOMAIN", env("AUTHFLY_USER_DOMAIN", "authfly.test")), OrgDomain: env("AUTHFLY_ORG_DOMAIN", ""), ServiceName: env("AUTHFLY_SERVICE_NAME", "authfly-svc"),
+			ServicePassword: pw, KeepWebUI: env("STALWART_KEEP_WEBUI", "") == "true", Clients: clients})
+		if herr != nil && !core.IsSchemaError(herr) {
+			log.Printf("init-stalwart: %v (retrying)", herr)
+		} else if herr != nil {
+			log.Printf("init-stalwart: schema error (not retrying): %v", herr)
 		}
-		log.Printf("init-stalwart: %v (retrying)", err)
-		time.Sleep(2 * time.Second)
-	}
+		return herr
+	})
 	for _, l := range lines {
 		log.Println("init-stalwart:", l)
 	}
@@ -100,9 +102,10 @@ func main() {
 		Cfg: core.Config{Domain: userDomain, UserDomainName: userDomain, OrgDomainName: orgDomain, PublicURL: strings.TrimRight(env("AUTHFLY_PUBLIC_URL", "http://localhost:4000"), "/"),
 			ClientID: env("AUTHFLY_CLIENT_ID", "authfly"), RequireVerified: env("AUTHFLY_REQUIRE_VERIFIED", "true") == "true",
 			PublicSignup: env("AUTHFLY_PUBLIC_SIGNUP", "false") == "true", ProductName: env("AUTHFLY_PRODUCT", "Authfly"),
+			Methods:  core.ParseMethods(env("AUTHFLY_METHODS", "magic,password")),
 			MagicTTL: 15 * time.Minute, ResetTTL: 30 * time.Minute, VerifyTTL: 48 * time.Hour, AuditRetention: retention},
 		SW: sw,
-		Mail: &core.Mailer{Addr: env("SMTP_ADDR", "localhost:25"), From: env("SMTP_FROM", "noreply@authfly.test"), FromName: env("AUTHFLY_PRODUCT", "Authfly"),
+		Mail: &core.Mailer{Addr: env("SMTP_ADDR", ""), From: env("SMTP_FROM", "noreply@authfly.test"), FromName: env("AUTHFLY_PRODUCT", "Authfly"),
 			User: env("SMTP_USER", ""), Pass: env("SMTP_PASS", ""), TLS: env("SMTP_TLS", "") == "true", Insecure: env("SMTP_INSECURE", "") == "true"},
 		Sign:  core.Signer{Key: []byte(secret)},
 		Store: store,
@@ -135,6 +138,7 @@ func main() {
 		web.TermsVersion = v
 	}
 	srv := web.New(svc, reg, clients, strings.HasPrefix(svc.Cfg.PublicURL, "https://"))
+	srv.Limiter = web.NewRateLimiter(0, 0, web.ParseTrustedProxies(env("AUTHFLY_TRUSTED_PROXIES", "127.0.0.1,::1")))
 	addr := env("AUTHFLY_ADDR", ":4000")
 	log.Printf("authfly listening on %s (public %s, user %s org %s, publicSignup %t, stalwart %s)", addr, svc.Cfg.PublicURL, svc.Cfg.UserDomain(), svc.Cfg.OrgDomain(), svc.Cfg.PublicSignup, sw.BaseURL)
 	if a := env("AUTHFLY_ADMIN_ADDR", ""); a != "" { // internal admin API for the console: never publish this port

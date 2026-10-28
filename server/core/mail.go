@@ -22,6 +22,11 @@ type Mailer struct {
 	Helo     string // EHLO name; default: the domain of From (Stalwart rejects "localhost")
 }
 
+// Enabled reports whether outbound mail is configured (SMTP_ADDR set).
+func (m *Mailer) Enabled() bool {
+	return m != nil && strings.TrimSpace(m.Addr) != ""
+}
+
 // Send sends a plain-text message.
 func (m *Mailer) Send(to, subject, body string) error {
 	host, _, _ := net.SplitHostPort(m.Addr)

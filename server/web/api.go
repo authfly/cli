@@ -74,6 +74,9 @@ func (s *Server) api(m *http.ServeMux) {
 		return 200, map[string]any{"token": s.SessionToken(u), "user": u}
 	})
 	h("POST /api/v1/magic-link", func(r *http.Request, in map[string]string) (int, any) {
+		if !s.Svc.MailEnabled() {
+			return 503, map[string]string{"error": "mail_unavailable", "message": s.text(r, "forgot", "nomail")}
+		}
 		addr, err := s.Svc.RequestMagicLink(r.Context(), in["identifier"])
 		if err != nil {
 			return fail(400, err)
@@ -95,6 +98,9 @@ func (s *Server) api(m *http.ServeMux) {
 		return 200, map[string]any{"email": addr, "email_verified": true}
 	})
 	h("POST /api/v1/forgot", func(r *http.Request, in map[string]string) (int, any) {
+		if !s.Svc.MailEnabled() {
+			return 503, map[string]string{"error": "mail_unavailable", "message": s.text(r, "forgot", "nomail")}
+		}
 		addr, err := s.Svc.ForgotPassword(r.Context(), in["email"])
 		if err != nil {
 			return fail(400, err)
@@ -117,10 +123,18 @@ func (s *Server) api(m *http.ServeMux) {
 	})
 	s.meGDPR(h, fail)
 	h("GET /api/v1/config", func(r *http.Request, _ map[string]string) (int, any) {
+		methods := []string{}
+		if s.Svc.Cfg.HasMethod("password") {
+			methods = append(methods, "password")
+		}
+		if s.Svc.Cfg.HasMethod("magic") {
+			methods = append(methods, "magic_link")
+		}
 		return 200, map[string]any{
 			"domain": s.Svc.Cfg.UserDomain(), "org_domain": s.Svc.Cfg.OrgDomain(),
 			"product": s.Svc.Cfg.ProductName, "public_signup": s.Svc.Cfg.PublicSignup,
-			"methods": []string{"password", "magic_link"}, "methods_stubbed": []string{"social", "webauthn"},
+			"methods": methods, "methods_stubbed": []string{"social", "webauthn"},
+			"mail": s.Svc.MailEnabled(),
 		}
 	})
 }

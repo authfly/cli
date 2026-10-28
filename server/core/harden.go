@@ -8,9 +8,10 @@ package core
 //     account management, domain read and mailbox read-for-export permissions; no settings, queue, roles, logs or
 //     other sys* objects
 //   - the service account Authfly authenticates with (x:Account, custom role)
-//   - the bundled web admin and self-service UI off (x:Application enabled=false; /admin and /account answer 404)
-//   - OIDC: no anonymous dynamic client registration, client ids must be registered (x:OidcProvider), and the
-//     relying parties registered as x:OAuthClient with their redirect URIs
+//   - the bundled web admin and self-service UI off (x:Application enable=false; /admin and /account answer 404)
+//   - OIDC: client metadata documents (CIMD) disabled so clients must be registered as x:OAuthClient
+//     (Stalwart 1.0 x:OidcProvider.clientMetadataDocuments; v0.16 names anonymousClientRegistration /
+//     requireClientRegistration are invalid on 1.0)
 //   - no redirect of / to the web UI (x:Http redirectRoot null)
 //   - then x:Action UpdateApps + ReloadSettings so it applies without a restart
 
@@ -19,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // ServicePermissions are the permissions the Authfly service role adds on top of the User role.
@@ -82,6 +84,46 @@ func (s *Stalwart) queryGet(ctx context.Context, obj string, props []string) ([]
 	}
 	_ = json.Unmarshal(r[1][1], &out)
 	return out.List, nil
+}
+
+// IsSchemaError reports a Stalwart 1.0 invalid-property / unknown-field error. init-stalwart
+// must not retry these (they will not become valid after waiting for startup).
+func IsSchemaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	for _, p := range []string{
+		"invalidproperties", "invalid properties", "invalid property",
+		"unknown property", "unknown field", "invalid field",
+	} {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// RetryHarden runs fn up to attempts times. Schema errors fail immediately; other errors
+// (connection refused while Stalwart starts) wait sleep between tries.
+func RetryHarden(attempts int, sleep time.Duration, fn func() error) error {
+	if attempts < 1 {
+		attempts = 1
+	}
+	var err error
+	for i := 0; i < attempts; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		if IsSchemaError(err) {
+			return err
+		}
+		if i+1 < attempts && sleep > 0 {
+			time.Sleep(sleep)
+		}
+	}
+	return err
 }
 
 // Harden applies the steps; it returns a log line per step.
@@ -178,13 +220,13 @@ func (s *Stalwart) Harden(ctx context.Context, o HardenOptions) ([]string, error
 
 	// web UI
 	if !o.KeepWebUI {
-		apps, err := s.queryGet(ctx, "x:Application", []string{"description", "enabled"})
+		apps, err := s.queryGet(ctx, "x:Application", []string{"description", "enable"})
 		if err != nil {
 			return log, err
 		}
 		for _, a := range apps {
 			id, _ := a["id"].(string)
-			r, err := s.JMAP(ctx, []any{"x:Application/set", map[string]any{"update": map[string]any{id: map[string]any{"enabled": false}}}, "u"})
+			r, err := s.JMAP(ctx, []any{"x:Application/set", map[string]any{"update": map[string]any{id: map[string]any{"enable": false}}}, "u"})
 			if err == nil {
 				err = setOK(r, "application")
 			}
@@ -195,14 +237,14 @@ func (s *Stalwart) Harden(ctx context.Context, o HardenOptions) ([]string, error
 		}
 	}
 	r, err := s.JMAP(ctx, []any{"x:Http/set", map[string]any{"update": map[string]any{"singleton": map[string]any{"redirectRoot": nil}}}, "h"},
-		[]any{"x:OidcProvider/set", map[string]any{"update": map[string]any{"singleton": map[string]any{"anonymousClientRegistration": false, "requireClientRegistration": true}}}, "o"})
+		[]any{"x:OidcProvider/set", map[string]any{"update": map[string]any{"singleton": map[string]any{"clientMetadataDocuments": "disabled"}}}, "o"})
 	if err == nil {
 		err = setOK(r, "http/oidc")
 	}
 	if err != nil {
 		return log, err
 	}
-	log = append(log, "http redirectRoot off; oidc: anonymous registration off, registered clients required")
+	log = append(log, "http redirectRoot off; oidc: clientMetadataDocuments=disabled (CIMD / anonymous clients off)")
 	// privacy: Pyzor sends a digest of every incoming message to public.pyzor.org (a third party). Off by default; it
 	// also makes ReloadSettings independent of outbound DNS.
 	if r, err := s.JMAP(ctx, []any{"x:SpamPyzor/set", map[string]any{"update": map[string]any{"singleton": map[string]any{"enable": false}}}, "p"}); err == nil && setOK(r, "pyzor") == nil {

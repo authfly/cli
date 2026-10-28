@@ -43,6 +43,44 @@ func TestInviteExpired(t *testing.T) {
 	}
 }
 
+func TestStoreConcurrentInviteCreate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.json")
+	a, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokA, invA, err := a.CreateInvite(KindUser, "from-cli", time.Hour)
+	if err != nil || tokA == "" {
+		t.Fatal(err, invA)
+	}
+	got, err := b.PeekInvite(tokA)
+	if err != nil || got.ID != invA.ID {
+		t.Fatalf("server missed CLI invite: %v %+v", err, got)
+	}
+	tokB, invB, err := b.CreateInvite(KindOrg, "from-server", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := a.ListInvites()
+	if len(list) != 2 {
+		t.Fatalf("clobber: got %d invites %+v", len(list), list)
+	}
+	ids := map[string]bool{}
+	for _, inv := range list {
+		ids[inv.ID] = true
+	}
+	if !ids[invA.ID] || !ids[invB.ID] {
+		t.Fatalf("missing invite %+v", list)
+	}
+	if _, err := a.PeekInvite(tokB); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInviteUnknown(t *testing.T) {
 	st, _ := OpenStore(filepath.Join(t.TempDir(), "s.json"))
 	if _, err := st.PeekInvite("no-such-token"); err != ErrBadInvite {

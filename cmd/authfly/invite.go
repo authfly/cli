@@ -10,6 +10,8 @@ import (
 )
 
 func inviteCmd(args []string) {
+	// The store flocks AUTHFLY_STORE.lock and reloads before every write, so this
+	// is safe while `authfly serve` is running (same --store path). See docs/deploy-accounts-yself-link.md.
 	if len(args) == 0 {
 		die("usage: authfly invite create|list|revoke [flags]")
 	}

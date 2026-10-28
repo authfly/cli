@@ -119,6 +119,36 @@ func (c Config) Domains() []string {
 	return out
 }
 
+// ParseMethods splits AUTHFLY_METHODS (comma list). Empty input means password+magic.
+func ParseMethods(list string) []string {
+	var out []string
+	for _, m := range strings.Split(list, ",") {
+		m = strings.TrimSpace(strings.ToLower(m))
+		if m == "" {
+			continue
+		}
+		out = append(out, m)
+	}
+	if len(out) == 0 {
+		return []string{"password", "magic"}
+	}
+	return out
+}
+
+// HasMethod reports whether a sign-in method is enabled. Empty Methods means password+magic.
+func (c Config) HasMethod(name string) bool {
+	ms := c.Methods
+	if len(ms) == 0 {
+		ms = []string{"password", "magic"}
+	}
+	for _, m := range ms {
+		if m == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (c Config) kindOfDomain(domain string) string {
 	if o := c.OrgDomain(); o != "" && strings.EqualFold(domain, o) {
 		return KindOrg

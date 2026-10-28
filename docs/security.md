@@ -16,7 +16,7 @@ Authfly runs Stalwart as a private back end. The public internet sees the mail p
 
 Stalwart has one HTTP listener. The same port serves the OIDC endpoints, JMAP management (`/jmap` with `urn:stalwart:jmap`), `/api/*`, the device flow, dynamic client registration and introspection. Publishing it, even behind a path filter in a generic reverse proxy, exposes all of that. Authfly therefore publishes an allowlist and nothing more (`server/web/oidcproxy.go`):
 
-- `GET /.well-known/openid-configuration` and `/.well-known/oauth-authorization-server`, rewritten: `authorization_endpoint` points to Authfly's hosted sign-in (`/oauth/authorize`); the device, registration and introspection endpoints are removed.
+- `GET /.well-known/openid-configuration` and `/.well-known/oauth-authorization-server`, rewritten: `authorization_endpoint` points to Authfly's hosted sign-in (`/oauth/authorize`); the device, registration and introspection endpoints are removed, `client_id_metadata_document_supported` is dropped, and `device_code` is removed from `grant_types_supported`.
 - `GET /auth/jwks.json`, `POST /auth/token`, `GET`/`POST /auth/userinfo`.
 
 `STALWART_PUBLIC_URL` is Authfly's public URL, so the issuer in tokens and discovery is Authfly. Every other path, such as `/jmap`, `/api/*`, `/admin`, `/auth/register`, `/auth/device` or `/auth/introspect`, returns 404 or 405 on Authfly (tested).
@@ -28,8 +28,8 @@ The one-shot `stalwart-init` service runs with the bootstrap admin before Authfl
 1. Ensures the mail domain exists.
 2. Creates or updates the **least-privilege role `authfly-service`**: the built-in User role plus `sysAccountGet/Query/Create/Update/Destroy`, `sysDomainGet/Query`, `impersonate` and `fetchAnyBlob` (GDPR export of the mailbox), and `sysTaskCreate` with `taskStoreMaintenance` (blob purge after erasure). Stalwart refuses to grant permissions the caller lacks, so the role inherits User in order to create users.
 3. Creates or updates the service account `authfly-svc@DOMAIN` with that role. Authfly uses this account, never the admin.
-4. Disables the web admin and account apps (`x:Application.enabled=false`, then the `UpdateApps` action: `ReloadSettings` alone does not apply it).
-5. Locks OIDC: `x:OidcProvider.anonymousClientRegistration=false`, `requireClientRegistration=true`, and registers the clients (`AUTHFLY_CLIENTS` plus Authfly itself) as `x:OAuthClient`.
+4. Disables the web admin and account apps (`x:Application.enable=false` on Stalwart 1.0, then the `UpdateApps` action: `ReloadSettings` alone does not apply it).
+5. Locks OIDC: `x:OidcProvider.clientMetadataDocuments=disabled` (Stalwart 1.0 CIMD policy; v0.16 `anonymousClientRegistration` / `requireClientRegistration` are invalid properties), and registers the clients (`AUTHFLY_CLIENTS` plus Authfly itself) as `x:OAuthClient`. Schema errors from Harden fail immediately instead of retrying 30 times.
 
 Tested: the service account can manage accounts but gets errors for `x:Http`, `x:Role`, `x:QueuedMessage`, `x:OidcProvider` and `x:Application`; creating an Admin account with it is refused; anonymous registration returns an error; an unregistered client id gets no code; `/admin/` and `/account/` return 404 even on localhost.
 

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/authfly/cli/server/core"
 	af "github.com/authfly/authkit/packages/ui/templ/authfly"
 	"github.com/authfly/authkit/packages/ui/templ/ui/box"
 	"github.com/authfly/authkit/packages/ui/templ/ui/button"
@@ -13,6 +12,7 @@ import (
 	"github.com/authfly/authkit/packages/ui/templ/ui/label"
 	"github.com/authfly/authkit/packages/ui/templ/ui/link"
 	"github.com/authfly/authkit/packages/ui/templ/ui/text"
+	"github.com/authfly/cli/server/core"
 )
 
 func fieldFn(f func(af.FieldControl) templ.Component) func(af.FieldControl) templ.Component {
@@ -302,4 +302,3 @@ func PortalPrivacy(title, lead, csrf, info, errMsg string, events []core.AuditEv
 		)),
 	)
 }
-

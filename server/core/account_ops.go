@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base32"
@@ -67,7 +68,7 @@ func (s *Stalwart) CreateAccountKind(ctx context.Context, domain, name, password
 			return nil, err
 		}
 		acc["aliases"] = map[string]any{"0": map[string]any{
-			"enabled": false, "name": name, "domainId": mid,
+			"enable": false, "name": name, "domainId": mid,
 			"description": "namespace mirror",
 		}}
 	}
@@ -155,12 +156,8 @@ func (s *Stalwart) NameTaken(ctx context.Context, name string, domains ...string
 		}
 		var got struct {
 			List []struct {
-				Name    string `json:"name"`
-				Aliases []struct {
-					Name     string `json:"name"`
-					Enabled  bool   `json:"enabled"`
-					DomainID string `json:"domainId"`
-				} `json:"aliases"`
+				Name    string          `json:"name"`
+				Aliases json.RawMessage `json:"aliases"`
 			} `json:"list"`
 		}
 		_ = json.Unmarshal(r[1][1], &got)
@@ -168,7 +165,7 @@ func (s *Stalwart) NameTaken(ctx context.Context, name string, domains ...string
 			if strings.EqualFold(a.Name, name) {
 				return true, nil
 			}
-			for _, al := range a.Aliases {
+			for _, al := range parseAliases(a.Aliases) {
 				if strings.EqualFold(al.Name, name) {
 					return true, nil
 				}
@@ -176,6 +173,35 @@ func (s *Stalwart) NameTaken(ctx context.Context, name string, domains ...string
 		}
 	}
 	return false, nil
+}
+
+// aliasRec is a nested EmailAlias. Stalwart 1.0 List<T> serializes as a JSON object keyed by
+// index strings ({"0":{...}}), not an array. The field is `enable` (not enabled).
+type aliasRec struct {
+	Name     string `json:"name"`
+	Enable   *bool  `json:"enable"`
+	Enabled  *bool  `json:"enabled"`
+	DomainID string `json:"domainId"`
+}
+
+func parseAliases(raw json.RawMessage) []aliasRec {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	if raw[0] == '{' {
+		var obj map[string]aliasRec
+		if err := json.Unmarshal(raw, &obj); err == nil {
+			out := make([]aliasRec, 0, len(obj))
+			for _, a := range obj {
+				out = append(out, a)
+			}
+			return out
+		}
+	}
+	var arr []aliasRec
+	_ = json.Unmarshal(raw, &arr)
+	return arr
 }
 
 // ChangePassword sets a new password through x:AccountPassword (singleton) with currentSecret,

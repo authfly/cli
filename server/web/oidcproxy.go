@@ -62,12 +62,7 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/.well-known/") && res.StatusCode == 200 {
 		var d map[string]any
 		if json.Unmarshal(body, &d) == nil {
-			d["authorization_endpoint"] = s.Svc.Cfg.PublicURL + "/oauth/authorize"
-			d["revocation_endpoint"] = s.Svc.Cfg.PublicURL + "/auth/revoke"
-			d["end_session_endpoint"] = s.Svc.Cfg.PublicURL + "/auth/logout"
-			for _, k := range []string{"device_authorization_endpoint", "registration_endpoint", "introspection_endpoint"} {
-				delete(d, k)
-			}
+			rewriteDiscovery(d, s.Svc.Cfg.PublicURL)
 			body, _ = json.Marshal(d)
 		}
 	}
@@ -78,4 +73,44 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(res.StatusCode)
 	_, _ = w.Write(body)
+}
+
+// rewriteDiscovery points authorization at Authfly's hosted sign-in and strips surfaces Authfly does not proxy
+// (device flow, dynamic registration, introspection, CIMD).
+func rewriteDiscovery(d map[string]any, publicURL string) {
+	d["authorization_endpoint"] = publicURL + "/oauth/authorize"
+	d["revocation_endpoint"] = publicURL + "/auth/revoke"
+	d["end_session_endpoint"] = publicURL + "/auth/logout"
+	for _, k := range []string{
+		"device_authorization_endpoint", "registration_endpoint", "introspection_endpoint",
+		"client_id_metadata_document_supported",
+	} {
+		delete(d, k)
+	}
+	if g, ok := d["grant_types_supported"]; ok {
+		d["grant_types_supported"] = filterGrants(g)
+	}
+}
+
+func filterGrants(v any) []any {
+	var in []any
+	switch t := v.(type) {
+	case []any:
+		in = t
+	case []string:
+		for _, s := range t {
+			in = append(in, s)
+		}
+	default:
+		return nil
+	}
+	out := make([]any, 0, len(in))
+	for _, x := range in {
+		s, _ := x.(string)
+		if s == "urn:ietf:params:oauth:grant-type:device_code" || s == "device_code" {
+			continue
+		}
+		out = append(out, x)
+	}
+	return out
 }

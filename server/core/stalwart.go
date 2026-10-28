@@ -281,9 +281,12 @@ func (s *Stalwart) AuthorizeEx(ctx context.Context, a AuthCodeRequest) (*AuthRes
 		if a.Nonce != "" {
 			v.Set("nonce", a.Nonce)
 		}
-		if a.State != "" {
-			v.Set("state", a.State)
+		state := a.State
+		if state == "" {
+			// Stalwart 1.0 authorize.rs requires state ("The state parameter is missing.").
+			state = RandomString(12)
 		}
+		v.Set("state", state)
 		q = v.Encode()
 	}
 	body := map[string]any{"type": "authCode", "accountName": a.AccountName, "accountSecret": a.AccountSecret, "query": q, "consent": a.Consent}

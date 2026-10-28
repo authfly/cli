@@ -65,6 +65,7 @@
   "forgot": {
     "title": "Forgot your password?",
     "text": "Enter your address and we email you a reset link.",
+    "nomail": "Password reset is unavailable because this server has no mail delivery (SMTP_ADDR is unset).",
     "labels": {
       "field": "Email",
       "confirm": "",
@@ -138,6 +139,7 @@
   "consent": {
     "title": "Allow access",
     "text": "An application wants to sign you in with your mail account.",
+    "reauth": "You're signed in as {account}. Enter your password to authorize this app — Stalwart needs it to mint the code.",
     "labels": {
       "account": "Signed in as",
       "scopes": "It will see",
