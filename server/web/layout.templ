@@ -11,9 +11,9 @@ import (
 // Document is the HTML document skeleton (html, head, body). It is the one place that names document tags: ui8kit has
 // no primitive for the document root. Everything inside body is built from the UI8Kit 3 primitives and the Authfly
 // templ layer (authkit packages/ui/templ).
-templ Document(title string) {
+templ Document(title, locale string) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang={ locale }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -27,9 +27,32 @@ templ Document(title string) {
 	</html>
 }
 
-// Page is the Authfly page: a header with the product name and the theme toggle, the widget centered below.
-templ Page(product, title string) {
-	@Document(title + " - " + product) {
+templ langSwitch(locale, path string) {
+	@af.Group("2", "center", "", "", nil) {
+		if locale != "en" {
+			@link.Link(link.LinkProps{Href: "/auth/lang?set=en&next=" + path, Class: af.LinkSkin("text-sm")}) {
+				{ "EN" }
+			}
+		} else {
+			@text.Text(text.TextProps{Tag: "span", Class: "text-sm font-semibold"}) {
+				{ "EN" }
+			}
+		}
+		if locale != "ru" {
+			@link.Link(link.LinkProps{Href: "/auth/lang?set=ru&next=" + path, Class: af.LinkSkin("text-sm")}) {
+				{ "RU" }
+			}
+		} else {
+			@text.Text(text.TextProps{Tag: "span", Class: "text-sm font-semibold"}) {
+				{ "RU" }
+			}
+		}
+	}
+}
+
+// Page is the Authfly page: a header with the product name, language and the theme toggle, the widget centered below.
+templ Page(product, title, locale, path string) {
+	@Document(title + " - " + product, locale) {
 		@box.Box(box.BoxProps{Tag: "header", Class: "w-full border-b border-border"}) {
 			@box.Box(box.BoxProps{Class: "mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4"}) {
 				@link.Link(link.LinkProps{Href: "/", Class: "flex items-center gap-2 font-semibold"}) {
@@ -38,13 +61,61 @@ templ Page(product, title string) {
 						{ product }
 					}
 				}
-				@af.Group("2", "center", "", "", nil) {
+				@af.Group("4", "center", "", "", nil) {
+					@langSwitch(locale, path)
 					@ThemeToggle()
 				}
 			}
 		}
 		@box.Box(box.BoxProps{Tag: "main", Class: "w-full px-4 py-12"}) {
 			{ children... }
+		}
+	}
+}
+
+templ navLink(href, label, current string) {
+	if current == href {
+		@link.Link(link.LinkProps{Href: href, Class: af.LinkSkin("text-sm"), AriaCurrent: "page"}) {
+			{ label }
+		}
+	} else {
+		@link.Link(link.LinkProps{Href: href, Class: af.LinkSkin("text-sm text-muted-foreground")}) {
+			{ label }
+		}
+	}
+}
+
+// PortalShell is the signed-in account chrome: header, wrapped nav (no overflow at 1024px), main.
+templ PortalShell(product, title, locale, path, nav string, home, personal, security, apps, privacy, signout string) {
+	@Document(title + " - " + product, locale) {
+		@box.Box(box.BoxProps{Tag: "header", Class: "w-full border-b border-border"}) {
+			@box.Box(box.BoxProps{Class: "mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4"}) {
+				@link.Link(link.LinkProps{Href: "/account", Class: "flex items-center gap-2 font-semibold"}) {
+					@af.LucideIcon("shield-check", "md")
+					@text.Text(text.TextProps{Tag: "span"}) {
+						{ product }
+					}
+				}
+				@af.Group("4", "center", "", "", nil) {
+					@langSwitch(locale, path)
+					@ThemeToggle()
+				}
+			}
+		}
+		@box.Box(box.BoxProps{Class: "mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8"}) {
+			@box.Box(box.BoxProps{Tag: "nav", Class: "w-full"}) {
+				@af.Group("4", "center", "start", "flex-wrap", af.A("aria-label", "Account")) {
+					@navLink("/account", home, nav)
+					@navLink("/account/personal", personal, nav)
+					@navLink("/account/security", security, nav)
+					@navLink("/account/apps", apps, nav)
+					@navLink("/account/privacy", privacy, nav)
+					@navLink("/auth/sign-out", signout, "")
+				}
+			}
+			@box.Box(box.BoxProps{Tag: "main", Class: "w-full min-w-0"}) {
+				{ children... }
+			}
 		}
 	}
 }

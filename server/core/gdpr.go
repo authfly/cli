@@ -19,16 +19,16 @@ var ExportLimit = 5000
 // (verification, consent records, revocations), the audit trail, and the mailbox (mailboxes, identities, messages
 // with headers and text bodies) read over JMAP with the service account's impersonate permission.
 func (s *Service) Export(ctx context.Context, addr, actor string) (map[string]any, error) {
-	local, err := s.LocalPart(addr)
+	ident, err := s.ParseIdentifier(addr)
 	if err != nil {
 		return nil, err
 	}
-	addr = s.address(local)
-	acc, err := s.SW.FindAccount(ctx, s.Cfg.Domain, local)
+	addr = ident.Address()
+	acc, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local)
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"format": "authfly-export/1", "exportedAt": time.Now().UTC().Format(time.RFC3339), "subject": addr}
+	out := map[string]any{"format": "authfly-export/1", "exportedAt": time.Now().UTC().Format(time.RFC3339), "subject": addr, "accountId": acc.ID}
 	r, err := s.SW.JMAP(ctx, []any{"x:Account/get", map[string]any{"ids": []string{acc.ID}}, "a"})
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (s *Service) Export(ctx context.Context, addr, actor string) (map[string]an
 		out["account"] = rec
 	}
 	out["authfly"] = s.Store.Snapshot(addr)
-	out["audit"] = s.Audit.Query(addr, 0)
+	out["audit"] = s.Audit.Query(acc.ID, 0)
 	mr, err := s.SW.JMAPUsing(ctx, mailUsing,
 		[]any{"Mailbox/get", map[string]any{"accountId": acc.ID, "ids": nil}, "m"},
 		[]any{"Identity/get", map[string]any{"accountId": acc.ID, "ids": nil}, "i"},
@@ -66,7 +66,7 @@ func (s *Service) Export(ctx context.Context, addr, actor string) (map[string]an
 	emails, _ := pick(3, "list").([]any)
 	out["mailbox"] = map[string]any{"mailboxes": pick(0, "list"), "identities": pick(1, "list"), "emails": emails, "total": q.Total, "truncated": q.Total > len(emails),
 		"note": "attachments are listed with their blobId; download them with JMAP blob download as the account"}
-	s.Audit.Log(actor, addr, "export", "ok", map[string]string{"emails": fmt.Sprint(len(emails))})
+	s.Audit.Log(actor, acc.ID, "export", "ok", map[string]string{"emails": fmt.Sprint(len(emails))})
 	return out, nil
 }
 
@@ -86,12 +86,12 @@ type ErasureReport struct {
 // (revocation), what Authfly stores (verification, consent records), and replaces the address in the audit log with a
 // pseudonym. The erasure itself is logged under the pseudonym.
 func (s *Service) Erase(ctx context.Context, addr, actor string) (*ErasureReport, error) {
-	local, err := s.LocalPart(addr)
+	ident, err := s.ParseIdentifier(addr)
 	if err != nil {
 		return nil, err
 	}
-	addr = s.address(local)
-	acc, err := s.SW.FindAccount(ctx, s.Cfg.Domain, local)
+	addr = ident.Address()
+	acc, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local)
 	if err != nil {
 		return nil, err
 	}
@@ -142,9 +142,12 @@ func (s *Service) Erase(ctx context.Context, addr, actor string) (*ErasureReport
 		rep.Steps = append(rep.Steps, "blob store purge not scheduled (missing sysTaskCreate/taskStoreMaintenance?): blobs go at the next blobCleanupSchedule run")
 		rep.BlobPurge = "deferred"
 	}
-	s.Store.Forget(addr)
+	s.Store.ForgetAccount(addr, acc.ID)
 	rep.Steps = append(rep.Steps, "authfly sessions revoked, verification and consent records deleted")
-	rep.AuditPseudonymised = s.Audit.Pseudonymise(addr)
+	rep.AuditPseudonymised = s.Audit.Pseudonymise(acc.ID)
+	if n := s.Audit.Pseudonymise(addr); n > 0 { // legacy rows that still had an email
+		rep.AuditPseudonymised += n
+	}
 	rep.Steps = append(rep.Steps, fmt.Sprintf("audit log: %d entries pseudonymised to %s", rep.AuditPseudonymised, rep.Pseudonym))
 	s.Audit.Log(actor, rep.Pseudonym, "erase", "ok", map[string]string{"messages": fmt.Sprint(rep.MessagesBefore)})
 	return rep, nil

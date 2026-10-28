@@ -24,6 +24,9 @@ var OIDCProxyPaths = []string{
 	"POST /auth/token",
 	"GET /auth/userinfo",
 	"POST /auth/userinfo",
+	"POST /auth/revoke",
+	"GET /auth/logout",
+	"POST /auth/logout",
 }
 
 var proxyClient = &http.Client{Timeout: 15 * time.Second}
@@ -60,6 +63,8 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request) {
 		var d map[string]any
 		if json.Unmarshal(body, &d) == nil {
 			d["authorization_endpoint"] = s.Svc.Cfg.PublicURL + "/oauth/authorize"
+			d["revocation_endpoint"] = s.Svc.Cfg.PublicURL + "/auth/revoke"
+			d["end_session_endpoint"] = s.Svc.Cfg.PublicURL + "/auth/logout"
 			for _, k := range []string{"device_authorization_endpoint", "registration_endpoint", "introspection_endpoint"} {
 				delete(d, k)
 			}

@@ -50,11 +50,12 @@ func (s *Server) meGDPR(h func(string, func(*http.Request, map[string]string) (i
 		return 200, map[string]any{"consents": s.Svc.Store.Consents(u.Address)}
 	}))
 	h("GET /api/v1/me/audit", auth(func(r *http.Request, _ map[string]string, u *core.User) (int, any) {
-		return 200, map[string]any{"events": s.Svc.Audit.Query(u.Address, 200)}
+		return 200, map[string]any{"events": s.Svc.Audit.Query(u.Sub, 200)}
 	}))
 	h("POST /api/v1/me/sign-out-everywhere", auth(func(r *http.Request, _ map[string]string, u *core.User) (int, any) {
 		s.Svc.Store.Revoke(u.Address)
-		s.Svc.Audit.Log("self", u.Address, "sign_out_everywhere", "ok", nil)
+		s.Svc.Store.DropSessions(u.Sub)
+		s.Svc.Audit.Log("self", u.Sub, "sign_out_everywhere", "ok", nil)
 		return 200, map[string]any{"revoked": true}
 	}))
 	// Erasure needs the password again (a stolen session alone must not delete an account).
@@ -131,6 +132,34 @@ func (s *Server) AdminHandler(key string) http.Handler {
 	})
 	h("GET /admin/v1/retention", func(w http.ResponseWriter, r *http.Request, actor string) {
 		j(w, 200, map[string]any{"auditRetention": s.Svc.Cfg.AuditRetention.String(), "now": time.Now().UTC()})
+	})
+	h("POST /admin/v1/invites", func(w http.ResponseWriter, r *http.Request, actor string) {
+		var in struct {
+			Kind string `json:"kind"`
+			Note string `json:"note"`
+			TTL  string `json:"ttl"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		ttl, _ := time.ParseDuration(in.TTL)
+		tok, inv, err := s.Svc.Store.CreateInvite(in.Kind, in.Note, ttl)
+		if err != nil {
+			j(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		s.Svc.Audit.Log(actor, "", "invite_create", "ok", map[string]string{"id": inv.ID, "kind": inv.Kind})
+		j(w, 201, map[string]any{"token": tok, "invite": inv})
+	})
+	h("GET /admin/v1/invites", func(w http.ResponseWriter, r *http.Request, actor string) {
+		j(w, 200, map[string]any{"invites": s.Svc.Store.ListInvites()})
+	})
+	h("DELETE /admin/v1/invites/{id}", func(w http.ResponseWriter, r *http.Request, actor string) {
+		ok := s.Svc.Store.RevokeInvite(r.PathValue("id"))
+		if !ok {
+			j(w, 404, map[string]string{"error": "not found"})
+			return
+		}
+		s.Svc.Audit.Log(actor, "", "invite_revoke", "ok", map[string]string{"id": r.PathValue("id")})
+		j(w, 200, map[string]any{"revoked": true})
 	})
 	return m
 }

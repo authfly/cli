@@ -12,10 +12,13 @@ import (
 
 // Config of the Authfly service.
 type Config struct {
-	Domain          string // the mail domain accounts live in, e.g. example.com
+	Domain          string // legacy: mail domain of person accounts (same as UserDomainName when that is empty)
+	UserDomainName  string // person mailboxes, e.g. cab.yself.link
+	OrgDomainName   string // organisation / service accounts, e.g. yself.link (empty: single-domain)
 	PublicURL       string // public base URL of Authfly, used in emails and as OIDC redirect URI
 	ClientID        string // the OAuth client id Authfly uses with Stalwart for its own sessions
 	RequireVerified bool   // refuse password sign-in until the address is verified
+	PublicSignup    bool   // when false (default), sign-up needs a single-use invite
 	ProductName     string
 	MagicTTL        time.Duration
 	ResetTTL        time.Duration
@@ -52,45 +55,109 @@ var (
 
 var usernameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,31}$`)
 
-// LocalPart turns an identifier (username or address at the Authfly domain) into the account name.
-func (s *Service) LocalPart(identifier string) (string, error) {
+// ParseIdentifier turns a username or address into an Identity on the user or org domain.
+func (s *Service) ParseIdentifier(identifier string) (Identity, error) {
 	id := strings.ToLower(strings.TrimSpace(identifier))
+	local, domain := id, ""
 	if i := strings.LastIndexByte(id, '@'); i >= 0 {
-		if id[i+1:] != strings.ToLower(s.Cfg.Domain) {
-			return "", ErrOtherDomain
-		}
-		id = id[:i]
+		local, domain = id[:i], id[i+1:]
 	}
-	if !usernameRe.MatchString(id) {
-		return "", ErrBadUsername
+	if !usernameRe.MatchString(local) {
+		return Identity{}, ErrBadUsername
 	}
-	return id, nil
+	if IsReservedName(local) {
+		return Identity{}, ErrReservedName
+	}
+	userD, orgD := strings.ToLower(s.Cfg.UserDomain()), strings.ToLower(s.Cfg.OrgDomain())
+	switch {
+	case domain == "":
+		return Identity{Local: local, Domain: userD, Kind: KindUser}, nil
+	case domain == userD:
+		return Identity{Local: local, Domain: userD, Kind: KindUser}, nil
+	case orgD != "" && domain == orgD:
+		return Identity{Local: local, Domain: orgD, Kind: KindOrg}, nil
+	default:
+		return Identity{}, ErrOtherDomain
+	}
 }
 
-// Address returns the full address of a local part.
-func (s *Service) Address(local string) string { return local + "@" + s.Cfg.Domain }
+// LocalPart turns an identifier (username or address at an Authfly domain) into the account name.
+func (s *Service) LocalPart(identifier string) (string, error) {
+	id, err := s.ParseIdentifier(identifier)
+	if err != nil {
+		return "", err
+	}
+	return id.Local, nil
+}
+
+// Address returns the full address of a local part on the user domain (legacy helpers).
+func (s *Service) Address(local string) string { return local + "@" + s.Cfg.UserDomain() }
 
 func (s *Service) address(local string) string { return s.Address(local) }
 
+func (s *Service) auditID(accID, addr string) string {
+	if accID != "" {
+		return accID
+	}
+	return Pseudonym(addr)
+}
+
 // SignUp creates the Stalwart account (x:Account/set) and emails the verification link.
+// Public sign-up is disabled: callers must pass a valid invite token unless PublicSignup is on.
 func (s *Service) SignUp(ctx context.Context, name, username, password string) (*User, error) {
-	local, err := s.LocalPart(username)
+	return s.SignUpInvite(ctx, name, username, password, "", KindUser)
+}
+
+// SignUpInvite creates an account of the invite's kind (or kind, when PublicSignup is on).
+func (s *Service) SignUpInvite(ctx context.Context, name, username, password, inviteToken, kind string) (*User, error) {
+	if !s.Cfg.PublicSignup {
+		if inviteToken == "" {
+			return nil, ErrInviteRequired
+		}
+		inv, err := s.Store.PeekInvite(inviteToken)
+		if err != nil {
+			return nil, err
+		}
+		kind = inv.Kind
+	}
+	if kind != KindOrg {
+		kind = KindUser
+	}
+	ident, err := s.ParseIdentifier(username)
 	if err != nil {
 		return nil, err
+	}
+	ident.Kind = kind
+	if kind == KindOrg {
+		if o := s.Cfg.OrgDomain(); o != "" {
+			ident.Domain = o
+		}
+	} else {
+		ident.Domain = s.Cfg.UserDomain()
 	}
 	if len(password) < 10 {
 		return nil, ErrWeakPassword
 	}
-	acc, err := s.SW.CreateAccount(ctx, s.Cfg.Domain, local, password, strings.TrimSpace(name))
+	taken, err := s.SW.NameTaken(ctx, ident.Local, s.Cfg.Domains()...)
 	if err != nil {
 		return nil, err
 	}
-	addr := s.address(local)
-	s.Audit.Log("self", addr, "sign_up", "ok", nil)
+	if taken {
+		return nil, ErrAccountExists
+	}
+	acc, err := s.SW.CreateAccountKind(ctx, ident.Domain, ident.Local, password, strings.TrimSpace(name), kind)
+	if err != nil {
+		return nil, err
+	}
+	if inviteToken != "" {
+		_ = s.Store.ConsumeInvite(inviteToken, acc.ID)
+	}
+	addr := ident.Address()
+	s.Audit.Log("self", acc.ID, "sign_up", "ok", map[string]string{"kind": kind})
 	if err := s.SendVerification(addr); err != nil {
 		log.Printf("authfly: verification mail to %s failed: %v", addr, err)
 	}
-	return &User{Sub: acc.ID, Address: addr, Username: local, Name: acc.Description}, nil
+	return &User{Sub: acc.ID, Address: addr, Username: ident.Local, Name: acc.Description}, nil
 }
 
 // SendVerification emails a link that proves the address.
@@ -107,28 +174,39 @@ func (s *Service) VerifyEmail(token string) (string, error) {
 		return "", ErrBadToken
 	}
 	s.Store.MarkVerified(c.Subject)
-	s.Audit.Log("self", c.Subject, "verify_email", "ok", nil)
+	s.Audit.Log("self", s.auditID("", c.Subject), "verify_email", "ok", nil)
 	return c.Subject, nil
 }
 
-// PasswordSignIn checks the password with Stalwart through the OIDC authorization code flow with PKCE
-// (POST /api/auth, then /auth/token) and verifies the ID token. identifier is a username or a full address.
+// PasswordSignIn checks the password with Stalwart through the OIDC authorization code flow with PKCE S256
+// (POST /api/auth query+consent, then /auth/token) and verifies the ID token. identifier is a username or a full address.
 func (s *Service) PasswordSignIn(ctx context.Context, identifier, password string) (*User, *Tokens, error) {
-	local, err := s.LocalPart(identifier)
+	return s.PasswordSignInMFA(ctx, identifier, password, "")
+}
+
+// PasswordSignInMFA is PasswordSignIn with an optional TOTP/mfaToken from a previous mfaRequired response.
+func (s *Service) PasswordSignInMFA(ctx context.Context, identifier, password, mfaToken string) (*User, *Tokens, error) {
+	ident, err := s.ParseIdentifier(identifier)
 	if err != nil {
+		if errors.Is(err, ErrReservedName) || errors.Is(err, ErrBadUsername) {
+			return nil, nil, ErrInvalidCredentials
+		}
 		return nil, nil, ErrInvalidCredentials
 	}
 	verifier, challenge := PKCE()
 	nonce := RandomString(12)
 	redirect := s.Cfg.PublicURL + "/auth/callback"
-	// Authfly always sends the full address: a bare name only resolves when Stalwart has a default domain.
-	name := s.address(local)
-	code, err := s.SW.Authorize(ctx, AuthCodeRequest{AccountName: name, AccountSecret: password, ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce, CodeChallenge: challenge})
+	name := ident.Address()
+	code, err := s.SW.Authorize(ctx, AuthCodeRequest{
+		AccountName: name, AccountSecret: password, MFAToken: mfaToken,
+		ClientID: s.Cfg.ClientID, RedirectURI: redirect, Scope: "openid", Nonce: nonce, CodeChallenge: challenge,
+		Consent: true,
+	})
 	if err != nil {
-		// data minimisation: a failed attempt for an address that is not an account is logged under a pseudonym, so the
-		// log never collects identifiers of non-users (or brings back an erased address)
-		subject := name
-		if _, ferr := s.SW.FindAccount(ctx, s.Cfg.Domain, local); errors.Is(ferr, ErrNotFound) {
+		subject := s.auditID("", name)
+		if acc, ferr := s.SW.FindAccount(ctx, ident.Domain, ident.Local); ferr == nil {
+			subject = acc.ID
+		} else if errors.Is(ferr, ErrNotFound) {
 			subject = Pseudonym(name)
 		}
 		s.Audit.Log("self", subject, "sign_in", "denied", map[string]string{"method": "password"})
@@ -142,33 +220,40 @@ func (s *Service) PasswordSignIn(ctx context.Context, identifier, password strin
 	if err != nil {
 		return nil, nil, err
 	}
-	addr := s.address(local)
-	u := &User{Sub: str(claims["sub"]), Address: addr, Username: local, Name: str(claims["description"]), Verified: s.Store.IsVerified(addr), Method: "password"}
+	addr := ident.Address()
+	u := &User{Sub: str(claims["sub"]), Address: addr, Username: ident.Local, Name: str(claims["description"]), Verified: s.Store.IsVerified(addr), Method: "password"}
 	if info, err := s.SW.UserInfo(ctx, tok.AccessToken); err == nil && str(info["name"]) != "" {
 		u.Name = str(info["name"])
 	}
+	if acc, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local); err == nil {
+		u.Sub = acc.ID
+		if acc.Description != "" && u.Name == "" {
+			u.Name = acc.Description
+		}
+	}
 	if s.Cfg.RequireVerified && !u.Verified {
-		s.Audit.Log("self", addr, "sign_in", "denied", map[string]string{"method": "password", "reason": "unverified"})
+		s.Audit.Log("self", s.auditID(u.Sub, addr), "sign_in", "denied", map[string]string{"method": "password", "reason": "unverified"})
 		return u, tok, ErrUnverified
 	}
-	s.Audit.Log("self", addr, "sign_in", "ok", map[string]string{"method": "password"})
+	s.Audit.Log("self", s.auditID(u.Sub, addr), "sign_in", "ok", map[string]string{"method": "password"})
 	return u, tok, nil
 }
 
 // RequestMagicLink emails a one-time sign-in link when the account exists; it never tells whether it does.
 func (s *Service) RequestMagicLink(ctx context.Context, identifier string) (string, error) {
-	local, err := s.LocalPart(identifier)
+	ident, err := s.ParseIdentifier(identifier)
 	if err != nil {
 		return "", err
 	}
-	addr := s.address(local)
-	if _, err := s.SW.FindAccount(ctx, s.Cfg.Domain, local); err != nil {
+	addr := ident.Address()
+	acc, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local)
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return addr, nil
 		}
 		return addr, err
 	}
-	s.Audit.Log("self", addr, "magic_link", "ok", nil)
+	s.Audit.Log("self", acc.ID, "magic_link", "ok", nil)
 	tok := s.Sign.Sign(NewClaims("magic", addr, s.Cfg.MagicTTL))
 	link := s.Cfg.PublicURL + "/auth/magic/verify?token=" + tok
 	return addr, s.Mail.Send(addr, "Your sign-in link", fmt.Sprintf("Sign in to %s with this link (valid %s, single use):\n\n%s\n\nIf you did not ask for it, ignore this email.\n", s.Cfg.ProductName, s.Cfg.MagicTTL, link))
@@ -180,8 +265,11 @@ func (s *Service) VerifyMagicLink(ctx context.Context, token string) (*User, err
 	if err != nil {
 		return nil, ErrBadToken
 	}
-	local := strings.SplitN(c.Subject, "@", 2)[0]
-	acc, err := s.SW.FindAccount(ctx, s.Cfg.Domain, local)
+	ident, err := s.ParseIdentifier(c.Subject)
+	if err != nil {
+		return nil, ErrBadToken
+	}
+	acc, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local)
 	if err != nil {
 		return nil, ErrBadToken
 	}
@@ -189,18 +277,18 @@ func (s *Service) VerifyMagicLink(ctx context.Context, token string) (*User, err
 		return nil, ErrBadToken
 	}
 	s.Store.MarkVerified(c.Subject)
-	s.Audit.Log("self", c.Subject, "sign_in", "ok", map[string]string{"method": "magic"})
-	return &User{Sub: acc.ID, Address: c.Subject, Username: local, Name: acc.Description, Verified: true, Method: "magic"}, nil
+	s.Audit.Log("self", acc.ID, "sign_in", "ok", map[string]string{"method": "magic"})
+	return &User{Sub: acc.ID, Address: c.Subject, Username: ident.Local, Name: acc.Description, Verified: true, Method: "magic"}, nil
 }
 
 // ForgotPassword emails a reset link when the account exists.
 func (s *Service) ForgotPassword(ctx context.Context, identifier string) (string, error) {
-	local, err := s.LocalPart(identifier)
+	ident, err := s.ParseIdentifier(identifier)
 	if err != nil {
 		return "", err
 	}
-	addr := s.address(local)
-	if _, err := s.SW.FindAccount(ctx, s.Cfg.Domain, local); err != nil {
+	addr := ident.Address()
+	if _, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return addr, nil
 		}
@@ -226,8 +314,11 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) (st
 	if len(password) < 10 {
 		return "", ErrWeakPassword
 	}
-	local := strings.SplitN(c.Subject, "@", 2)[0]
-	acc, err := s.SW.FindAccount(ctx, s.Cfg.Domain, local)
+	ident, err := s.ParseIdentifier(c.Subject)
+	if err != nil {
+		return "", ErrBadToken
+	}
+	acc, err := s.SW.FindAccount(ctx, ident.Domain, ident.Local)
 	if err != nil {
 		return "", ErrBadToken
 	}
@@ -239,7 +330,8 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) (st
 	}
 	s.Store.MarkVerified(c.Subject)
 	s.Store.Revoke(c.Subject) // a new password signs out every existing session
-	s.Audit.Log("self", c.Subject, "password_reset", "ok", nil)
+	s.Store.DropSessions(acc.ID)
+	s.Audit.Log("self", acc.ID, "password_reset", "ok", nil)
 	return c.Subject, nil
 }
 

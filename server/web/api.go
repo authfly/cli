@@ -44,11 +44,19 @@ func (s *Server) api(m *http.ServeMux) {
 			kind = "invalid_input"
 		case errors.Is(err, core.ErrMFARequired):
 			kind = "mfa_required"
+		case errors.Is(err, core.ErrInviteRequired), errors.Is(err, core.ErrBadInvite):
+			kind = "invite"
+		case errors.Is(err, core.ErrReservedName):
+			kind = "reserved"
+		case errors.Is(err, core.ErrNameTaken):
+			kind = "account_exists"
+		case errors.Is(err, core.ErrExpired):
+			kind = "expired"
 		}
 		return code, map[string]string{"error": kind, "message": errText(err)}
 	}
 	h("POST /api/v1/sign-up", func(r *http.Request, in map[string]string) (int, any) {
-		u, err := s.Svc.SignUp(r.Context(), in["name"], in["username"], in["password"])
+		u, err := s.Svc.SignUpInvite(r.Context(), in["name"], in["username"], in["password"], in["invite"], in["kind"])
 		if err != nil {
 			return fail(400, err)
 		}
@@ -59,7 +67,7 @@ func (s *Server) api(m *http.ServeMux) {
 		return 201, map[string]any{"user": u}
 	})
 	h("POST /api/v1/sign-in", func(r *http.Request, in map[string]string) (int, any) {
-		u, _, err := s.Svc.PasswordSignIn(r.Context(), in["identifier"], in["password"])
+		u, _, err := s.Svc.PasswordSignInMFA(r.Context(), in["identifier"], in["password"], in["mfa_token"])
 		if err != nil {
 			return fail(401, err)
 		}
@@ -109,6 +117,10 @@ func (s *Server) api(m *http.ServeMux) {
 	})
 	s.meGDPR(h, fail)
 	h("GET /api/v1/config", func(r *http.Request, _ map[string]string) (int, any) {
-		return 200, map[string]any{"domain": s.Svc.Cfg.Domain, "product": s.Svc.Cfg.ProductName, "methods": []string{"password", "magic_link"}, "methods_stubbed": []string{"social", "totp", "webauthn"}}
+		return 200, map[string]any{
+			"domain": s.Svc.Cfg.UserDomain(), "org_domain": s.Svc.Cfg.OrgDomain(),
+			"product": s.Svc.Cfg.ProductName, "public_signup": s.Svc.Cfg.PublicSignup,
+			"methods": []string{"password", "magic_link"}, "methods_stubbed": []string{"social", "webauthn"},
+		}
 	})
 }

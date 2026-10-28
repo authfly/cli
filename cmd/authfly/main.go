@@ -40,7 +40,7 @@ func initStalwart() {
 		log.Fatal("AUTHFLY_SERVICE_PASSWORD must have at least 16 characters")
 	}
 	public := strings.TrimRight(env("AUTHFLY_PUBLIC_URL", "http://localhost:4000"), "/")
-	clients := []core.OAuthClient{{ID: env("AUTHFLY_CLIENT_ID", "authfly"), Name: "Authfly", RedirectURIs: []string{public + "/auth/callback"}}}
+	clients := []core.OAuthClient{{ID: env("AUTHFLY_CLIENT_ID", "authfly"), Name: "Authfly", RedirectURIs: []string{public + "/auth/callback"}, FirstParty: true}}
 	var rps []web.Client
 	if c := env("AUTHFLY_CLIENTS", ""); c != "" {
 		if err := json.Unmarshal([]byte(c), &rps); err != nil {
@@ -53,7 +53,7 @@ func initStalwart() {
 	var lines []string
 	var err error
 	for i := 0; i < 30; i++ { // Stalwart may still be starting
-		if lines, err = sw.Harden(context.Background(), core.HardenOptions{Domain: env("AUTHFLY_DOMAIN", "authfly.test"), ServiceName: env("AUTHFLY_SERVICE_NAME", "authfly-svc"),
+		if lines, err = sw.Harden(context.Background(), core.HardenOptions{Domain: env("AUTHFLY_DOMAIN", env("AUTHFLY_USER_DOMAIN", "authfly.test")), OrgDomain: env("AUTHFLY_ORG_DOMAIN", ""), ServiceName: env("AUTHFLY_SERVICE_NAME", "authfly-svc"),
 			ServicePassword: pw, KeepWebUI: env("STALWART_KEEP_WEBUI", "") == "true", Clients: clients}); err == nil {
 			break
 		}
@@ -92,9 +92,14 @@ func main() {
 		log.Fatalf("AUTHFLY_AUDIT_RETENTION: %v", err)
 	}
 	storePath := env("AUTHFLY_STORE", "authfly-store.json")
+	core.LoadReservedNames(env("AUTHFLY_RESERVED_NAMES_FILE", ""))
+	userDomain := env("AUTHFLY_USER_DOMAIN", env("AUTHFLY_DOMAIN", "authfly.test"))
+	orgDomain := env("AUTHFLY_ORG_DOMAIN", "")
+	sw.SetMirror(userDomain, orgDomain)
 	svc := &core.Service{
-		Cfg: core.Config{Domain: env("AUTHFLY_DOMAIN", "authfly.test"), PublicURL: strings.TrimRight(env("AUTHFLY_PUBLIC_URL", "http://localhost:4000"), "/"),
-			ClientID: env("AUTHFLY_CLIENT_ID", "authfly"), RequireVerified: env("AUTHFLY_REQUIRE_VERIFIED", "true") == "true", ProductName: env("AUTHFLY_PRODUCT", "Authfly"),
+		Cfg: core.Config{Domain: userDomain, UserDomainName: userDomain, OrgDomainName: orgDomain, PublicURL: strings.TrimRight(env("AUTHFLY_PUBLIC_URL", "http://localhost:4000"), "/"),
+			ClientID: env("AUTHFLY_CLIENT_ID", "authfly"), RequireVerified: env("AUTHFLY_REQUIRE_VERIFIED", "true") == "true",
+			PublicSignup: env("AUTHFLY_PUBLIC_SIGNUP", "false") == "true", ProductName: env("AUTHFLY_PRODUCT", "Authfly"),
 			MagicTTL: 15 * time.Minute, ResetTTL: 30 * time.Minute, VerifyTTL: 48 * time.Hour, AuditRetention: retention},
 		SW: sw,
 		Mail: &core.Mailer{Addr: env("SMTP_ADDR", "localhost:25"), From: env("SMTP_FROM", "noreply@authfly.test"), FromName: env("AUTHFLY_PRODUCT", "Authfly"),
@@ -131,7 +136,7 @@ func main() {
 	}
 	srv := web.New(svc, reg, clients, strings.HasPrefix(svc.Cfg.PublicURL, "https://"))
 	addr := env("AUTHFLY_ADDR", ":4000")
-	log.Printf("authfly listening on %s (public %s, domain %s, stalwart %s)", addr, svc.Cfg.PublicURL, svc.Cfg.Domain, sw.BaseURL)
+	log.Printf("authfly listening on %s (public %s, user %s org %s, publicSignup %t, stalwart %s)", addr, svc.Cfg.PublicURL, svc.Cfg.UserDomain(), svc.Cfg.OrgDomain(), svc.Cfg.PublicSignup, sw.BaseURL)
 	if a := env("AUTHFLY_ADMIN_ADDR", ""); a != "" { // internal admin API for the console: never publish this port
 		key := env("AUTHFLY_ADMIN_KEY", "")
 		if len(key) < 24 {

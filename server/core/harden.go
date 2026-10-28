@@ -18,12 +18,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // ServicePermissions are the permissions the Authfly service role adds on top of the User role.
 var ServicePermissions = []string{
 	"sysAccountGet", "sysAccountQuery", "sysAccountCreate", "sysAccountUpdate", "sysAccountDestroy",
 	"sysDomainGet", "sysDomainQuery",
+	"sysAccountPasswordGet", "sysAccountPasswordUpdate",
+	"sysAppPasswordGet", "sysAppPasswordQuery", "sysAppPasswordCreate", "sysAppPasswordUpdate", "sysAppPasswordDestroy",
+	"sysOAuthGrantGet", "sysOAuthGrantQuery", "sysOAuthGrantDestroy",
+	"sysOAuthClientGet", "sysOAuthClientQuery", "sysOAuthClientCreate", "sysOAuthClientUpdate",
 	// GDPR export: read another account's mailbox through JMAP (accountId of the user)
 	"impersonate", "fetchAnyBlob",
 	// GDPR erasure: purge the blob store right away instead of at the daily blobCleanupSchedule (StoreMaintenance/purgeBlob)
@@ -34,6 +39,7 @@ const ServiceRoleName = "authfly-service"
 
 type HardenOptions struct {
 	Domain          string
+	OrgDomain       string // optional second domain of the shared name namespace
 	ServiceName     string // local part of the service account, e.g. authfly-svc
 	ServicePassword string
 	KeepWebUI       bool
@@ -41,9 +47,11 @@ type HardenOptions struct {
 }
 
 type OAuthClient struct {
-	ID           string
-	Name         string
-	RedirectURIs []string
+	ID                     string
+	Name                   string
+	RedirectURIs           []string
+	PostLogoutRedirectURIs []string
+	FirstParty             bool
 }
 
 func setOK(r [][]json.RawMessage, kind string) error {
@@ -84,6 +92,14 @@ func (s *Stalwart) Harden(ctx context.Context, o HardenOptions) ([]string, error
 		return log, fmt.Errorf("domain: %w", err)
 	}
 	log = append(log, "domain "+o.Domain+" id "+domainID)
+	if o.OrgDomain != "" && !strings.EqualFold(o.OrgDomain, o.Domain) {
+		oid, err := s.EnsureDomain(ctx, o.OrgDomain)
+		if err != nil {
+			return log, fmt.Errorf("org domain: %w", err)
+		}
+		log = append(log, "domain "+o.OrgDomain+" id "+oid)
+		s.SetMirror(o.Domain, o.OrgDomain)
+	}
 
 	// the built-in User role (description "User") and the service role
 	roles, err := s.queryGet(ctx, "x:Role", []string{"description"})
@@ -218,7 +234,19 @@ func (s *Stalwart) Harden(ctx context.Context, o HardenOptions) ([]string, error
 		for _, u := range c.RedirectURIs {
 			uris[u] = true
 		}
-		obj := map[string]any{"clientId": c.ID, "description": c.Name, "redirectUris": uris}
+		obj := map[string]any{
+			"clientId": c.ID, "description": c.Name, "redirectUris": uris,
+			"firstParty": c.FirstParty,
+			"grantTypes": map[string]bool{"authorizationCode": true, "refreshToken": true},
+			"scopes":     map[string]bool{"mail": true, "contacts": true, "calendars": true, "files": true},
+		}
+		if len(c.PostLogoutRedirectURIs) > 0 {
+			pl := map[string]bool{}
+			for _, u := range c.PostLogoutRedirectURIs {
+				pl[u] = true
+			}
+			obj["postLogoutRedirectUris"] = pl
+		}
 		var call []any
 		if id, ok := ids[c.ID]; ok {
 			call = []any{"x:OAuthClient/set", map[string]any{"update": map[string]any{id: obj}}, "u"}

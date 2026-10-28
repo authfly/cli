@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/a-h/templ"
@@ -22,6 +23,9 @@ import (
 
 //go:embed labels.json
 var labelsJSON []byte
+
+//go:embed labels_ru.json
+var labelsRU []byte
 
 //go:embed assets
 var assets embed.FS
@@ -39,7 +43,9 @@ type Server struct {
 	Ext     ext.Registry
 	Clients map[string]Client
 	Secure  bool // Secure cookies (HTTPS)
-	labels  map[string]map[string]any
+	labels  map[string]map[string]map[string]any
+	mfaMu   sync.Mutex
+	mfa     map[string]mfaPending
 }
 
 func New(svc *core.Service, reg ext.Registry, clients []Client, secure bool) *Server {
@@ -47,26 +53,8 @@ func New(svc *core.Service, reg ext.Registry, clients []Client, secure bool) *Se
 	for _, c := range clients {
 		s.Clients[c.ID] = c
 	}
-	_ = json.Unmarshal(labelsJSON, &s.labels)
-	// the mail domain shown after the username
-	if l, ok := s.labels["signup"]["labels"].(map[string]any); ok {
-		l["domain"] = "@" + svc.Cfg.Domain
-	}
+	s.loadLabels()
 	return s
-}
-
-func (s *Server) text(page, key string) string { v, _ := s.labels[page][key].(string); return v }
-func (s *Server) lab(page string) map[string]any {
-	m := map[string]any{}
-	if l, ok := s.labels[page]["labels"].(map[string]any); ok {
-		for k, v := range l {
-			m[k] = v
-		}
-	}
-	if page == "signup" && Policy.TermsLabel != "" {
-		m["terms"] = Policy.TermsLabel
-	}
-	return m
 }
 
 // Handler returns the routes.
@@ -96,8 +84,23 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /auth/sign-out", s.signOutPage)
 	m.HandleFunc("POST /auth/sign-out", s.signOutPost)
 	m.HandleFunc("GET /auth/social/{provider}", s.socialStub)
-	m.HandleFunc("GET /auth/2fa", s.totpStub)
+	m.HandleFunc("GET /auth/2fa", s.mfaPage)
+	m.HandleFunc("POST /auth/2fa", s.mfaPost)
+	m.HandleFunc("GET /auth/lang", s.setLang)
 	m.HandleFunc("GET /account", s.accountPage)
+	m.HandleFunc("GET /account/personal", s.personalPage)
+	m.HandleFunc("POST /account/personal", s.personalPost)
+	m.HandleFunc("GET /account/security", s.securityPage)
+	m.HandleFunc("POST /account/security/password", s.securityPassword)
+	m.HandleFunc("POST /account/security/totp", s.securityTOTP)
+	m.HandleFunc("POST /account/security/apps", s.securityAppCreate)
+	m.HandleFunc("POST /account/security/apps/revoke", s.securityAppRevoke)
+	m.HandleFunc("POST /account/security/everywhere", s.securityEverywhere)
+	m.HandleFunc("GET /account/apps", s.appsPage)
+	m.HandleFunc("POST /account/apps/revoke", s.appsRevoke)
+	m.HandleFunc("GET /account/privacy", s.privacyPage)
+	m.HandleFunc("GET /account/privacy/export", s.privacyExport)
+	m.HandleFunc("POST /account/privacy/erase", s.privacyErase)
 	m.HandleFunc("GET /oauth/authorize", s.authorize)
 	m.HandleFunc("POST /oauth/authorize", s.authorizePost)
 	m.HandleFunc("POST /oauth/consent", s.consentPost)
@@ -120,6 +123,8 @@ const (
 	cookieSession = "authfly_session"
 	cookieCSRF    = "authfly_csrf"
 	cookieOAuth   = "authfly_oauth"
+	cookieLang    = "authfly_lang"
+	cookieMFA     = "authfly_mfa"
 )
 
 func (s *Server) setCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
@@ -145,8 +150,14 @@ func (s *Server) csrfOK(r *http.Request) bool {
 
 // SessionToken signs a session for a user (cookie value, or bearer token of the JSON API).
 func (s *Server) SessionToken(u *core.User) string {
+	sid := core.RandomString(12)
+	s.Svc.Store.PutSession(core.SessionRec{ID: sid, AccountID: u.Sub})
+	return s.sessionToken(u, sid)
+}
+
+func (s *Server) sessionToken(u *core.User, sid string) string {
 	c := core.NewClaims("session", u.Address, 12*time.Hour)
-	c.Extra = map[string]string{"sub": u.Sub, "name": u.Name, "username": u.Username, "amr": u.Method, "iat": strconv.FormatInt(time.Now().UnixNano(), 10)}
+	c.Extra = map[string]string{"sub": u.Sub, "name": u.Name, "username": u.Username, "amr": u.Method, "sid": sid, "iat": strconv.FormatInt(time.Now().UnixNano(), 10)}
 	return s.Svc.Sign.Sign(c)
 }
 
@@ -159,6 +170,9 @@ func (s *Server) userFromToken(tok string) *core.User {
 	if iat, _ := strconv.ParseInt(c.Extra["iat"], 10, 64); iat <= s.Svc.Store.RevokedAt(c.Subject) && s.Svc.Store.RevokedAt(c.Subject) > 0 {
 		return nil
 	}
+	if sid := c.Extra["sid"]; sid != "" && c.Extra["sub"] != "" && s.Svc.Store != nil && !s.Svc.Store.HasSession(c.Extra["sub"], sid) {
+		return nil
+	}
 	return &core.User{Sub: c.Extra["sub"], Address: c.Subject, Username: c.Extra["username"], Name: c.Extra["name"], Method: c.Extra["amr"], Verified: s.Svc.Store.IsVerified(c.Subject)}
 }
 
@@ -169,8 +183,14 @@ func (s *Server) user(r *http.Request) *core.User {
 	return nil
 }
 
-func (s *Server) signIn(w http.ResponseWriter, u *core.User) {
-	s.setCookie(w, cookieSession, s.SessionToken(u), 12*time.Hour)
+func (s *Server) signIn(w http.ResponseWriter, r *http.Request, u *core.User) {
+	sid := core.RandomString(12)
+	ua := ""
+	if r != nil {
+		ua = r.UserAgent()
+	}
+	s.Svc.Store.PutSession(core.SessionRec{ID: sid, AccountID: u.Sub, UserAgent: ua})
+	s.setCookie(w, cookieSession, s.sessionToken(u, sid), 12*time.Hour)
 }
 
 // ---- rendering
@@ -179,15 +199,19 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, titl
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_ = Page(s.Svc.Cfg.ProductName, title).Render(templ.WithChildren(r.Context(), c), w)
+	path := "/"
+	if r != nil && r.URL != nil {
+		path = r.URL.Path
+	}
+	_ = Page(s.Svc.Cfg.ProductName, title, s.lang(r), path).Render(templ.WithChildren(r.Context(), c), w)
 }
 
 func (s *Server) notice(w http.ResponseWriter, r *http.Request, status int, page, tone, icon, detail string, override map[string]any) {
-	labels := s.lab(page)
+	labels := s.lab(r, page)
 	for k, v := range override {
 		labels[k] = v
 	}
-	s.render(w, r, status, s.text(page, "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text(page, "title"), Text: s.text(page, "text"),
+	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text(r, page, "title"), Text: s.text(r, page, "text"),
 		Detail: detail, Icon: icon, Labels: labels, Tone: tone, Action: "link"}))
 }
 
@@ -198,9 +222,17 @@ func errText(err error) string {
 	case errors.Is(err, core.ErrUnverified):
 		return "Verify your email address first. We sent you a new link."
 	case errors.Is(err, core.ErrMFARequired):
-		return "This account uses two-step verification, which Authfly does not support yet."
-	case errors.Is(err, core.ErrAccountExists):
+		return "Enter the six-digit code from your authenticator app."
+	case errors.Is(err, core.ErrExpired):
+		return "This password has expired. Reset it to continue."
+	case errors.Is(err, core.ErrAccountExists), errors.Is(err, core.ErrNameTaken):
 		return "This username is taken."
+	case errors.Is(err, core.ErrReservedName):
+		return "This username is reserved."
+	case errors.Is(err, core.ErrInviteRequired):
+		return "You need an invite to create an account."
+	case errors.Is(err, core.ErrBadInvite):
+		return "This invite is invalid, used, or expired."
 	case errors.Is(err, core.ErrWeakPassword), errors.Is(err, core.ErrBadUsername):
 		return strings.ToUpper(err.Error()[:1]) + err.Error()[1:] + "."
 	case errors.Is(err, core.ErrBadToken):
@@ -227,11 +259,11 @@ func (s *Server) signInView(w http.ResponseWriter, r *http.Request, status int, 
 	if len(s.Ext.Social) > 0 {
 		social = "show"
 	}
-	labels := s.lab(page)
+	labels := s.lab(r, page)
 	if action == "" {
 		action = r.URL.Path
 	}
-	s.render(w, r, status, s.text(page, "title"), blocks.AuthflySignIn(blocks.AuthflySignInProps{Id: "authfly", Title: s.text(page, "title"), Text: s.text(page, "text"),
+	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflySignIn(blocks.AuthflySignInProps{Id: "authfly", Title: s.text(r, page, "title"), Text: s.text(r, page, "text"),
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: labels, Providers: s.providers(), Method: method, Identifier: map[bool]string{true: "email", false: "any"}[method == "magic"], Social: social}))
 }
 
@@ -246,35 +278,61 @@ func (s *Server) signInPost(w http.ResponseWriter, r *http.Request) {
 		s.signInView(w, r, 403, "password", "Your session expired. Try again.", "")
 		return
 	}
-	u, _, err := s.Svc.PasswordSignIn(r.Context(), r.PostFormValue("identifier"), r.PostFormValue("password"))
+	identifier, password := r.PostFormValue("identifier"), r.PostFormValue("password")
+	u, _, err := s.Svc.PasswordSignInMFA(r.Context(), identifier, password, "")
 	if err != nil {
+		if errors.Is(err, core.ErrMFARequired) {
+			s.beginMFA(w, identifier, password, false)
+			s.requestView(w, r, 401, "mfa", "code", "/auth/2fa", "", "")
+			return
+		}
 		if errors.Is(err, core.ErrUnverified) && u != nil {
 			_ = s.Svc.SendVerification(u.Address)
 		}
 		s.signInView(w, r, 401, "password", errText(err), "")
 		return
 	}
-	s.signIn(w, u)
+	s.signIn(w, r, u)
 	http.Redirect(w, r, "/account", http.StatusSeeOther)
 }
 
-func (s *Server) signUpView(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
-	s.render(w, r, status, s.text("signup", "title"), blocks.AuthflySignUp(blocks.AuthflySignUpProps{Id: "authfly", Title: s.text("signup", "title"), Text: s.text("signup", "text"),
-		Action: "/auth/sign-up", Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab("signup"), Terms: "show"}))
+func (s *Server) signUpView(w http.ResponseWriter, r *http.Request, status int, errMsg, invite string) {
+	title := s.text(r, "signup", "title")
+	if !s.Svc.Cfg.PublicSignup && invite == "" {
+		inv := s.lab(r, "invite")
+		inv["submit"] = s.lab(r, "signup")["submit"]
+		inv["signinText"] = s.lab(r, "signup")["signinText"]
+		inv["signinLink"] = s.lab(r, "signup")["signinLink"]
+		inv["signinHref"] = s.lab(r, "signup")["signinHref"]
+		s.render(w, r, status, s.text(r, "invite", "title"), InviteGate(s.text(r, "invite", "title"), s.text(r, "invite", "text"), "/auth/sign-up", s.csrf(w, r), errMsg, inv))
+		return
+	}
+	s.render(w, r, status, title, SignUpWithInvite(title, s.text(r, "signup", "text"), "/auth/sign-up", s.csrf(w, r), errMsg, invite, "@"+s.Svc.Cfg.UserDomain(), s.lab(r, "signup")))
 }
-func (s *Server) signUpPage(w http.ResponseWriter, r *http.Request) { s.signUpView(w, r, 200, "") }
+func (s *Server) signUpPage(w http.ResponseWriter, r *http.Request) {
+	s.signUpView(w, r, 200, "", r.URL.Query().Get("invite"))
+}
 func (s *Server) signUpPost(w http.ResponseWriter, r *http.Request) {
 	if !s.csrfOK(r) {
-		s.signUpView(w, r, 403, "Your session expired. Try again.")
+		s.signUpView(w, r, 403, "Your session expired. Try again.", r.PostFormValue("invite"))
+		return
+	}
+	invite := r.PostFormValue("invite")
+	if r.PostFormValue("username") == "" && invite != "" {
+		if _, err := s.Svc.Store.PeekInvite(invite); err != nil {
+			s.signUpView(w, r, 400, errText(err), "")
+			return
+		}
+		http.Redirect(w, r, "/auth/sign-up?invite="+url.QueryEscape(invite), http.StatusSeeOther)
 		return
 	}
 	if r.PostFormValue("terms") == "" {
-		s.signUpView(w, r, 400, "Accept the terms to continue.")
+		s.signUpView(w, r, 400, "Accept the terms to continue.", invite)
 		return
 	}
-	u, err := s.Svc.SignUp(r.Context(), r.PostFormValue("name"), r.PostFormValue("username"), r.PostFormValue("password"))
+	u, err := s.Svc.SignUpInvite(r.Context(), r.PostFormValue("name"), r.PostFormValue("username"), r.PostFormValue("password"), invite, "")
 	if err != nil {
-		s.signUpView(w, r, 400, errText(err))
+		s.signUpView(w, r, 400, errText(err), invite)
 		return
 	}
 	s.Svc.Store.AddConsent(u.Address, core.Consent{Kind: "terms", Version: TermsVersion, Granted: true})
@@ -303,7 +361,7 @@ func (s *Server) magicVerify(w http.ResponseWriter, r *http.Request) {
 		s.notice(w, r, 400, "linkerror", "error", "shield-alert", "", nil)
 		return
 	}
-	s.signIn(w, u)
+	s.signIn(w, r, u)
 	http.Redirect(w, r, "/account", http.StatusSeeOther)
 }
 func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request) {
@@ -316,8 +374,8 @@ func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) requestView(w http.ResponseWriter, r *http.Request, status int, page, kind, action, token, errMsg string) {
-	s.render(w, r, status, s.text(page, "title"), blocks.AuthflyRequest(blocks.AuthflyRequestProps{Id: "authfly", Title: s.text(page, "title"), Text: s.text(page, "text"),
-		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab(page), Token: token, Kind: kind}))
+	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflyRequest(blocks.AuthflyRequestProps{Id: "authfly", Title: s.text(r, page, "title"), Text: s.text(r, page, "text"),
+		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab(r, page), Token: token, Kind: kind}))
 }
 func (s *Server) forgotPage(w http.ResponseWriter, r *http.Request) {
 	s.requestView(w, r, 200, "forgot", "email", "/auth/forgot", "", "")
@@ -361,8 +419,8 @@ func (s *Server) resetPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) signOutPage(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, 200, s.text("signout", "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text("signout", "title"), Text: s.text("signout", "text"),
-		Icon: "log-out", Labels: s.lab("signout"), Tone: "default", Action: "form", ActionUrl: "/auth/sign-out", Csrf: s.csrf(w, r)}))
+	s.render(w, r, 200, s.text(r, "signout", "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text(r, "signout", "title"), Text: s.text(r, "signout", "text"),
+		Icon: "log-out", Labels: s.lab(r, "signout"), Tone: "default", Action: "form", ActionUrl: "/auth/sign-out", Csrf: s.csrf(w, r)}))
 }
 func (s *Server) signOutPost(w http.ResponseWriter, r *http.Request) {
 	if !s.csrfOK(r) {
@@ -370,21 +428,14 @@ func (s *Server) signOutPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u := s.user(r); u != nil {
-		s.Svc.Audit.Log("self", u.Address, "sign_out", "ok", nil)
+		if sid := s.sessionID(r); sid != "" {
+			s.Svc.Store.DropSession(u.Sub, sid)
+		}
+		s.Svc.Audit.Log("self", u.Sub, "sign_out", "ok", nil)
 	}
 	s.clearCookie(w, cookieSession)
 	s.render(w, r, 200, "Signed out", blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: "You are signed out", Text: "See you soon.",
 		Icon: "circle-check", Tone: "success", Action: "link", Labels: map[string]any{"cta": "Sign in again", "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": ""}}))
-}
-
-func (s *Server) accountPage(w http.ResponseWriter, r *http.Request) {
-	u := s.user(r)
-	if u == nil {
-		http.Redirect(w, r, "/auth/sign-in", http.StatusSeeOther)
-		return
-	}
-	s.render(w, r, 200, s.text("account", "title"), blocks.AuthflyAccount(blocks.AuthflyAccountProps{Id: "authfly", Title: s.text("account", "title"), Text: "Signed in with " + methodName(u.Method) + ".",
-		Name: nonEmpty(u.Name, u.Username), Email: u.Address, Verified: u.Verified, Methods: Methods(s.Ext), Labels: s.lab("account"), SignoutUrl: "/auth/sign-out", Csrf: s.csrf(w, r)}))
 }
 
 func methodName(m string) string {
@@ -413,10 +464,6 @@ func Methods(reg ext.Registry) []map[string]any {
 func (s *Server) socialStub(w http.ResponseWriter, r *http.Request) {
 	s.notice(w, r, 501, "linkerror", "error", "globe", r.PathValue("provider"), map[string]any{"cta": "Back to sign in", "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": ""})
 }
-func (s *Server) totpStub(w http.ResponseWriter, r *http.Request) {
-	s.requestView(w, r, 501, "code", "code", "/auth/2fa", "", "Two-step verification is an extension point; no TOTP provider is configured.")
-}
-
 // ---- OIDC handoff: a relying party sends the browser here instead of Stalwart's /login; Authfly shows its sign-in,
 // asks Stalwart for an authorization code bound to the relying party's client id, redirect URI and PKCE challenge
 // (POST /api/auth), shows the consent, then redirects back with Stalwart's code. The relying party exchanges the code
@@ -467,31 +514,8 @@ func (s *Server) authorizePost(w http.ResponseWriter, r *http.Request) {
 		s.notice(w, r, 400, "linkerror", "error", "shield-alert", "", map[string]any{"cta": "Back to sign in", "ctaHref": "/auth/sign-in"})
 		return
 	}
-	local, err := s.Svc.LocalPart(r.PostFormValue("identifier"))
-	if err != nil {
-		s.signInView(w, r, 401, "password", errText(core.ErrInvalidCredentials), "/oauth/authorize")
-		return
-	}
-	code, err := s.Svc.SW.Authorize(r.Context(), core.AuthCodeRequest{AccountName: s.Svc.Address(local), AccountSecret: r.PostFormValue("password"),
-		ClientID: or.ClientID, RedirectURI: or.RedirectURI, Scope: or.Scope, Nonce: or.Nonce, State: or.State, CodeChallenge: or.Challenge})
-	if err != nil {
-		s.signInView(w, r, 401, "password", errText(err), "/oauth/authorize")
-		return
-	}
-	or.Code = code
-	b, _ := json.Marshal(or)
-	cl := core.NewClaims("oauth", or.ClientID, 5*time.Minute)
-	cl.Extra = map[string]string{"req": string(b), "account": r.PostFormValue("identifier")}
-	s.setCookie(w, cookieOAuth, s.Svc.Sign.Sign(cl), 5*time.Minute)
-	account := s.Svc.Address(local)
-	scopes := []map[string]any{}
-	for _, sc := range strings.Fields(or.Scope) {
-		label := map[string]string{"openid": "Your account identifier", "email": "Your email address", "profile": "Your name", "offline_access": "Access while you are away"}[sc]
-		scopes = append(scopes, map[string]any{"id": sc, "title": nonEmpty(label, sc), "text": sc, "icon": "check"})
-	}
-	s.render(w, r, 200, s.text("consent", "title"), blocks.AuthflyConsent(blocks.AuthflyConsentProps{Id: "authfly", Title: s.text("consent", "title"),
-		Text: s.Clients[or.ClientID].Name + " wants to sign you in with your mail account.", Action: "/oauth/consent", Csrf: s.csrf(w, r),
-		Client: s.Clients[or.ClientID].Name, Account: account, Scopes: scopes, Labels: s.lab("consent")}))
+	identifier, password := r.PostFormValue("identifier"), r.PostFormValue("password")
+	s.finishOAuth(w, r, identifier, password, "")
 }
 
 func (s *Server) consentPost(w http.ResponseWriter, r *http.Request) {
@@ -501,11 +525,15 @@ func (s *Server) consentPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.clearCookie(w, cookieOAuth)
-	if local, err := s.Svc.LocalPart(cl.Extra["account"]); err == nil {
-		addr := s.Svc.Address(local)
+	if ident, err := s.Svc.ParseIdentifier(cl.Extra["account"]); err == nil {
+		addr := ident.Address()
 		ok := r.PostFormValue("decision") == "approve"
 		s.Svc.Store.AddConsent(addr, core.Consent{Kind: "oidc", Client: or.ClientID, Scopes: strings.Fields(or.Scope), Granted: ok})
-		s.Svc.Audit.Log(or.ClientID, addr, "consent", map[bool]string{true: "ok", false: "denied"}[ok], map[string]string{"scope": or.Scope})
+		subject := addr
+		if acc, ferr := s.Svc.SW.FindAccount(r.Context(), ident.Domain, ident.Local); ferr == nil {
+			subject = acc.ID
+		}
+		s.Svc.Audit.Log(or.ClientID, subject, "consent", map[bool]string{true: "ok", false: "denied"}[ok], map[string]string{"scope": or.Scope})
 	}
 	if r.PostFormValue("decision") != "approve" {
 		redirectErr(w, r, or.RedirectURI, or.State, "access_denied")

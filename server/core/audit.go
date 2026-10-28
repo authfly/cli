@@ -18,7 +18,7 @@ import (
 type AuditEvent struct {
 	Time    string            `json:"time"`
 	Actor   string            `json:"actor"`   // "self", "console:<admin>", "system", or the client id
-	Subject string            `json:"subject"` // account address (or "erased:<sha256>")
+	Subject string            `json:"subject"` // Stalwart account id (or "erased:<sha256>"); never an email
 	Action  string            `json:"action"`  // sign_up, sign_in, sign_in_failed, magic_link, verify_email, password_reset, sign_out, consent, export, erase, console.*
 	Outcome string            `json:"outcome"` // ok, denied, error
 	Detail  map[string]string `json:"detail,omitempty"`

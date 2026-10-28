@@ -10,8 +10,8 @@
       "forgotHref": "/auth/forgot",
       "magic": "Email me a sign-in link",
       "magicHref": "/auth/magic",
-      "signupText": "No account yet?",
-      "signupLink": "Create one",
+      "signupText": "Have an invite?",
+      "signupLink": "Create an account",
       "signupHref": "/auth/sign-up",
       "providers": "Sign in with a provider",
       "socialUrl": "/auth/social"
@@ -28,20 +28,31 @@
       "forgotHref": "",
       "magic": "Use a password instead",
       "magicHref": "/auth/sign-in",
-      "signupText": "No account yet?",
-      "signupLink": "Create one",
+      "signupText": "Have an invite?",
+      "signupLink": "Create an account",
       "signupHref": "/auth/sign-up",
       "providers": "Sign in with a provider",
       "socialUrl": "/auth/social"
     }
   },
+  "invite": {
+    "title": "Create your account",
+    "text": "Sign-up is invite only. Open the link from your administrator.",
+    "have": "Have an invite?",
+    "link": "Use it here",
+    "need": "You need an invite to create an account.",
+    "labels": {
+      "token": "Invite code"
+    }
+  },
   "signup": {
     "title": "Create your account",
-    "text": "You get a mailbox and one sign-in for every app.",
+    "text": "You get a mailbox and one sign-in for every app. An invite is required.",
     "labels": {
       "name": "Full name",
       "username": "Username",
       "domain": "@example.com",
+      "invite": "Invite code",
       "password": "Password",
       "hint": "At least 10 characters.",
       "terms": "I accept the terms of use",
@@ -148,6 +159,103 @@
   },
   "errors": {
     "credentials": "The address or the password is wrong.",
-    "taken": "This username is taken."
+    "taken": "This username is taken.",
+    "reserved": "This username is reserved.",
+    "invite": "This invite is invalid, used, or expired.",
+    "expired": "This password has expired. Reset it to continue."
+  },
+  "nav": {
+    "title": "Account",
+    "home": "Home",
+    "personal": "Personal info",
+    "security": "Security",
+    "apps": "Connected sites",
+    "privacy": "Data & privacy",
+    "signout": "Sign out",
+    "language": "Language"
+  },
+  "home": {
+    "title": "Welcome",
+    "text": "Manage your YSELF account, security and the sites that can sign you in."
+  },
+  "personal": {
+    "title": "Personal info",
+    "text": "Your name and address as they appear to sites you sign in to.",
+    "labels": {
+      "name": "Name",
+      "email": "Address",
+      "username": "Username",
+      "kind": "Account type",
+      "user": "Person",
+      "org": "Organisation",
+      "save": "Save",
+      "saved": "Saved."
+    }
+  },
+  "security": {
+    "title": "Security",
+    "text": "Password, two-step verification, app passwords and sessions.",
+    "labels": {
+      "password": "Password",
+      "current": "Current password",
+      "next": "New password",
+      "confirm": "Repeat the new password",
+      "change": "Change password",
+      "changed": "Password changed. Other sessions were signed out.",
+      "totp": "Authenticator app",
+      "totpOn": "On",
+      "totpOff": "Off",
+      "totpHint": "Scan the otpauth URL or enter the secret in your authenticator app, then confirm with a code.",
+      "totpEnable": "Turn on",
+      "totpDisable": "Turn off",
+      "totpSecret": "Secret",
+      "code": "Authenticator code",
+      "apps": "App passwords",
+      "appsHint": "Use an app password in mail clients. It never replaces your sign-in password.",
+      "appName": "Label",
+      "appCreate": "Create",
+      "appCreated": "Copy this password now. It is not shown again.",
+      "revoke": "Revoke",
+      "sessions": "Sessions",
+      "thisDevice": "This browser",
+      "everywhere": "Sign out everywhere",
+      "signedOut": "Signed out of every browser."
+    }
+  },
+  "apps": {
+    "title": "Connected sites",
+    "text": "Sites that can sign you in with this account. Revoke to drop their grant.",
+    "labels": {
+      "empty": "No connected sites yet.",
+      "revoke": "Revoke",
+      "revoked": "Access revoked.",
+      "client": "Site",
+      "scopes": "Access",
+      "last": "Last used"
+    }
+  },
+  "privacy": {
+    "title": "Data & privacy",
+    "text": "Download a copy of your data, read the audit log, or delete the account and free the name.",
+    "labels": {
+      "export": "Download my data",
+      "audit": "Activity",
+      "delete": "Delete account",
+      "deleteHint": "This destroys the mailbox, frees the username on both domains, and signs you out. Type your password to confirm.",
+      "password": "Password",
+      "confirm": "Delete my account",
+      "deleted": "Your account has been deleted."
+    }
+  },
+  "mfa": {
+    "title": "Two-step verification",
+    "text": "Enter the six-digit code from your authenticator app.",
+    "labels": {
+      "field": "Code",
+      "confirm": "",
+      "submit": "Verify",
+      "back": "Use another method",
+      "backHref": "/auth/sign-in"
+    }
   }
 }

@@ -25,13 +25,16 @@ import (
 	"time"
 )
 
-// Stalwart talks to one Stalwart server (v0.16). Endpoints verified against stalw.art/docs and a live v0.16.27 server:
+// Stalwart talks to one Stalwart server (v1.0). Endpoints verified against the v1.0.0 source
+// (crates/http/src/auth/oauth/auth.rs, crates/registry/src/schema/structs.rs):
 //
-//	POST /jmap                 JMAP, capability urn:stalwart:jmap: x:Domain/*, x:Account/* (docs show POST /api; the live server answers on /jmap)
-//	POST /api/auth             {type:"authCode", accountName, accountSecret, clientId, redirectUri, codeChallenge, ...} -> {type:"authenticated", client_code}
-//	POST /auth/token           standard OAuth token endpoint (authorization_code + code_verifier, refresh_token)
-//	GET  /auth/userinfo        OIDC userinfo
-//	GET  /.well-known/openid-configuration, /auth/jwks.json
+//	POST /jmap                 JMAP, capability urn:stalwart:jmap: x:Domain/*, x:Account/*, x:AccountPassword,
+//	                           x:AppPassword, x:OAuthGrant, x:OAuthClient, nested x:EmailAlias
+//	POST /api/auth             {type:"authCode", accountName, accountSecret, mfaToken?, query:"client_id=…&redirect_uri=…&code_challenge=…&code_challenge_method=S256…", consent:true}
+//	                           -> {type:"authenticated", location} | mfaRequired | failure | expired | invalid | redirect
+//	POST /auth/token           authorization_code + code_verifier (PKCE S256 required; no password grant)
+//	GET  /auth/userinfo, /auth/jwks.json, POST /auth/revoke, GET|POST /auth/logout
+//	GET  /.well-known/openid-configuration
 type Stalwart struct {
 	BaseURL    string // internal URL Authfly uses to reach Stalwart, e.g. http://stalwart:8080
 	AdminUser  string // management credential (dev: STALWART_RECOVERY_ADMIN; production: an API key as AdminToken)
@@ -39,10 +42,12 @@ type Stalwart struct {
 	AdminToken string
 	HTTP       *http.Client
 
-	mu       sync.Mutex
-	disco    *Discovery
-	jwks     map[string]*ecdsa.PublicKey
-	domainID map[string]string
+	mu         sync.Mutex
+	disco      *Discovery
+	jwks       map[string]*ecdsa.PublicKey
+	domainID   map[string]string
+	userDomain string
+	orgDomain  string
 }
 
 type Discovery struct {
@@ -57,6 +62,7 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrMFARequired = errors.New("multi-factor authentication required")
 var ErrAccountExists = errors.New("account exists")
 var ErrNotFound = errors.New("not found")
+var ErrAuthRedirect = errors.New("authorization redirected with an error")
 
 func (s *Stalwart) client() *http.Client {
 	if s.HTTP != nil {
@@ -205,52 +211,10 @@ func (s *Stalwart) FindAccount(ctx context.Context, domain, name string) (*Accou
 	return nil, ErrNotFound
 }
 
-// CreateAccount creates a User account with a password credential (x:Account/set create; fields per stalw.art/docs/ref/object/account).
+// CreateAccount creates a User account with a password credential (x:Account/set). Prefer CreateAccountKind
+// when dual-domain namespace mirroring is on.
 func (s *Stalwart) CreateAccount(ctx context.Context, domain, name, password, fullName string) (*Account, error) {
-	if _, err := s.FindAccount(ctx, domain, name); err == nil {
-		return nil, ErrAccountExists
-	}
-	did, err := s.EnsureDomain(ctx, domain)
-	if err != nil {
-		return nil, err
-	}
-	acc := map[string]any{
-		"@type": "User", "name": name, "domainId": did, "description": fullName,
-		"credentials":      map[string]any{"0": map[string]any{"@type": "Password", "secret": password}},
-		"roles":            map[string]any{"@type": "User"},
-		"permissions":      map[string]any{"@type": "Inherit"},
-		"encryptionAtRest": map[string]any{"@type": "Disabled"},
-	}
-	r, err := s.JMAP(ctx, []any{"x:Account/set", map[string]any{"create": map[string]any{"a": acc}}, "c"})
-	if err != nil {
-		return nil, err
-	}
-	var set struct {
-		Created    map[string]struct{ ID string } `json:"created"`
-		NotCreated map[string]json.RawMessage     `json:"notCreated"`
-	}
-	_ = json.Unmarshal(r[0][1], &set)
-	if set.Created["a"].ID == "" {
-		return nil, fmt.Errorf("stalwart: account not created: %s", set.NotCreated["a"])
-	}
-	return &Account{ID: set.Created["a"].ID, Name: name, EmailAddress: name + "@" + domain, Description: fullName, DomainID: did}, nil
-}
-
-// SetPassword replaces the credentials of an account with one password (x:Account/set update credentials).
-func (s *Stalwart) SetPassword(ctx context.Context, id, password string) error {
-	r, err := s.JMAP(ctx, []any{"x:Account/set", map[string]any{"update": map[string]any{id: map[string]any{
-		"credentials": map[string]any{"0": map[string]any{"@type": "Password", "secret": password}}}}}, "u"})
-	if err != nil {
-		return err
-	}
-	var set struct {
-		NotUpdated map[string]json.RawMessage `json:"notUpdated"`
-	}
-	_ = json.Unmarshal(r[0][1], &set)
-	if len(set.NotUpdated) > 0 {
-		return fmt.Errorf("stalwart: password not updated: %s", set.NotUpdated[id])
-	}
-	return nil
+	return s.CreateAccountKind(ctx, domain, name, password, fullName, KindUser)
 }
 
 // Discovery reads /.well-known/openid-configuration (cached).
@@ -275,44 +239,97 @@ func (s *Stalwart) Discovery(ctx context.Context) (*Discovery, error) {
 	return d, nil
 }
 
-// AuthCodeRequest is the body of POST /api/auth (type authCode).
+// AuthCodeRequest is the body of POST /api/auth (type authCode) for Stalwart 1.0.
+// Query is the original OAuth authorize query string (client_id, redirect_uri, code_challenge,
+// code_challenge_method=S256, scope, nonce, state, response_type). Consent must be true for
+// registered clients (requires_consent); otherwise Stalwart returns type redirect with access_denied.
 type AuthCodeRequest struct {
-	AccountName, AccountSecret, ClientID, RedirectURI, Scope, Nonce, State, CodeChallenge, MFAToken string
+	AccountName, AccountSecret, MFAToken, Query string
+	Consent                                     bool
+	// Legacy fields: used only to build Query when Query is empty (v0.16 callers / tests).
+	ClientID, RedirectURI, Scope, Nonce, State, CodeChallenge string
 }
 
-// Authorize checks a password with Stalwart and returns an OAuth authorization code bound to the client, the redirect URI and the PKCE challenge.
+// AuthResult is a successful /api/auth response: the redirect Location (contains code=) and the code itself.
+type AuthResult struct {
+	Code     string
+	Location string
+}
+
+// Authorize checks a password with Stalwart and returns an OAuth authorization code bound to the
+// client, redirect URI and PKCE S256 challenge. PKCE S256 is required; there is no password grant.
 func (s *Stalwart) Authorize(ctx context.Context, a AuthCodeRequest) (string, error) {
-	body := map[string]any{"type": "authCode", "accountName": a.AccountName, "accountSecret": a.AccountSecret, "clientId": a.ClientID,
-		"redirectUri": a.RedirectURI, "codeChallenge": a.CodeChallenge, "codeChallengeMethod": "S256"}
-	for k, v := range map[string]string{"scope": a.Scope, "nonce": a.Nonce, "state": a.State, "mfaToken": a.MFAToken} {
-		if v != "" {
-			body[k] = v
+	res, err := s.AuthorizeEx(ctx, a)
+	if err != nil {
+		return "", err
+	}
+	return res.Code, nil
+}
+
+// AuthorizeEx is Authorize plus the Location Stalwart 1.0 returns (type authenticated).
+func (s *Stalwart) AuthorizeEx(ctx context.Context, a AuthCodeRequest) (*AuthResult, error) {
+	q := a.Query
+	if q == "" {
+		v := url.Values{"client_id": {a.ClientID}, "redirect_uri": {a.RedirectURI},
+			"response_type": {"code"}, "code_challenge_method": {"S256"}}
+		if a.CodeChallenge != "" {
+			v.Set("code_challenge", a.CodeChallenge)
 		}
+		if a.Scope != "" {
+			v.Set("scope", a.Scope)
+		}
+		if a.Nonce != "" {
+			v.Set("nonce", a.Nonce)
+		}
+		if a.State != "" {
+			v.Set("state", a.State)
+		}
+		q = v.Encode()
+	}
+	body := map[string]any{"type": "authCode", "accountName": a.AccountName, "accountSecret": a.AccountSecret, "query": q, "consent": a.Consent}
+	if a.MFAToken != "" {
+		body["mfaToken"] = a.MFAToken
 	}
 	bb, _ := json.Marshal(body)
 	b, code, err := s.do(ctx, "POST", "/api/auth", bytes.NewReader(bb), "application/json", false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var out struct {
 		Type        string `json:"type"`
-		ClientCode  string `json:"client_code"` // live v0.16.27 answers client_code (the docs say clientCode)
+		Location    string `json:"location"`
+		ClientCode  string `json:"client_code"` // v0.16 leftover; 1.0 uses location
 		ClientCode2 string `json:"clientCode"`
+		Error       string `json:"error"`
+		Description string `json:"description"`
 	}
 	_ = json.Unmarshal(b, &out)
 	switch out.Type {
 	case "authenticated":
-		if out.ClientCode == "" {
-			out.ClientCode = out.ClientCode2
+		tok := out.ClientCode
+		if tok == "" {
+			tok = out.ClientCode2
 		}
-		return out.ClientCode, nil
+		if tok == "" && out.Location != "" {
+			if u, err := url.Parse(out.Location); err == nil {
+				tok = u.Query().Get("code")
+			}
+		}
+		if tok == "" {
+			return nil, ErrInvalidCredentials
+		}
+		return &AuthResult{Code: tok, Location: out.Location}, nil
 	case "mfaRequired":
-		return "", ErrMFARequired
+		return nil, ErrMFARequired
+	case "expired":
+		return nil, ErrExpired
+	case "redirect":
+		return nil, fmt.Errorf("%w: %s", ErrAuthRedirect, out.Location)
 	}
 	if code == 429 {
-		return "", fmt.Errorf("stalwart: rate limited")
+		return nil, fmt.Errorf("stalwart: rate limited")
 	}
-	return "", ErrInvalidCredentials
+	return nil, ErrInvalidCredentials
 }
 
 // Tokens is the token endpoint response.

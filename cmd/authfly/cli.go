@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-const usage = `authfly — self-hosted auth + personal-data storage (Authfly + Stalwart)
+const usage = `authfly — self-hosted auth + personal-data storage (Authfly + Stalwart 1.0)
 
 Usage: npx authfly <command> [flags]      (or the authfly binary)
 
@@ -27,12 +27,13 @@ Usage: npx authfly <command> [flags]      (or the authfly binary)
   secrets   list secrets and their permissions (values are never printed)
   down      stop and remove the containers (--purge also deletes the data)
   serve     run the Authfly server (what the containers run; default without a command)
+  invite    create, list or revoke sign-up invites (AUTHFLY_STORE)
   version   print the version
 
 Common flag: -f authfly.yaml (default ./authfly.yaml). Docs: docs/deploy.md, docs/policies.md
 `
 
-var Version = "0.4.1"
+var Version = "0.5.0"
 
 func cliMain(cmd string, args []string) {
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
@@ -118,6 +119,8 @@ func cliMain(cmd string, args []string) {
 		purge := fs.Bool("purge", false, "also delete the data volumes")
 		fs.Parse(args)
 		check(load(*file).Driver().Down(*purge))
+	case "invite":
+		inviteCmd(args)
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)

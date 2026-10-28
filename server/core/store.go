@@ -19,8 +19,10 @@ type storeData struct {
 	Verified map[string]int64 `json:"verified"`
 	Used     map[string]int64 `json:"used"` // token id -> expiry
 	// GDPR: consent records per address, and sessions issued before this time are revoked (erasure, sign out everywhere)
-	Consents map[string][]Consent `json:"consents"`
-	Revoked  map[string]int64     `json:"revoked"` // unix nanoseconds
+	Consents map[string][]Consent     `json:"consents"`
+	Revoked  map[string]int64         `json:"revoked"` // unix nanoseconds
+	Invites  map[string]Invite        `json:"invites,omitempty"`
+	Sessions map[string][]SessionRec  `json:"sessions,omitempty"` // account id -> sessions
 }
 
 // Consent is a record of a consent decision (Art. 7(1): the controller must be able to demonstrate consent).
@@ -49,6 +51,12 @@ func OpenStore(path string) (*Store, error) {
 	}
 	if s.data.Revoked == nil {
 		s.data.Revoked = map[string]int64{}
+	}
+	if s.data.Invites == nil {
+		s.data.Invites = map[string]Invite{}
+	}
+	if s.data.Sessions == nil {
+		s.data.Sessions = map[string][]SessionRec{}
 	}
 	return s, nil
 }
@@ -135,6 +143,12 @@ func (s *Store) Forget(addr string) {
 	delete(s.data.Revoked, addr)
 	s.data.Revoked[Pseudonym(addr)] = time.Now().UnixNano()
 	s.save()
+}
+
+// ForgetAccount is Forget keyed by address plus drop of sessions of the account id.
+func (s *Store) ForgetAccount(addr, accountID string) {
+	s.Forget(addr)
+	s.DropSessions(accountID)
 }
 
 // Snapshot is what Authfly holds about an address (for the export).
