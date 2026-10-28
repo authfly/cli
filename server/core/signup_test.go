@@ -37,3 +37,16 @@ func TestSignUpReservedBeforeStalwart(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestSignUpReservedWmaster(t *testing.T) {
+	st, _ := OpenStore(filepath.Join(t.TempDir(), "s.json"))
+	tok, _, err := st.CreateInvite(KindOrg, "", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Service{Cfg: Config{Domain: "cab.yself.link", UserDomainName: "cab.yself.link", OrgDomainName: "yself.link"}, Store: st}
+	_, err = s.SignUpInvite(context.Background(), "Webmaster", "wmaster@yself.link", "password-ok-long", tok, KindOrg)
+	if err != ErrReservedName {
+		t.Fatalf("%v", err)
+	}
+}

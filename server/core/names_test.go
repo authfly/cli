@@ -12,8 +12,9 @@ func TestParseIdentifier(t *testing.T) {
 		{"Alice", "alice", "cab.yself.link", KindUser, nil},
 		{"alice@cab.yself.link", "alice", "cab.yself.link", KindUser, nil},
 		{"ops@yself.link", "ops", "yself.link", KindOrg, nil},
-		{"admin", "", "", "", ErrReservedName},
-		{"postmaster", "", "", "", ErrReservedName},
+		{"admin", "admin", "cab.yself.link", KindUser, nil},
+		{"wmaster@yself.link", "wmaster", "yself.link", KindOrg, nil},
+		{"postmaster", "postmaster", "cab.yself.link", KindUser, nil},
 		{"a", "", "", "", ErrBadUsername},
 		{"alice@evil.example", "", "", "", ErrOtherDomain},
 	}

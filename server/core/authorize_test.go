@@ -102,6 +102,37 @@ func TestPasswordSignInSendsState(t *testing.T) {
 	}
 }
 
+func TestPasswordSignInReservedExistingAccountReachesStalwart(t *testing.T) {
+	var account string
+	var hitAuth bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth" {
+			hitAuth = true
+			var got map[string]any
+			b, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(b, &got)
+			account, _ = got["accountName"].(string)
+			_, _ = w.Write([]byte(`{"type":"authenticated","location":"https://x/?code=THECODE"}`))
+			return
+		}
+		http.Error(w, "no", 500)
+	}))
+	defer srv.Close()
+	st, _ := OpenStore("")
+	s := &Service{
+		Cfg:   Config{Domain: "cab.yself.link", UserDomainName: "cab.yself.link", OrgDomainName: "yself.link", PublicURL: "http://accounts.test", ClientID: "authfly"},
+		SW:    &Stalwart{BaseURL: srv.URL, HTTP: srv.Client()},
+		Store: st,
+	}
+	_, _, err := s.PasswordSignIn(context.Background(), "wmaster@yself.link", "password-ok-long")
+	if !hitAuth {
+		t.Fatalf("reserved name blocked before Stalwart: %v", err)
+	}
+	if account != "wmaster@yself.link" {
+		t.Fatalf("accountName %q", account)
+	}
+}
+
 func TestAuthorizeMFARequired(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"type":"mfaRequired"}`))

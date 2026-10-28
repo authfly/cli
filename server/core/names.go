@@ -61,6 +61,7 @@ func initReserved(path string) {
 func LoadReservedNames(path string) { initReserved(path) }
 
 // IsReservedName reports whether the local-part is on the reserved list.
+// It blocks new registrations only (SignUpInvite / name availability), never sign-in.
 func IsReservedName(local string) bool {
 	initReserved("")
 	reservedMu.RLock()

@@ -62,6 +62,8 @@ var (
 var usernameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,31}$`)
 
 // ParseIdentifier turns a username or address into an Identity on the user or org domain.
+// Reserved names are accepted here so existing service accounts (e.g. wmaster@yself.link) can
+// sign in; SignUpInvite is what refuses them for new registrations.
 func (s *Service) ParseIdentifier(identifier string) (Identity, error) {
 	id := strings.ToLower(strings.TrimSpace(identifier))
 	local, domain := id, ""
@@ -70,9 +72,6 @@ func (s *Service) ParseIdentifier(identifier string) (Identity, error) {
 	}
 	if !usernameRe.MatchString(local) {
 		return Identity{}, ErrBadUsername
-	}
-	if IsReservedName(local) {
-		return Identity{}, ErrReservedName
 	}
 	userD, orgD := strings.ToLower(s.Cfg.UserDomain()), strings.ToLower(s.Cfg.OrgDomain())
 	switch {
@@ -132,6 +131,9 @@ func (s *Service) SignUpInvite(ctx context.Context, name, username, password, in
 	ident, err := s.ParseIdentifier(username)
 	if err != nil {
 		return nil, err
+	}
+	if IsReservedName(ident.Local) {
+		return nil, ErrReservedName
 	}
 	ident.Kind = kind
 	if kind == KindOrg {
@@ -194,9 +196,6 @@ func (s *Service) PasswordSignIn(ctx context.Context, identifier, password strin
 func (s *Service) PasswordSignInMFA(ctx context.Context, identifier, password, mfaToken string) (*User, *Tokens, error) {
 	ident, err := s.ParseIdentifier(identifier)
 	if err != nil {
-		if errors.Is(err, ErrReservedName) || errors.Is(err, ErrBadUsername) {
-			return nil, nil, ErrInvalidCredentials
-		}
 		return nil, nil, ErrInvalidCredentials
 	}
 	verifier, challenge := PKCE()
