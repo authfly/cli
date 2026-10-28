@@ -8,10 +8,13 @@ import (
 	"time"
 )
 
+const defaultRateLimitKeys = 8192
+
 // RateLimiter is a per-IP sliding window for sign-in / sign-up / forgot endpoints.
 type RateLimiter struct {
 	Limit   int
 	Window  time.Duration
+	MaxKeys int // 0 = defaultRateLimitKeys
 	Trusted []*net.IPNet
 	mu      sync.Mutex
 	hits    map[string][]time.Time
@@ -24,7 +27,7 @@ func NewRateLimiter(limit int, window time.Duration, trusted []*net.IPNet) *Rate
 	if window <= 0 {
 		window = time.Minute
 	}
-	return &RateLimiter{Limit: limit, Window: window, Trusted: trusted, hits: map[string][]time.Time{}}
+	return &RateLimiter{Limit: limit, Window: window, MaxKeys: defaultRateLimitKeys, Trusted: trusted, hits: map[string][]time.Time{}}
 }
 
 // ParseTrustedProxies parses AUTHFLY_TRUSTED_PROXIES (comma-separated IPs or CIDRs).
@@ -100,10 +103,64 @@ var rateLimited = map[string]bool{
 	"POST /oauth/authorize": true,
 }
 
+func (l *RateLimiter) maxKeys() int {
+	if l.MaxKeys > 0 {
+		return l.MaxKeys
+	}
+	return defaultRateLimitKeys
+}
+
+// Size is the number of tracked keys (tests).
+func (l *RateLimiter) Size() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.hits)
+}
+
+func (l *RateLimiter) evictLocked(now time.Time) {
+	cut := now.Add(-l.Window)
+	for k, times := range l.hits {
+		next := times[:0]
+		for _, t := range times {
+			if t.After(cut) {
+				next = append(next, t)
+			}
+		}
+		if len(next) == 0 {
+			delete(l.hits, k)
+		} else if len(next) != len(times) {
+			copied := make([]time.Time, len(next))
+			copy(copied, next)
+			l.hits[k] = copied
+		}
+	}
+	max := l.maxKeys()
+	for len(l.hits) > max {
+		var oldest string
+		var oldestT time.Time
+		first := true
+		for k, times := range l.hits {
+			if len(times) == 0 {
+				delete(l.hits, k)
+				continue
+			}
+			last := times[len(times)-1]
+			if first || last.Before(oldestT) {
+				oldest, oldestT, first = k, last, false
+			}
+		}
+		if oldest == "" {
+			break
+		}
+		delete(l.hits, oldest)
+	}
+}
+
 func (l *RateLimiter) Allow(key string) bool {
 	now := time.Now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.evictLocked(now)
 	cut := now.Add(-l.Window)
 	cur := l.hits[key]
 	next := cur[:0]
@@ -113,10 +170,13 @@ func (l *RateLimiter) Allow(key string) bool {
 		}
 	}
 	if len(next) >= l.Limit {
-		l.hits[key] = next
+		l.hits[key] = append([]time.Time(nil), next...)
 		return false
 	}
-	l.hits[key] = append(next, now)
+	l.hits[key] = append(append([]time.Time(nil), next...), now)
+	if len(l.hits) > l.maxKeys() {
+		l.evictLocked(now)
+	}
 	return true
 }
 

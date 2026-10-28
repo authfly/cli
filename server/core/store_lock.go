@@ -10,6 +10,9 @@ func (s *Store) acquireFileLock() *os.File {
 	if err != nil {
 		return nil
 	}
+	if _, uid, gid := fileIdent(s.Path); uid >= 0 {
+		chownFile(s.Path+".lock", uid, gid)
+	}
 	if err := lockFile(f); err != nil {
 		f.Close()
 		return nil

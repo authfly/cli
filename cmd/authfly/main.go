@@ -55,10 +55,10 @@ func initStalwart() {
 		var herr error
 		lines, herr = sw.Harden(context.Background(), core.HardenOptions{Domain: env("AUTHFLY_DOMAIN", env("AUTHFLY_USER_DOMAIN", "authfly.test")), OrgDomain: env("AUTHFLY_ORG_DOMAIN", ""), ServiceName: env("AUTHFLY_SERVICE_NAME", "authfly-svc"),
 			ServicePassword: pw, KeepWebUI: env("STALWART_KEEP_WEBUI", "") == "true", Clients: clients})
-		if herr != nil && !core.IsSchemaError(herr) {
+		if herr != nil && !core.HardenGiveUp(herr) {
 			log.Printf("init-stalwart: %v (retrying)", herr)
 		} else if herr != nil {
-			log.Printf("init-stalwart: schema error (not retrying): %v", herr)
+			log.Printf("init-stalwart: not retrying: %v", herr)
 		}
 		return herr
 	})

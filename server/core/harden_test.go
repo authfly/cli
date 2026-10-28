@@ -38,6 +38,52 @@ func TestRetryHardenStopsOnSchema(t *testing.T) {
 	}
 }
 
+func TestIsAuthError(t *testing.T) {
+	if !IsAuthError(errors.New("stalwart jmap: http 401: Unauthorized")) {
+		t.Fatal("401")
+	}
+	if !IsAuthError(errors.New("stalwart jmap: http 403: Forbidden")) {
+		t.Fatal("403")
+	}
+	if !IsAuthError(errors.New(`stalwart jmap error: {"type":"forbidden"}`)) {
+		t.Fatal("forbidden")
+	}
+	if IsAuthError(errors.New("connection refused")) {
+		t.Fatal("connection refused is not auth")
+	}
+	if !HardenGiveUp(errors.New("stalwart jmap: http 401: x")) {
+		t.Fatal("give up 401")
+	}
+	if HardenGiveUp(errors.New("connection refused")) {
+		t.Fatal("should retry connection refused")
+	}
+}
+
+func TestRetryHardenStopsOn401(t *testing.T) {
+	n := 0
+	err := RetryHarden(30, time.Hour, func() error {
+		n++
+		return errors.New("stalwart jmap: http 401: Unauthorized")
+	})
+	if n != 1 {
+		t.Fatalf("retried 401 n=%d", n)
+	}
+	if err == nil || !strings.Contains(err.Error(), "admin credential") {
+		t.Fatalf("want a clear auth message, got %v", err)
+	}
+}
+
+func TestRetryHardenStopsOnForbidden(t *testing.T) {
+	n := 0
+	err := RetryHarden(30, 0, func() error {
+		n++
+		return errors.New("stalwart jmap: http 403: Forbidden")
+	})
+	if n != 1 || err == nil {
+		t.Fatalf("n=%d err=%v", n, err)
+	}
+}
+
 func TestRetryHardenRetriesOtherErrors(t *testing.T) {
 	n := 0
 	err := RetryHarden(3, 0, func() error {

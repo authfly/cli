@@ -104,8 +104,28 @@ func IsSchemaError(err error) bool {
 	return false
 }
 
-// RetryHarden runs fn up to attempts times. Schema errors fail immediately; other errors
-// (connection refused while Stalwart starts) wait sleep between tries.
+// IsAuthError reports a Stalwart admin 401/403 (wrong credential or forbidden). These
+// will not start working after waiting for the process to come up.
+func IsAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	for _, p := range []string{"http 401", "http 403", "unauthorized", "forbidden"} {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// HardenGiveUp is true when retrying Harden cannot help (schema or auth).
+func HardenGiveUp(err error) bool {
+	return IsSchemaError(err) || IsAuthError(err)
+}
+
+// RetryHarden runs fn up to attempts times. Schema and 401/403 fail immediately; other
+// errors (connection refused while Stalwart starts) wait sleep between tries.
 func RetryHarden(attempts int, sleep time.Duration, fn func() error) error {
 	if attempts < 1 {
 		attempts = 1
@@ -118,6 +138,9 @@ func RetryHarden(attempts int, sleep time.Duration, fn func() error) error {
 		}
 		if IsSchemaError(err) {
 			return err
+		}
+		if IsAuthError(err) {
+			return fmt.Errorf("stalwart refused the admin credential (HTTP 401/403); check STALWART_ADMIN or STALWART_ADMIN_TOKEN: %w", err)
 		}
 		if i+1 < attempts && sleep > 0 {
 			time.Sleep(sleep)

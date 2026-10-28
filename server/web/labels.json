@@ -65,7 +65,7 @@
   "forgot": {
     "title": "Forgot your password?",
     "text": "Enter your address and we email you a reset link.",
-    "nomail": "Password reset is unavailable because this server has no mail delivery (SMTP_ADDR is unset).",
+    "nomail": "Password reset is unavailable. Contact support.",
     "labels": {
       "field": "Email",
       "confirm": "",
@@ -124,6 +124,16 @@
       "ctaHref": "",
       "secondary": "Stay signed in",
       "secondaryHref": "/account"
+    }
+  },
+  "nomail": {
+    "title": "Password reset unavailable",
+    "text": "Password reset is unavailable. Contact support.",
+    "labels": {
+      "cta": "Back to sign in",
+      "ctaHref": "/auth/sign-in",
+      "secondary": "",
+      "secondaryHref": ""
     }
   },
   "linkerror": {

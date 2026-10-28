@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -68,5 +69,34 @@ func TestRateLimitIgnoresSpoofedXFF(t *testing.T) {
 	s.Handler().ServeHTTP(w, r)
 	if w.Code != http.StatusTooManyRequests {
 		t.Fatalf("spoofed XFF bypassed limit: %d", w.Code)
+	}
+}
+
+func TestRateLimitEvictsExpiredKeys(t *testing.T) {
+	l := NewRateLimiter(5, 40*time.Millisecond, nil)
+	l.MaxKeys = 100
+	for i := 0; i < 20; i++ {
+		l.Allow(fmt.Sprintf("old-%d POST /api/v1/sign-in", i))
+	}
+	if l.Size() != 20 {
+		t.Fatalf("size %d", l.Size())
+	}
+	time.Sleep(50 * time.Millisecond)
+	if !l.Allow("fresh POST /api/v1/sign-in") {
+		t.Fatal("fresh denied")
+	}
+	if l.Size() != 1 {
+		t.Fatalf("expired keys not evicted: size %d", l.Size())
+	}
+}
+
+func TestRateLimitBoundedKeys(t *testing.T) {
+	l := NewRateLimiter(20, time.Hour, nil)
+	l.MaxKeys = 8
+	for i := 0; i < 40; i++ {
+		l.Allow(fmt.Sprintf("ip-%d POST /api/v1/sign-in", i))
+	}
+	if l.Size() > 8 {
+		t.Fatalf("unbounded map: size %d", l.Size())
 	}
 }

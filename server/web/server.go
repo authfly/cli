@@ -395,9 +395,7 @@ func (s *Server) requestView(w http.ResponseWriter, r *http.Request, status int,
 }
 func (s *Server) forgotPage(w http.ResponseWriter, r *http.Request) {
 	if !s.Svc.MailEnabled() {
-		s.notice(w, r, 503, "linkerror", "error", "mail", s.text(r, "forgot", "nomail"), map[string]any{
-			"title": s.text(r, "forgot", "title"), "cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
-		})
+		s.notice(w, r, 503, "nomail", "error", "mail", "", nil)
 		return
 	}
 	s.requestView(w, r, 200, "forgot", "email", "/auth/forgot", "", "")

@@ -100,8 +100,13 @@ func (s *Store) save() {
 		}
 	}
 	b, _ := json.MarshalIndent(s.data, "", "  ")
-	_ = os.WriteFile(s.Path+".tmp", b, 0o600)
-	_ = os.Rename(s.Path+".tmp", s.Path)
+	mode, uid, gid := fileIdent(s.Path)
+	tmp := s.Path + ".tmp"
+	if os.WriteFile(tmp, b, mode) != nil {
+		return
+	}
+	applyFileIdent(tmp, mode, uid, gid)
+	_ = os.Rename(tmp, s.Path)
 }
 
 // do takes the process mutex and the inter-process file lock, reloads from disk, runs fn, and writes if write.

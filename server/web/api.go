@@ -75,7 +75,7 @@ func (s *Server) api(m *http.ServeMux) {
 	})
 	h("POST /api/v1/magic-link", func(r *http.Request, in map[string]string) (int, any) {
 		if !s.Svc.MailEnabled() {
-			return 503, map[string]string{"error": "mail_unavailable", "message": s.text(r, "forgot", "nomail")}
+			return 503, map[string]string{"error": "mail_unavailable", "message": s.text(r, "nomail", "text")}
 		}
 		addr, err := s.Svc.RequestMagicLink(r.Context(), in["identifier"])
 		if err != nil {
@@ -99,7 +99,7 @@ func (s *Server) api(m *http.ServeMux) {
 	})
 	h("POST /api/v1/forgot", func(r *http.Request, in map[string]string) (int, any) {
 		if !s.Svc.MailEnabled() {
-			return 503, map[string]string{"error": "mail_unavailable", "message": s.text(r, "forgot", "nomail")}
+			return 503, map[string]string{"error": "mail_unavailable", "message": s.text(r, "nomail", "text")}
 		}
 		addr, err := s.Svc.ForgotPassword(r.Context(), in["email"])
 		if err != nil {

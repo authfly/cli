@@ -136,8 +136,15 @@ func TestSignInHidesForgotWithoutSMTP(t *testing.T) {
 	if w.Code != 503 {
 		t.Fatalf("forgot page %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "SMTP_ADDR") && !strings.Contains(strings.ToLower(w.Body.String()), "mail") {
-		t.Fatalf("expected nomail message, got %s", w.Body.String()[:min(400, len(w.Body.String()))])
+	body := w.Body.String()
+	if strings.Contains(body, "This link does not work") || strings.Contains(body, "already used") || strings.Contains(body, "expired") {
+		t.Fatalf("used linkerror copy: %s", body[:min(500, len(body))])
+	}
+	if strings.Contains(body, "SMTP_ADDR") || strings.Contains(body, "SMTP") {
+		t.Fatalf("leaked env name: %s", body[:min(500, len(body))])
+	}
+	if !strings.Contains(body, "Password reset unavailable") && !strings.Contains(body, "Contact support") {
+		t.Fatalf("expected support notice, got %s", body[:min(500, len(body))])
 	}
 	r = httptest.NewRequest("POST", "/api/v1/forgot", strings.NewReader(`{"email":"alice@cab.yself.link"}`))
 	r.Header.Set("Content-Type", "application/json")
@@ -145,6 +152,27 @@ func TestSignInHidesForgotWithoutSMTP(t *testing.T) {
 	s.Handler().ServeHTTP(w, r)
 	if w.Code != 503 {
 		t.Fatalf("forgot api %d %s", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "SMTP") {
+		t.Fatalf("api leaked env: %s", w.Body.String())
+	}
+}
+
+func TestForgotUnavailableRussian(t *testing.T) {
+	s := testServer(t)
+	r := httptest.NewRequest("GET", "/auth/forgot", nil)
+	r.AddCookie(&http.Cookie{Name: cookieLang, Value: "ru"})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	if w.Code != 503 {
+		t.Fatalf("status %d", w.Code)
+	}
+	body := w.Body.String()
+	if strings.Contains(body, "SMTP") || strings.Contains(body, "Ссылка не работает") {
+		t.Fatalf("wrong copy: %s", body[:min(500, len(body))])
+	}
+	if !strings.Contains(body, "Сброс пароля недоступен") {
+		t.Fatalf("expected ru notice, got %s", body[:min(500, len(body))])
 	}
 }
 
