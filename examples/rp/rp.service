@@ -1,0 +1,19 @@
+[Unit]
+Description=yself.link OIDC relying party (authfly/cli examples/rp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=rp
+Environment=RP_ISSUER=https://accounts.yself.link RP_PUBLIC_URL=https://yself.link RP_CLIENT_ID=yself-link RP_ADDR=10.10.10.16:8080
+Environment=RP_CLIENT_SECRET_FILE=/etc/rp/client-secret
+ExecStart=/usr/local/bin/rp
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/etc/rp
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

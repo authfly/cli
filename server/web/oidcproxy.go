@@ -29,7 +29,9 @@ var OIDCProxyPaths = []string{
 	"POST /auth/logout",
 }
 
-var proxyClient = &http.Client{Timeout: 15 * time.Second}
+// proxyClient never follows redirects: a 3xx from Stalwart (e.g. end_session -> post_logout_redirect_uri) is
+// relayed to the browser with its Location instead of being fetched server-side.
+var proxyClient = &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
 func (s *Server) oidcProxy(m *http.ServeMux) {
 	for _, p := range OIDCProxyPaths {
@@ -66,7 +68,7 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request) {
 			body, _ = json.Marshal(d)
 		}
 	}
-	for _, h := range []string{"Content-Type", "Cache-Control", "Pragma", "WWW-Authenticate"} {
+	for _, h := range []string{"Content-Type", "Cache-Control", "Pragma", "WWW-Authenticate", "Location"} {
 		if v := res.Header.Get(h); v != "" {
 			w.Header().Set(h, v)
 		}

@@ -33,7 +33,7 @@ Usage: npx authfly <command> [flags]      (or the authfly binary)
 Common flag: -f authfly.yaml (default ./authfly.yaml). Docs: docs/deploy.md, docs/policies.md
 `
 
-var Version = "0.5.3"
+var Version = "0.5.4"
 
 func cliMain(cmd string, args []string) {
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
