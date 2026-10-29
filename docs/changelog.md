@@ -13,3 +13,13 @@
 - **examples/rp** (test.yself.link): plain `html/template` page replaced by templ + UI8Kit 3.
 - **apps/yself** (yself.link): new — welcome page, public link pages `yself.link/<handle>`, editor `/me`
   (see apps/yself/README.md). Replaces the `rp` service on web/site :8080 (`yself.service`).
+
+## 2026-10-30 (2) — auth pages, yself hardening
+
+- accounts auth pages: skip link, `main` landmark, responsive spacing, styled 404 for unknown paths, server-side
+  messages (errors, flashes, notices) localized to ru.
+- yself: EXIF orientation applied before crop/resize; RP sessions persisted in SQLite (key = SHA-256 of the cookie
+  value) and survive deploys; preview scoped with `data-theme="light|dark"`; WebKit details marker hidden on
+  button-styled summaries; `e2e/yself_e2e.py` (15 checks) runs as `/root/e2e_yself.py` on fra-ypanel.
+- e2e note: a run that dies mid-way can leave test-yself-link revoked or a stale SSO session, and repeated logins
+  from the host hit the sign-in rate limit; rerun the browser e2e (it reconnects) before judging.
