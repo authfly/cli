@@ -115,6 +115,7 @@ func (s *Server) Handler() http.Handler {
 		m.HandleFunc("POST /oauth/consent", s.consentPost)
 		s.oidcProxy(m)
 	}
+	m.HandleFunc("/", s.notFoundPage)
 	h := logRequests(m)
 	if s.Limiter != nil {
 		h = s.Limiter.Wrap(h)
@@ -224,8 +225,12 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, titl
 func (s *Server) notice(w http.ResponseWriter, r *http.Request, status int, page, tone, icon, detail string, override map[string]any) {
 	labels := s.lab(r, page)
 	for k, v := range override {
+		if str, ok := v.(string); ok {
+			v = s.loc(r, str)
+		}
 		labels[k] = v
 	}
+	detail = s.loc(r, detail)
 	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflyNotice(blocks.AuthflyNoticeProps{Id: "authfly", Title: s.text(r, page, "title"), Text: s.text(r, page, "text"),
 		Detail: detail, Icon: icon, Labels: labels, Tone: tone, Action: "link"}))
 }
@@ -266,6 +271,7 @@ func (s *Server) providers() []map[string]any {
 }
 
 func (s *Server) signInView(w http.ResponseWriter, r *http.Request, status int, method, errMsg, action string) {
+	errMsg = s.loc(r, errMsg)
 	page := "signin"
 	if method == "magic" {
 		page = "magic"
@@ -323,6 +329,7 @@ func (s *Server) signInPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) signUpView(w http.ResponseWriter, r *http.Request, status int, errMsg, invite string) {
+	errMsg = s.loc(r, errMsg)
 	title := s.text(r, "signup", "title")
 	if !s.Svc.Cfg.PublicSignup && invite == "" {
 		inv := s.lab(r, "invite")
@@ -400,6 +407,7 @@ func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) requestView(w http.ResponseWriter, r *http.Request, status int, page, kind, action, token, errMsg string) {
+	errMsg = s.loc(r, errMsg)
 	s.render(w, r, status, s.text(r, page, "title"), blocks.AuthflyRequest(blocks.AuthflyRequestProps{Id: "authfly", Title: s.text(r, page, "title"), Text: s.text(r, page, "text"),
 		Action: action, Csrf: s.csrf(w, r), Error: errMsg, Labels: s.lab(r, page), Token: token, Kind: kind}))
 }
@@ -612,4 +620,13 @@ func contains(l []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// notFoundPage is the styled 404 (any unknown path, any method).
+func (s *Server) notFoundPage(w http.ResponseWriter, r *http.Request) {
+	href := "/auth/sign-in"
+	if s.user(r) != nil {
+		href = "/account"
+	}
+	s.notice(w, r, http.StatusNotFound, "notfound", "error", "search-x", "", map[string]any{"ctaHref": href})
 }

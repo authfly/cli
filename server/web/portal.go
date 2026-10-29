@@ -140,6 +140,7 @@ func (s *Server) personalPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) personalView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info, errMsg string) {
+	info, errMsg = s.loc(r, info), s.loc(r, errMsg)
 	id := s.identOf(u)
 	kl := s.lab(r, "personal")
 	kindLabel := labStr(kl, "user")
@@ -183,6 +184,7 @@ func (s *Server) securityPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) securityView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info, errMsg string) {
+	info, errMsg = s.loc(r, info), s.loc(r, errMsg)
 	totpOn := false
 	if st, err := s.Svc.SW.PasswordStatus(r.Context(), u.Sub); err == nil {
 		totpOn = st.TOTPEnabled
@@ -313,6 +315,7 @@ func (s *Server) appsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) appsView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info string) {
+	info = s.loc(r, info)
 	lab := s.lab(r, "apps")
 	if s.IdP != nil {
 		cur := s.sessionID(r)
@@ -352,6 +355,7 @@ func (s *Server) privacyPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) privacyView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info, errMsg string) {
+	info, errMsg = s.loc(r, info), s.loc(r, errMsg)
 	s.renderPortal(w, r, status, s.text(r, "privacy", "title"), "/account/privacy",
 		PortalPrivacy(s.text(r, "privacy", "title"), s.text(r, "privacy", "text"), s.csrf(w, r),
 			info, errMsg, s.Svc.Audit.Query(u.Sub, 50), s.lab(r, "privacy")))

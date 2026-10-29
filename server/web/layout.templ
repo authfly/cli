@@ -53,6 +53,9 @@ templ langSwitch(locale, path string) {
 // Page is the Authfly page: a header with the product name, language and the theme toggle, the widget centered below.
 templ Page(product, title, locale, path string) {
 	@Document(title + " - " + product, locale) {
+		@link.Link(link.LinkProps{Href: "#main", Class: "sr-only focus:not-sr-only"}) {
+			{ map[bool]string{true: "К содержимому", false: "Skip to content"}[locale == "ru"] }
+		}
 		@box.Box(box.BoxProps{Tag: "header", Class: "w-full bg-card shadow-sm"}) {
 			@box.Box(box.BoxProps{Class: "mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4"}) {
 				@link.Link(link.LinkProps{Href: "/", Class: "flex items-center gap-2 font-semibold"}) {
@@ -67,7 +70,7 @@ templ Page(product, title, locale, path string) {
 				}
 			}
 		}
-		@box.Box(box.BoxProps{Tag: "main", Class: "w-full px-4 py-12"}) {
+		@box.Box(box.BoxProps{Tag: "main", Class: "w-full px-4 py-8 sm:py-16", Attrs: af.A("id", "main")}) {
 			{ children... }
 		}
 	}
@@ -97,7 +100,7 @@ templ navItem(href, icon, label, current string) {
 templ PortalShell(product, title, locale, path, nav string, home, personal, security, apps, privacy, signout, userName, userEmail, navLabel string) {
 	@Document(title + " - " + product, locale) {
 		@link.Link(link.LinkProps{Href: "#main", Class: "sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-md focus:bg-background focus:px-4 focus:py-2"}) {
-			{ "Skip to content" }
+			{ map[bool]string{true: "К содержимому", false: "Skip to content"}[locale == "ru"] }
 		}
 		@box.Box(box.BoxProps{Tag: "header", Class: "w-full bg-card shadow-sm"}) {
 			@box.Box(box.BoxProps{Class: "mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4"}) {

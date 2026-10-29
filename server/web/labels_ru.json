@@ -300,5 +300,15 @@
       "back": "Другой способ",
       "backHref": "/auth/sign-in"
     }
+  },
+  "notfound": {
+    "title": "Страница не найдена",
+    "text": "По этому адресу ничего нет. Проверьте ссылку или вернитесь назад.",
+    "labels": {
+      "cta": "Перейти в аккаунт",
+      "ctaHref": "/account",
+      "secondary": "",
+      "secondaryHref": ""
+    }
   }
 }

@@ -300,5 +300,15 @@
       "back": "Use another method",
       "backHref": "/auth/sign-in"
     }
+  },
+  "notfound": {
+    "title": "Page not found",
+    "text": "There is nothing at this address. Check the link or go back.",
+    "labels": {
+      "cta": "Go to your account",
+      "ctaHref": "/account",
+      "secondary": "",
+      "secondaryHref": ""
+    }
   }
 }
