@@ -64,6 +64,7 @@ type data struct {
 	Sessions     map[string]*Session     `json:"sessions"`
 	Grants       map[string]*Grant       `json:"grants"` // sub|client
 	Profiles     map[string]*Profile     `json:"profiles"`
+	Revoked      map[string]time.Time    `json:"revoked,omitempty"` // sub|client revoked in the cabinet: no silent SSO until a password sign-in
 }
 
 // Store persists the provider state in one JSON file (atomic rename on every write), like core.Store.
@@ -106,6 +107,9 @@ func (s *Store) init() {
 	}
 	if s.d.Grants == nil {
 		s.d.Grants = map[string]*Grant{}
+	}
+	if s.d.Revoked == nil {
+		s.d.Revoked = map[string]time.Time{}
 	}
 	if s.d.Profiles == nil {
 		s.d.Profiles = map[string]*Profile{}
@@ -299,19 +303,30 @@ func (s *Store) RemoveClientFromSession(sid, client string) {
 	})
 }
 
-// RevokeClient revokes a client entirely for a user (tokens in every session, the grant/consent) and returns the
-// sessions the client was signed in to (for back-channel logout).
+// IsRevoked tells whether the user revoked the client and has not signed in to it with a password since.
+func (s *Store) IsRevoked(sub, client string) bool {
+	ok := false
+	s.tx(false, func(d *data) { _, ok = d.Revoked[grantKey(sub, client)] })
+	return ok
+}
+
+// ClearRevoked lifts a revocation (after an interactive sign-in to the client).
+func (s *Store) ClearRevoked(sub, client string) {
+	s.tx(true, func(d *data) { delete(d.Revoked, grantKey(sub, client)) })
+}
+
+// RevokeClient revokes a client entirely for a user (tokens in every session, the grant/consent), blocks silent
+// SSO back into it, and returns every session of the user (back-channel logout goes to all of them).
 func (s *Store) RevokeClient(sub, client string) []string {
 	var sids []string
 	s.tx(true, func(d *data) {
 		revokeLocked(d, func(c, u, _ string) bool { return c == client && u == sub })
 		delete(d.Grants, grantKey(sub, client))
+		d.Revoked[grantKey(sub, client)] = time.Now()
 		for _, ss := range d.Sessions {
 			if ss.Sub == sub {
-				if _, ok := ss.Clients[client]; ok {
-					sids = append(sids, ss.SID)
-					delete(ss.Clients, client)
-				}
+				sids = append(sids, ss.SID)
+				delete(ss.Clients, client)
 			}
 		}
 	})

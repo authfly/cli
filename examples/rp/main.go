@@ -272,7 +272,7 @@ func (a *app) dropLocked(local string) {
 }
 
 // backchannel is the OIDC Back-Channel Logout 1.0 endpoint (backchannel_logout_uri): the OP POSTs a signed
-// logout_token; every local session of that OP sid (or, without sid, of that sub) is destroyed.
+// logout_token; every local session of that OP sid or of that sub is destroyed.
 func (a *app) backchannel(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -295,7 +295,7 @@ func (a *app) backchannel(w http.ResponseWriter, r *http.Request) {
 		a.jtis[jti] = time.Now()
 	}
 	for local, s := range a.sessions {
-		if (sid != "" && s.SID == sid) || (sid == "" && sub != "" && s.Sub == sub) {
+		if (sid != "" && s.SID == sid) || (sub != "" && s.Sub == sub) { // sid OR sub (§2.4: either identifies the sessions)
 			a.dropLocked(local)
 			n++
 		}

@@ -299,6 +299,13 @@ func TestIdPRevokeSingleApp(t *testing.T) {
 	if len(e.s.IdP.Store.GrantsOf("2")) != 1 {
 		t.Fatal("grant must be removed")
 	}
+	// no silent SSO back into the revoked app: prompt=none fails, a normal authorize shows the password form
+	if cb := e.authorize("app-b", "https://b.test/cb", ck, url.Values{"prompt": {"none"}}); cb.Query().Get("error") != "login_required" {
+		t.Fatalf("revoked app re-entered silently: %s", cb)
+	}
+	if cb := e.authorize("app-a", "https://a.test/cb", ck, url.Values{"prompt": {"none"}}); cb.Query().Get("code") == "" {
+		t.Fatal("other app must keep SSO")
+	}
 	// CSRF required
 	req, _ = http.NewRequest("POST", e.ts.URL+"/account/apps/client/revoke", strings.NewReader("client=app-a"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

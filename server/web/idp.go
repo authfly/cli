@@ -88,7 +88,8 @@ func (s *Server) idpLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	u, ss := s.ssoSession(r)
-	fresh := ss != nil && !ar.HasPrompt(oidc.PromptLogin) && (ar.MaxAge == nil || time.Since(ss.AuthTime) <= time.Duration(*ar.MaxAge)*time.Second)
+	// a client revoked in the cabinet gets no silent SSO: the user must sign in again (password) to reconnect it
+	fresh := ss != nil && !s.IdP.Store.IsRevoked(ss.Sub, ar.ClientID) && !ar.HasPrompt(oidc.PromptLogin) && (ar.MaxAge == nil || time.Since(ss.AuthTime) <= time.Duration(*ar.MaxAge)*time.Second)
 	if fresh {
 		s.completeIdP(w, r, ar, u, ss)
 		return
@@ -132,7 +133,11 @@ func (s *Server) idpPassword(w http.ResponseWriter, r *http.Request, ar *idp.Aut
 		s.IdP.EndSession(old)
 	}
 	sid := s.signIn(w, r, u)
-	s.completeIdP(w, r, ar, u, s.IdP.Store.Session(sid))
+	ss := s.IdP.Store.Session(sid)
+	if ss != nil {
+		s.IdP.Store.ClearRevoked(ss.Sub, ar.ClientID)
+	}
+	s.completeIdP(w, r, ar, u, ss)
 }
 
 func (s *Server) completeIdP(w http.ResponseWriter, r *http.Request, ar *idp.AuthRequest, u *core.User, ss *idp.Session) {
