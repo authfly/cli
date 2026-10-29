@@ -349,3 +349,41 @@ func TestIdPIDTokenVerifiesWithRPVerifier(t *testing.T) {
 		t.Fatal("wrong audience accepted")
 	}
 }
+
+func TestIdPCabinetSignOutAppKeepsGrant(t *testing.T) {
+	e := newEnv(t)
+	ck := e.signIn()
+	e.exchange("app-a", "sa", "https://a.test/cb", e.authorize("app-a", "https://a.test/cb", ck, nil))
+	b := e.exchange("app-b", "sb", "https://b.test/cb", e.authorize("app-b", "https://b.test/cb", ck, nil))
+	apps, _ := e.s.ssoRows("2", "")
+	for _, a := range apps {
+		if a.Sessions != 1 {
+			t.Fatalf("status before: %+v", a)
+		}
+	}
+	form := url.Values{"csrf": {"x"}, "client": {"app-b"}}
+	req, _ := http.NewRequest("POST", e.ts.URL+"/account/apps/client/sign-out", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(ck)
+	req.AddCookie(&http.Cookie{Name: cookieCSRF, Value: "x"})
+	res, _ := e.hc.Do(req)
+	res.Body.Close()
+	if res.StatusCode != 303 || e.sink.n("app-b") != 1 || e.sink.n("app-a") != 0 {
+		t.Fatalf("sign-out: %d a=%d b=%d", res.StatusCode, e.sink.n("app-a"), e.sink.n("app-b"))
+	}
+	if refresh(e, "app-b", "sb", b) == 200 {
+		t.Fatal("app-b tokens must die")
+	}
+	apps, _ = e.s.ssoRows("2", "")
+	st := map[string]int{}
+	for _, a := range apps {
+		st[a.ClientID] = a.Sessions
+	}
+	if len(apps) != 2 || st["app-a"] != 1 || st["app-b"] != 0 {
+		t.Fatalf("status after: %v", st)
+	}
+	// grant kept: passwordless re-entry
+	if e.authorize("app-b", "https://b.test/cb", ck, url.Values{"prompt": {"none"}}).Query().Get("code") == "" {
+		t.Fatal("sign-out must keep passwordless SSO")
+	}
+}

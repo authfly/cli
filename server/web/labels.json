@@ -258,7 +258,13 @@
       "everywhere": "Sign out everywhere",
       "noSessions": "No active sessions.",
       "appsIn": "Apps",
-      "revokeHint": "The app loses access. You'll need your password to sign in to it again."
+      "revokeHint": "The app loses access. You'll need your password to sign in to it again.",
+      "signedIn": "Signed in",
+      "signedInN": "Signed in · {n} sessions",
+      "signedOut": "Signed out · quick sign-in available",
+      "signOut": "Sign out",
+      "signOutHint": "Signs you out of the app. You can sign back in without a password.",
+      "appSignedOut": "You were signed out of the app. You can sign back in without a password."
     }
   },
   "privacy": {

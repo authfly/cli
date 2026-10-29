@@ -205,6 +205,19 @@ func (p *Provider) EndSessionsOf(sub, keep string) {
 	}
 }
 
+// SignOutClient ends a user's sessions in one application (its tokens in every SSO session revoked, the app
+// removed from them, back-channel logout to each) but keeps the grant: the next sign-in is passwordless.
+func (p *Provider) SignOutClient(sub, client string) {
+	var jobs [][3]string
+	for _, ss := range p.Store.SessionsOf(sub) {
+		if _, ok := ss.Clients[client]; ok {
+			p.Store.RemoveClientFromSession(ss.SID, client)
+			jobs = append(jobs, [3]string{client, sub, ss.SID})
+		}
+	}
+	p.sendAll(jobs)
+}
+
 // RevokeClient revokes one application for the user (tokens, consent) and logs it out over the back channel.
 func (p *Provider) RevokeClient(sub, client string) {
 	var jobs [][3]string

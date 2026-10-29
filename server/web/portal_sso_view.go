@@ -2,12 +2,14 @@ package web
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/a-h/templ"
 	af "github.com/authfly/authkit/packages/ui/templ/authfly"
 	"github.com/authfly/authkit/packages/ui/templ/ui/box"
+	"github.com/authfly/authkit/packages/ui/templ/ui/button"
 	"github.com/authfly/authkit/packages/ui/templ/ui/text"
 	"github.com/authfly/cli/server/idp"
 )
@@ -15,6 +17,7 @@ import (
 // SSOApp is one row of the "Apps" cabinet page.
 type SSOApp struct {
 	ClientID, Name, Scopes, First, Last string
+	Sessions                            int // live SSO sessions in which the app is signed in (0 = signed out)
 }
 
 // SSOSession is one row of the active-sessions list.
@@ -38,8 +41,17 @@ func (s *Server) ssoRows(sub, current string) ([]SSOApp, []SSOSession) {
 		return id
 	}
 	var apps []SSOApp
+	live := map[string]int{}
+	for _, ss := range s.IdP.Store.SessionsOf(sub) {
+		if !s.Svc.Store.HasSession(ss.Account, ss.SID) {
+			continue
+		}
+		for cid := range ss.Clients {
+			live[cid]++
+		}
+	}
 	for _, g := range s.IdP.Store.GrantsOf(sub) {
-		apps = append(apps, SSOApp{ClientID: g.ClientID, Name: name(g.ClientID), Scopes: strings.Join(g.Scopes, " "), First: when(g.First), Last: when(g.Last)})
+		apps = append(apps, SSOApp{ClientID: g.ClientID, Name: name(g.ClientID), Scopes: strings.Join(g.Scopes, " "), First: when(g.First), Last: when(g.Last), Sessions: live[g.ClientID]})
 	}
 	var sess []SSOSession
 	for _, ss := range s.IdP.Store.SessionsOf(sub) {
@@ -67,6 +79,21 @@ func deviceName(ua string) string {
 	return ua
 }
 
+// action is a CSRF-protected one-button form with a muted helper line under it (8px gap).
+func action(path, csrf, client, testid, label, hint, variant, hintID string) templ.Component {
+	cls := af.ButtonSkin("outline")
+	if variant == "danger" {
+		cls = af.ButtonSkin("outline", "text-destructive inset-ring-destructive")
+	}
+	return nest(af.Stack("2", "end", "", "max-w-sm", nil), many(
+		nest(af.Form(path, "", nil), many(
+			af.Hidden("csrf", csrf), af.Hidden("client", client),
+			nest(button.Button(button.ButtonProps{Type: "submit", Class: cls, Attrs: af.A("data-testid", testid)}), textNode(label)),
+		)),
+		nest(text.Text(text.TextProps{Class: af.TextHint + " text-right", Attrs: af.A("data-testid", hintID)}), textNode(hint)),
+	))
+}
+
 func muted(s string) templ.Component {
 	return nest(text.Text(text.TextProps{Class: af.TextMuted}), textNode(s))
 }
@@ -80,17 +107,26 @@ func row(left, right templ.Component, testid string) templ.Component {
 func PortalSSO(title, lead, csrf, info string, labels map[string]any, apps []SSOApp, sessions []SSOSession) templ.Component {
 	appRows := make([]templ.Component, 0, len(apps))
 	for _, a := range apps {
+		status, tone := labStr(labels, "signedOut"), "bg-muted text-muted-foreground"
+		if a.Sessions == 1 {
+			status, tone = labStr(labels, "signedIn"), "bg-primary text-primary-foreground"
+		} else if a.Sessions > 1 {
+			status, tone = strings.ReplaceAll(labStr(labels, "signedInN"), "{n}", strconv.Itoa(a.Sessions)), "bg-primary text-primary-foreground"
+		}
+		state := map[bool]string{true: "signed-in", false: "signed-out"}[a.Sessions > 0]
+		actions := []templ.Component{}
+		if a.Sessions > 0 {
+			actions = append(actions, action("/account/apps/client/sign-out", csrf, a.ClientID, "sign-out-"+a.ClientID, labStr(labels, "signOut"), labStr(labels, "signOutHint"), "outline", "sign-out-hint"))
+		}
+		actions = append(actions, action("/account/apps/client/revoke", csrf, a.ClientID, "revoke-"+a.ClientID, labStr(labels, "revoke"), labStr(labels, "revokeHint"), "danger", "revoke-hint"))
 		appRows = append(appRows, row(many(
-			nest(text.Text(text.TextProps{Class: "font-semibold"}), textNode(a.Name)),
+			nest(box.Box(box.BoxProps{Class: "flex flex-wrap items-center gap-2"}), many(
+				nest(text.Text(text.TextProps{Class: "font-semibold"}), textNode(a.Name)),
+				nest(text.Text(text.TextProps{Tag: "span", Class: "inline-flex items-center h-6 rounded-full px-2 text-xs font-medium " + tone, Attrs: af.A("data-testid", "status-"+a.ClientID, "data-state", state)}), textNode(status)),
+			)),
 			muted(labStr(labels, "scopes")+": "+a.Scopes),
 			nest(text.Text(text.TextProps{Class: af.TextHint}), textNode(labStr(labels, "first")+" "+a.First+" · "+labStr(labels, "last")+" "+a.Last)),
-		), nest(af.Stack("2", "end", "", "max-w-xs", nil), many(
-			nest(af.Form("/account/apps/client/revoke", "", nil), many(
-				af.Hidden("csrf", csrf), af.Hidden("client", a.ClientID),
-				outlineSubmit("revoke-"+a.ClientID, labStr(labels, "revoke")),
-			)),
-			nest(text.Text(text.TextProps{Class: af.TextHint + " text-right", Attrs: af.A("data-testid", "revoke-hint")}), textNode(labStr(labels, "revokeHint"))),
-		)), "app-"+a.ClientID))
+		), nest(box.Box(box.BoxProps{Class: "flex flex-wrap items-start justify-end gap-4"}), many(actions...)), "app-"+a.ClientID))
 	}
 	if len(apps) == 0 {
 		appRows = append(appRows, muted(labStr(labels, "empty")))

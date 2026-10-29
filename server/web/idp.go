@@ -24,6 +24,7 @@ func (s *Server) idpRoutes(m *http.ServeMux) {
 	m.HandleFunc("GET "+idp.PathLogin, s.idpLogin)
 	m.HandleFunc("POST "+idp.PathLogin, s.idpLoginPost)
 	m.HandleFunc("POST /account/apps/client/revoke", s.appsClientRevoke)
+	m.HandleFunc("POST /account/apps/client/sign-out", s.appsClientSignOut)
 	m.HandleFunc("POST /account/sessions/revoke", s.sessionRevoke)
 	m.HandleFunc("POST /account/sessions/others", s.sessionsOthers)
 	m.HandleFunc("POST /account/sessions/everywhere", s.sessionsEverywhere)
@@ -177,6 +178,18 @@ func (s *Server) appsClientRevoke(w http.ResponseWriter, r *http.Request) {
 	s.IdP.RevokeClient(s.oidcSub(u), cid)
 	s.Svc.Audit.Log("self", u.Sub, "oidc_client_revoke", "ok", map[string]string{"client": cid})
 	s.prg(w, r, "/account/apps", "apps", "revoked")
+}
+
+// appsClientSignOut signs the user out of one application everywhere, keeping the grant (passwordless re-entry).
+func (s *Server) appsClientSignOut(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.cabinetUser(w, r)
+	if !ok {
+		return
+	}
+	cid := r.PostFormValue("client")
+	s.IdP.SignOutClient(s.oidcSub(u), cid)
+	s.Svc.Audit.Log("self", u.Sub, "oidc_client_sign_out", "ok", map[string]string{"client": cid})
+	s.prg(w, r, "/account/apps", "apps", "appSignedOut")
 }
 
 func (s *Server) sessionRevoke(w http.ResponseWriter, r *http.Request) {
