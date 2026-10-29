@@ -130,17 +130,18 @@ func portalStack(children ...templ.Component) templ.Component {
 	return nest(af.Stack("8", "start", "", "w-full max-w-3xl", af.A("data-testid", "portal")), many(children...))
 }
 
-func PortalHome(title, lead, name, email string, links [][2]string) templ.Component {
-	items := make([]templ.Component, 0, len(links))
-	for _, l := range links {
-		items = append(items, nest(button.Button(button.ButtonProps{Href: l[0], Class: af.ButtonSkin("outline", "w-full justify-start")}), textNode(l[1])))
+// HomeTile is one dashboard card on the cabinet home.
+type HomeTile struct{ Href, Icon, Title, Lead string }
+
+func PortalHome(title, lead, name, email string, tiles []HomeTile) templ.Component {
+	items := make([]templ.Component, 0, len(tiles))
+	for _, t := range tiles {
+		items = append(items, tile(t.Href, t.Icon, t.Title, t.Lead))
 	}
 	return portalStack(
-		sectionTitle("home", title, lead),
-		nest(box.Box(box.BoxProps{Tag: "dl", Class: "m-0 grid gap-4"}), many(
-			kv(name, email),
-		)),
-		nest(af.Stack("2", "", "", "", nil), many(items...)),
+		sectionTitle("home", title+", "+name, lead),
+		nest(af.Group("2", "center", "", "text-sm text-muted-foreground", af.A("data-testid", "home-email")), many(af.LucideIcon("mail", "sm"), textNode(email))),
+		grid(items...),
 	)
 }
 
@@ -149,52 +150,62 @@ func PortalPersonal(title, lead, csrf, name, email, username, kind, info, errMsg
 		sectionTitle("personal", title, lead),
 		flash(info),
 		formErr(errMsg),
-		nest(af.Form("/account/personal", "", af.A("data-testid", "personal-form")), many(
-			af.Hidden("csrf", csrf),
-			textField("personal-name", "name", "text", "name", name, false, labStr(labels, "name")),
-			nest(box.Box(box.BoxProps{Tag: "dl", Class: "m-0 grid gap-4"}), many(
+		section("personal-name-card", "personal-profile", "circle-user", labStr(labels, "name"), "",
+			nest(af.Form("/account/personal", "", af.A("data-testid", "personal-form")), many(
+				af.Hidden("csrf", csrf),
+				textField("personal-name", "name", "text", "name", name, false, labStr(labels, "name")),
+				nest(box.Box(box.BoxProps{Class: "flex"}), submitBtn("save", labStr(labels, "save"))),
+			)),
+		),
+		section("personal-account", "personal-ids", "id-card", labStr(labels, "email"), "",
+			nest(box.Box(box.BoxProps{Tag: "dl", Class: "m-0 grid gap-4 sm:grid-cols-3"}), many(
 				kv(labStr(labels, "email"), email),
 				kv(labStr(labels, "username"), username),
 				kv(labStr(labels, "kind"), kind),
 			)),
-			submitBtn("save", labStr(labels, "save")),
-		)),
+		),
 	)
 }
 
 func kv(k, v string) templ.Component {
-	return nest(box.Box(box.BoxProps{Class: "grid gap-2"}), many(
+	return nest(box.Box(box.BoxProps{Class: "grid min-w-0 gap-2"}), many(
 		nest(box.Box(box.BoxProps{Tag: "dt", Class: af.TextMuted}), textNode(k)),
 		nest(box.Box(box.BoxProps{Tag: "dd", Class: "m-0 font-semibold text-foreground"}), textNode(v)),
 	))
 }
 
 func PortalSecurity(title, lead, csrf, info, errMsg, otpauth string, totpOn bool, apps []core.AppPassword, sessions []core.SessionRec, thisSID string, labels map[string]any) templ.Component {
-	totpState := labStr(labels, "totpOff")
+	totpState, totpTone := labStr(labels, "totpOff"), "secondary"
 	if totpOn {
-		totpState = labStr(labels, "totpOn")
+		totpState, totpTone = labStr(labels, "totpOn"), "default"
 	}
 	var otp templ.Component
 	if otpauth != "" {
-		otp = nest(text.Text(text.TextProps{Class: "break-all text-sm"}), textNode(otpauth))
+		v := otpauth
+		otp = af.Field(af.FieldProps{Label: labStr(labels, "totpSecret"), HtmlFor: "sec-otpauth"}, fieldFn(func(f af.FieldControl) templ.Component {
+			return input.Input(input.InputProps{Type: "text", ID: "sec-otpauth", Value: &v, Class: af.InputSkin(), AriaDescribedBy: f.Describe(), Attrs: af.A("readonly", "readonly", "data-testid", "otpauth")})
+		}))
 	}
-	totpForm := nest(af.Form("/account/security/totp", "", nil), many(
+	totpForm := nest(af.Form("/account/security/totp", "max-w-sm", nil), many(
 		af.Hidden("csrf", csrf),
 		textField("sec-pw-totp", "password", "password", "current-password", "", true, labStr(labels, "current")),
 		textField("sec-code", "code", "text", "one-time-code", "", totpOn, labStr(labels, "code")),
 		af.Hidden("op", map[bool]string{true: "disable", false: "enable"}[totpOn]),
-		submitBtn("totp", map[bool]string{true: labStr(labels, "totpDisable"), false: labStr(labels, "totpEnable")}[totpOn]),
+		nest(box.Box(box.BoxProps{Class: "flex"}), submitBtn("totp", map[bool]string{true: labStr(labels, "totpDisable"), false: labStr(labels, "totpEnable")}[totpOn])),
 	))
 	appRows := make([]templ.Component, 0, len(apps)+1)
 	for _, a := range apps {
 		id := a.ID
-		appRows = append(appRows, nest(af.Group("4", "center", "between", "w-full flex-wrap", nil), many(
-			nest(text.Text(text.TextProps{Class: "text-sm"}), textNode(nonEmpty(a.Description, id))),
-			nest(af.Form("/account/security/apps/revoke", "", nil), many(
+		appRows = append(appRows, nest(af.Group("4", "center", "between", "w-full flex-wrap", af.A("data-testid", "app-password")), many(
+			nest(af.Group("2", "center", "", "", nil), many(af.LucideIcon("key-round", "sm"), nest(text.Text(text.TextProps{Class: "text-sm font-semibold"}), textNode(nonEmpty(a.Description, id))))),
+			confirm(labStr(labels, "revoke"), labStr(labels, "revokeQ"), true, nest(af.Form("/account/security/apps/revoke", "", nil), many(
 				af.Hidden("csrf", csrf), af.Hidden("id", id),
-				outlineSubmit("revoke-app", labStr(labels, "revoke")),
-			)),
+				dangerSubmit("revoke-app", labStr(labels, "revoke")),
+			))),
 		)))
+	}
+	if len(apps) == 0 {
+		appRows = append(appRows, empty("key-round", labStr(labels, "appsEmpty")))
 	}
 	sessRows := make([]templ.Component, 0, len(sessions))
 	for _, rec := range sessions {
@@ -202,47 +213,42 @@ func PortalSecurity(title, lead, csrf, info, errMsg, otpauth string, totpOn bool
 		if rec.ID == thisSID {
 			tag = labStr(labels, "thisDevice")
 		}
-		when := time.Unix(rec.Created, 0).UTC().Format(time.RFC3339)
-		sessRows = append(sessRows, nest(text.Text(text.TextProps{Class: "text-sm text-muted-foreground"}), textNode(when+" · "+tag)))
+		when := time.Unix(rec.Created, 0).UTC().Format("2006-01-02 15:04 UTC")
+		sessRows = append(sessRows, nest(af.Group("2", "center", "", "text-sm text-muted-foreground", nil), many(af.LucideIcon("monitor", "sm"), textNode(when+" · "+tag))))
 	}
 	return portalStack(
 		sectionTitle("security", title, lead),
 		flash(info),
 		formErr(errMsg),
-		nest(af.Stack("4", "start", "", "", af.A("data-testid", "password")), many(
-			af.Title(2, "sec-password", "", labStr(labels, "password")),
-			nest(af.Form("/account/security/password", "", nil), many(
+		section("password", "sec-password", "lock-keyhole", labStr(labels, "password"), "",
+			nest(af.Form("/account/security/password", "max-w-sm", nil), many(
 				af.Hidden("csrf", csrf),
 				textField("sec-current", "current", "password", "current-password", "", true, labStr(labels, "current")),
 				textField("sec-next", "next", "password", "new-password", "", true, labStr(labels, "next")),
 				textField("sec-confirm", "confirm", "password", "new-password", "", true, labStr(labels, "confirm")),
-				submitBtn("change-password", labStr(labels, "change")),
+				nest(box.Box(box.BoxProps{Class: "flex"}), submitBtn("change-password", labStr(labels, "change"))),
 			)),
-		)),
-		nest(af.Stack("4", "start", "", "", af.A("data-testid", "totp")), many(
-			af.Title(2, "sec-totp", "", labStr(labels, "totp")+" — "+totpState),
-			nest(text.Text(text.TextProps{Class: af.TextHint}), textNode(labStr(labels, "totpHint"))),
+		),
+		section("totp", "sec-totp", "shield-check", labStr(labels, "totp"), labStr(labels, "totpHint"),
+			nest(af.Group("2", "center", "", "", nil), many(nest(text.Text(text.TextProps{Tag: "span", Class: af.TextMuted}), textNode(labStr(labels, "status"))), af.Badge(totpTone, "totp-state", totpState))),
 			otp,
 			totpForm,
-		)),
-		nest(af.Stack("4", "start", "", "", af.A("data-testid", "app-passwords")), many(
-			af.Title(2, "sec-apps", "", labStr(labels, "apps")),
-			nest(text.Text(text.TextProps{Class: af.TextHint}), textNode(labStr(labels, "appsHint"))),
-			many(appRows...),
-			nest(af.Form("/account/security/apps", "", nil), many(
+		),
+		section("app-passwords", "sec-apps", "key-round", labStr(labels, "apps"), labStr(labels, "appsHint"),
+			nest(af.Stack("4", "", "", "w-full", nil), many(appRows...)),
+			nest(af.Form("/account/security/apps", "max-w-sm", nil), many(
 				af.Hidden("csrf", csrf),
 				textField("app-name", "label", "text", "off", "", true, labStr(labels, "appName")),
-				submitBtn("create-app", labStr(labels, "appCreate")),
+				nest(box.Box(box.BoxProps{Class: "flex"}), outlineSubmit("create-app", labStr(labels, "appCreate"))),
 			)),
-		)),
-		nest(af.Stack("4", "start", "", "", af.A("data-testid", "sessions")), many(
-			af.Title(2, "sec-sessions", "", labStr(labels, "sessions")),
-			many(sessRows...),
-			nest(af.Form("/account/security/everywhere", "", nil), many(
+		),
+		section("sessions", "sec-sessions", "monitor-smartphone", labStr(labels, "sessions"), "",
+			nest(af.Stack("2", "", "", "", nil), many(sessRows...)),
+			confirm(labStr(labels, "everywhere"), labStr(labels, "everywhereQ"), true, nest(af.Form("/account/security/everywhere", "", nil), many(
 				af.Hidden("csrf", csrf),
-				outlineSubmit("everywhere", labStr(labels, "everywhere")),
-			)),
-		)),
+				dangerSubmit("everywhere", labStr(labels, "everywhere")),
+			))),
+		),
 	)
 }
 
@@ -280,25 +286,28 @@ func PortalPrivacy(title, lead, csrf, info, errMsg string, events []core.AuditEv
 	ev := make([]templ.Component, 0, len(events))
 	for _, e := range events {
 		line := e.Time + " · " + e.Action + " · " + e.Outcome
-		ev = append(ev, nest(text.Text(text.TextProps{Class: "text-sm text-muted-foreground"}), textNode(line)))
+		ev = append(ev, nest(af.Group("2", "center", "", "text-sm text-muted-foreground", nil), many(af.LucideIcon("activity", "sm"), textNode(line))))
+	}
+	if len(events) == 0 {
+		ev = append(ev, empty("activity", labStr(labels, "auditEmpty")))
 	}
 	return portalStack(
 		sectionTitle("privacy", title, lead),
 		flash(info),
 		formErr(errMsg),
-		nest(button.Button(button.ButtonProps{Href: "/account/privacy/export", Class: af.ButtonSkin("outline")}), textNode(labStr(labels, "export"))),
-		nest(af.Stack("2", "start", "", "", nil), many(
-			af.Title(2, "audit", "", labStr(labels, "audit")),
-			many(ev...),
-		)),
-		nest(af.Stack("4", "start", "", "", nil), many(
-			af.Title(2, "delete", "", labStr(labels, "delete")),
-			nest(text.Text(text.TextProps{Class: af.TextHint}), textNode(labStr(labels, "deleteHint"))),
-			nest(af.Form("/account/privacy/erase", "", af.A("data-testid", "erase-form")), many(
+		section("export", "privacy-export", "download", labStr(labels, "export"), labStr(labels, "exportHint"),
+			nest(box.Box(box.BoxProps{Class: "flex"}), nest(button.Button(button.ButtonProps{Href: "/account/privacy/export", Class: af.ButtonSkin("outline"), Attrs: af.A("data-testid", "export")}), many(af.LucideIcon("download", "sm"), textNode(labStr(labels, "export"))))),
+		),
+		section("audit-log", "audit", "activity", labStr(labels, "audit"), "",
+			nest(af.Stack("2", "", "", "", nil), many(ev...)),
+		),
+		dangerSection("danger", "delete", labStr(labels, "delete"), labStr(labels, "deleteHint"),
+			confirm(labStr(labels, "confirm"), labStr(labels, "deleteQ"), true, nest(af.Form("/account/privacy/erase", "", af.A("data-testid", "erase-form")), many(
 				af.Hidden("csrf", csrf),
 				textField("erase-pw", "password", "password", "current-password", "", true, labStr(labels, "password")),
-				submitBtn("erase", labStr(labels, "confirm")),
-			)),
-		)),
+				dangerSubmit("erase", labStr(labels, "confirm")),
+			))),
+		),
 	)
 }
+

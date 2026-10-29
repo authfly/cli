@@ -82,6 +82,7 @@ func (s *Server) renderPortal(w http.ResponseWriter, r *http.Request, status int
 		s.textLang(loc, "nav", "apps"),
 		s.textLang(loc, "nav", "privacy"),
 		s.textLang(loc, "nav", "signout"),
+		portalName(s.user(r)), portalEmail(s.user(r)), s.textLang(loc, "nav", "title"),
 	).Render(templ.WithChildren(r.Context(), c), w)
 }
 
@@ -113,15 +114,14 @@ func (s *Server) identOf(u *core.User) core.Identity {
 	return id
 }
 
-func (s *Server) homeLinks(r *http.Request) [][2]string {
-	return [][2]string{
-		{"/account/personal", s.text(r, "nav", "personal")},
-		{"/account/security", s.text(r, "nav", "security")},
-		{"/account/apps", s.text(r, "nav", "apps")},
-		{"/account/privacy", s.text(r, "nav", "privacy")},
+func (s *Server) homeLinks(r *http.Request) []HomeTile {
+	return []HomeTile{
+		{"/account/personal", "id-card", s.text(r, "nav", "personal"), s.text(r, "personal", "text")},
+		{"/account/security", "lock-keyhole", s.text(r, "nav", "security"), s.text(r, "security", "text")},
+		{"/account/apps", "layout-grid", s.text(r, "nav", "apps"), s.text(r, "apps", "text")},
+		{"/account/privacy", "shield", s.text(r, "nav", "privacy"), s.text(r, "privacy", "text")},
 	}
 }
-
 func (s *Server) accountPage(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
 	if u == nil {
@@ -505,4 +505,18 @@ func (s *Server) signedOutPage(w http.ResponseWriter, r *http.Request) {
 		"cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
 		"title": labStr(s.lab(r, "security"), "signedOut"),
 	})
+}
+
+func portalName(u *core.User) string {
+	if u == nil {
+		return ""
+	}
+	return nonEmpty(u.Name, u.Username)
+}
+
+func portalEmail(u *core.User) string {
+	if u == nil {
+		return ""
+	}
+	return u.Address
 }

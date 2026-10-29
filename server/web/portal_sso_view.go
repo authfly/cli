@@ -79,17 +79,23 @@ func deviceName(ua string) string {
 	return ua
 }
 
-// action is a CSRF-protected one-button form with a muted helper line under it (8px gap).
-func action(path, csrf, client, testid, label, hint, variant, hintID string) templ.Component {
-	cls := af.ButtonSkin("outline")
-	if variant == "danger" {
-		cls = af.ButtonSkin("outline", "text-destructive inset-ring-destructive")
-	}
-	return nest(af.Stack("2", "end", "", "max-w-sm", nil), many(
-		nest(af.Form(path, "", nil), many(
+// action is a CSRF-protected one-button form with a muted helper line under it (8px gap). Danger actions sit behind
+// a confirm disclosure (question + the real submit).
+func action(path, csrf, client, testid, label, hint, variant, hintID string, question ...string) templ.Component {
+	form := func(cls string) templ.Component {
+		return nest(af.Form(path, "", nil), many(
 			af.Hidden("csrf", csrf), af.Hidden("client", client),
 			nest(button.Button(button.ButtonProps{Type: "submit", Class: cls, Attrs: af.A("data-testid", testid)}), textNode(label)),
-		)),
+		))
+	}
+	var ctl templ.Component
+	if variant == "danger" && len(question) > 0 {
+		ctl = confirm(label, question[0], true, form(dangerSkin()))
+	} else {
+		ctl = form(af.ButtonSkin("outline"))
+	}
+	return nest(af.Stack("2", "end", "", "max-w-sm", nil), many(
+		ctl,
 		nest(text.Text(text.TextProps{Class: af.TextHint + " text-right", Attrs: af.A("data-testid", hintID)}), textNode(hint)),
 	))
 }
@@ -99,8 +105,8 @@ func muted(s string) templ.Component {
 }
 
 func row(left, right templ.Component, testid string) templ.Component {
-	return nest(box.Box(box.BoxProps{Class: "flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4", Attrs: af.A("data-testid", testid)}), many(
-		nest(af.Stack("1", "start", "", "min-w-0", nil), left), right))
+	return nest(box.Box(box.BoxProps{Class: "flex w-full flex-wrap items-center justify-between gap-4", Attrs: af.A("data-testid", testid)}), many(
+		nest(af.Stack("2", "start", "", "min-w-0", nil), left), right))
 }
 
 // PortalSSO renders Apps / Приложения: signed-in apps (revoke one) and sessions (end one, others, everywhere).
@@ -118,7 +124,7 @@ func PortalSSO(title, lead, csrf, info string, labels map[string]any, apps []SSO
 		if a.Sessions > 0 {
 			actions = append(actions, action("/account/apps/client/sign-out", csrf, a.ClientID, "sign-out-"+a.ClientID, labStr(labels, "signOut"), labStr(labels, "signOutHint"), "outline", "sign-out-hint"))
 		}
-		actions = append(actions, action("/account/apps/client/revoke", csrf, a.ClientID, "revoke-"+a.ClientID, labStr(labels, "revoke"), labStr(labels, "revokeHint"), "danger", "revoke-hint"))
+		actions = append(actions, action("/account/apps/client/revoke", csrf, a.ClientID, "revoke-"+a.ClientID, labStr(labels, "revoke"), labStr(labels, "revokeHint"), "danger", "revoke-hint", labStr(labels, "revokeQ")))
 		appRows = append(appRows, row(many(
 			nest(box.Box(box.BoxProps{Class: "flex flex-wrap items-center gap-2"}), many(
 				nest(text.Text(text.TextProps{Class: "font-semibold"}), textNode(a.Name)),
@@ -129,7 +135,7 @@ func PortalSSO(title, lead, csrf, info string, labels map[string]any, apps []SSO
 		), nest(box.Box(box.BoxProps{Class: "flex flex-wrap items-start justify-end gap-4"}), many(actions...)), "app-"+a.ClientID))
 	}
 	if len(apps) == 0 {
-		appRows = append(appRows, muted(labStr(labels, "empty")))
+		appRows = append(appRows, empty("layout-grid", labStr(labels, "empty")))
 	}
 	sessRows := make([]templ.Component, 0, len(sessions))
 	for _, ss := range sessions {
@@ -139,7 +145,7 @@ func PortalSSO(title, lead, csrf, info string, labels map[string]any, apps []SSO
 		}
 		meta := labStr(labels, "ip") + " " + ss.IP + " · " + labStr(labels, "created") + " " + ss.Created + " · " + labStr(labels, "lastSeen") + " " + ss.LastSeen
 		left := many(
-			nest(text.Text(text.TextProps{Class: "font-semibold break-all"}), textNode(head)),
+			nest(text.Text(text.TextProps{Class: "font-semibold truncate"}), textNode(head)),
 			nest(text.Text(text.TextProps{Class: af.TextHint}), textNode(meta)),
 		)
 		if ss.Apps != "" {
@@ -155,23 +161,21 @@ func PortalSSO(title, lead, csrf, info string, labels map[string]any, apps []SSO
 		)), tid))
 	}
 	if len(sessions) == 0 {
-		sessRows = append(sessRows, muted(labStr(labels, "noSessions")))
+		sessRows = append(sessRows, empty("monitor", labStr(labels, "noSessions")))
 	}
 	return portalStack(
 		sectionTitle("apps", title, lead),
 		flash(info),
-		nest(af.Stack("4", "start", "", "w-full", af.A("data-testid", "sso-apps")), many(
-			af.Title(2, "apps-signed-in", "", labStr(labels, "appsTitle")),
-			many(appRows...),
-		)),
-		nest(af.Stack("4", "start", "", "w-full", af.A("data-testid", "sso-sessions")), many(
-			af.Title(2, "apps-sessions", "", labStr(labels, "sessionsTitle")),
-			many(sessRows...),
-			nest(box.Box(box.BoxProps{Class: "flex flex-wrap gap-4"}), many(
-				nest(af.Form("/account/sessions/others", "", nil), many(af.Hidden("csrf", csrf), outlineSubmit("sign-out-others", labStr(labels, "others")))),
-				nest(af.Form("/account/sessions/everywhere", "", nil), many(af.Hidden("csrf", csrf), submitBtn("sign-out-everywhere", labStr(labels, "everywhere")))),
+		section("sso-apps", "apps-signed-in", "layout-grid", labStr(labels, "appsTitle"), "",
+			nest(af.Stack("4", "start", "", "w-full", nil), many(appRows...)),
+		),
+		section("sso-sessions", "apps-sessions", "monitor-smartphone", labStr(labels, "sessionsTitle"), "",
+			nest(af.Stack("4", "start", "", "w-full", nil), many(sessRows...)),
+			nest(box.Box(box.BoxProps{Class: "flex flex-wrap items-start gap-4"}), many(
+				confirm(labStr(labels, "others"), labStr(labels, "othersQ"), false, nest(af.Form("/account/sessions/others", "", nil), many(af.Hidden("csrf", csrf), outlineSubmit("sign-out-others", labStr(labels, "others"))))),
+				confirm(labStr(labels, "everywhere"), labStr(labels, "everywhereQ"), true, nest(af.Form("/account/sessions/everywhere", "", nil), many(af.Hidden("csrf", csrf), dangerSubmit("sign-out-everywhere", labStr(labels, "everywhere"))))),
 			)),
-		)),
+		),
 	)
 }
 

@@ -231,7 +231,11 @@
       "sessions": "Sessions",
       "thisDevice": "This browser",
       "everywhere": "Sign out everywhere",
-      "signedOut": "Signed out of every browser."
+      "signedOut": "Signed out of every browser.",
+      "revokeQ": "Revoke this app password? Mail clients that use it stop working.",
+      "everywhereQ": "Sign out of every browser and app, this one included?",
+      "appsEmpty": "No app passwords yet. Create one for a mail client below.",
+      "status": "Status"
     }
   },
   "apps": {
@@ -264,7 +268,10 @@
       "signedOut": "Signed out · quick sign-in available",
       "signOut": "Sign out",
       "signOutHint": "Signs you out of the app. You can sign back in without a password.",
-      "appSignedOut": "You were signed out of the app. You can sign back in without a password."
+      "appSignedOut": "You were signed out of the app. You can sign back in without a password.",
+      "revokeQ": "Revoke access for this app? You will need your password to sign in to it again.",
+      "othersQ": "Sign out of every other session and app? This browser stays signed in.",
+      "everywhereQ": "Sign out everywhere, this browser included?"
     }
   },
   "privacy": {
@@ -277,7 +284,10 @@
       "deleteHint": "This destroys the mailbox, frees the username on both domains, and signs you out. Type your password to confirm.",
       "password": "Password",
       "confirm": "Delete my account",
-      "deleted": "Your account has been deleted."
+      "deleted": "Your account has been deleted.",
+      "deleteQ": "This cannot be undone. Type your password and delete the account?",
+      "auditEmpty": "No activity recorded yet.",
+      "exportHint": "A JSON file with your profile, sessions and activity."
     }
   },
   "mfa": {
