@@ -417,8 +417,11 @@ func (s *Stalwart) VerifyIDToken(ctx context.Context, idToken, audience, nonce s
 	if c["iss"] != d.Issuer {
 		return nil, fmt.Errorf("id_token: issuer %v", c["iss"])
 	}
-	if c["aud"] != audience {
+	if !audHas(c["aud"], audience) {
 		return nil, fmt.Errorf("id_token: audience %v", c["aud"])
+	}
+	if l, ok := c["aud"].([]any); ok && len(l) > 1 && c["azp"] != audience { // OIDC Core §3.1.3.7
+		return nil, fmt.Errorf("id_token: azp %v", c["azp"])
 	}
 	if exp, _ := c["exp"].(float64); int64(exp) < time.Now().Unix() {
 		return nil, errors.New("id_token: expired")
@@ -427,6 +430,21 @@ func (s *Stalwart) VerifyIDToken(ctx context.Context, idToken, audience, nonce s
 		return nil, errors.New("id_token: nonce mismatch")
 	}
 	return c, nil
+}
+
+// audHas: aud is a string or an array of strings (RFC 7519 §4.1.3).
+func audHas(aud any, want string) bool {
+	if aud == want {
+		return true
+	}
+	if l, ok := aud.([]any); ok {
+		for _, a := range l {
+			if a == want {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // VerifyLogoutToken validates an OIDC Back-Channel Logout 1.0 logout_token (§2.6): ES256 signature from the
@@ -467,13 +485,7 @@ func (s *Stalwart) VerifyLogoutToken(ctx context.Context, tok, audience string) 
 	if c["iss"] != d.Issuer {
 		return nil, fmt.Errorf("logout_token: issuer %v", c["iss"])
 	}
-	audOK := c["aud"] == audience
-	if l, ok := c["aud"].([]any); ok {
-		for _, a := range l {
-			audOK = audOK || a == audience
-		}
-	}
-	if !audOK {
+	if !audHas(c["aud"], audience) {
 		return nil, fmt.Errorf("logout_token: audience %v", c["aud"])
 	}
 	now := time.Now().Unix()

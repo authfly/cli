@@ -148,17 +148,14 @@ func clearCookie(w http.ResponseWriter, name string) {
 }
 
 func (a *app) current(r *http.Request) (string, *session) {
-	c, err := r.Cookie(cookieSession)
-	if err != nil {
-		return "", nil
-	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	s := a.sessions[c.Value]
-	if s == nil || time.Now().After(s.Expires) {
-		return "", nil
+	for _, c := range r.CookiesNamed(cookieSession) { // a client may send several (e.g. a parent-domain cookie)
+		if s := a.sessions[c.Value]; s != nil && time.Now().Before(s.Expires) {
+			return c.Value, s
+		}
 	}
-	return c.Value, s
+	return "", nil
 }
 
 func (a *app) login(w http.ResponseWriter, r *http.Request) {

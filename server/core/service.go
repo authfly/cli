@@ -50,6 +50,9 @@ type User struct {
 	Name     string `json:"name"`
 	Verified bool   `json:"email_verified"`
 	Method   string `json:"amr"` // password | magic | oidc
+	// OIDCSub is the subject Stalwart's OIDC tokens carry for this account (the numeric account id, e.g. "2"),
+	// while Sub is the JMAP id (e.g. "c"). Authfly's own issuer keeps OIDCSub so relying parties see no change.
+	OIDCSub string `json:"-"`
 }
 
 var (
@@ -227,7 +230,7 @@ func (s *Service) PasswordSignInMFA(ctx context.Context, identifier, password, m
 		return nil, nil, err
 	}
 	addr := ident.Address()
-	u := &User{Sub: str(claims["sub"]), Address: addr, Username: ident.Local, Name: str(claims["description"]), Verified: s.Store.IsVerified(addr), Method: "password"}
+	u := &User{Sub: str(claims["sub"]), OIDCSub: str(claims["sub"]), Address: addr, Username: ident.Local, Name: str(claims["description"]), Verified: s.Store.IsVerified(addr), Method: "password"}
 	if info, err := s.SW.UserInfo(ctx, tok.AccessToken); err == nil && str(info["name"]) != "" {
 		u.Name = str(info["name"])
 	}

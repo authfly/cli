@@ -169,7 +169,7 @@ func (s *Server) SessionToken(u *core.User) string {
 
 func (s *Server) sessionToken(u *core.User, sid string) string {
 	c := core.NewClaims("session", u.Address, 12*time.Hour)
-	c.Extra = map[string]string{"sub": u.Sub, "name": u.Name, "username": u.Username, "amr": u.Method, "sid": sid, "iat": strconv.FormatInt(time.Now().UnixNano(), 10)}
+	c.Extra = map[string]string{"sub": u.Sub, "name": u.Name, "username": u.Username, "amr": u.Method, "sid": sid, "osub": u.OIDCSub, "iat": strconv.FormatInt(time.Now().UnixNano(), 10)}
 	return s.Svc.Sign.Sign(c)
 }
 
@@ -185,7 +185,7 @@ func (s *Server) userFromToken(tok string) *core.User {
 	if sid := c.Extra["sid"]; sid != "" && c.Extra["sub"] != "" && s.Svc.Store != nil && !s.Svc.Store.HasSession(c.Extra["sub"], sid) {
 		return nil
 	}
-	return &core.User{Sub: c.Extra["sub"], Address: c.Subject, Username: c.Extra["username"], Name: c.Extra["name"], Method: c.Extra["amr"], Verified: s.Svc.Store.IsVerified(c.Subject)}
+	return &core.User{Sub: c.Extra["sub"], Address: c.Subject, Username: c.Extra["username"], Name: c.Extra["name"], Method: c.Extra["amr"], OIDCSub: c.Extra["osub"], Verified: s.Svc.Store.IsVerified(c.Subject)}
 }
 
 func (s *Server) user(r *http.Request) *core.User {

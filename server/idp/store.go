@@ -17,7 +17,8 @@ import (
 // Session is one SSO browser session on the issuer (sid == the portal session id behind the authfly_session cookie).
 type Session struct {
 	SID       string            `json:"sid"`
-	Sub       string            `json:"sub"`
+	Sub       string            `json:"sub"`               // OIDC subject (Stalwart account id)
+	Account   string            `json:"account,omitempty"` // portal account id (JMAP id) of the session
 	UserAgent string            `json:"ua,omitempty"`
 	IP        string            `json:"ip,omitempty"`
 	AuthTime  time.Time         `json:"authTime"`
@@ -37,7 +38,7 @@ type Grant struct {
 
 // Profile is the userinfo snapshot taken at sign-in from Stalwart (admin JMAP).
 type Profile struct {
-	Sub, Username, Name, Email string
+	Sub, Account, Username, Name, Email string
 	EmailVerified              bool
 }
 
@@ -247,6 +248,19 @@ func (s *Store) recordUse(sub, sid, client string, scopes []string) {
 
 func (s *Store) PutProfile(p *Profile) {
 	s.tx(true, func(d *data) { d.Profiles[p.Sub] = p })
+}
+
+// SubjectOf maps a portal account id (JMAP id) to the OIDC subject recorded at a password sign-in.
+func (s *Store) SubjectOf(account string) string {
+	out := ""
+	s.tx(false, func(d *data) {
+		for _, p := range d.Profiles {
+			if p.Account == account {
+				out = p.Sub
+			}
+		}
+	})
+	return out
 }
 
 func (s *Store) Profile(sub string) *Profile {

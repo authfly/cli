@@ -29,7 +29,7 @@ func (s *Server) idpRoutes(m *http.ServeMux) {
 	m.HandleFunc("POST /account/sessions/everywhere", s.sessionsEverywhere)
 	s.IdP.SessionAlive = func(sid string) bool {
 		ss := s.IdP.Store.Session(sid)
-		return ss != nil && s.Svc.Store.HasSession(ss.Sub, sid)
+		return ss != nil && s.Svc.Store.HasSession(ss.Account, sid)
 	}
 }
 
@@ -51,8 +51,9 @@ func (s *Server) registerSSO(r *http.Request, u *core.User, sid string) {
 	if u.Method == "magic" {
 		amr = []string{"otp"}
 	}
-	s.IdP.Store.PutSession(&idp.Session{SID: sid, Sub: u.Sub, UserAgent: r.UserAgent(), IP: s.clientIP(r), AuthTime: now, Created: now, LastSeen: now, AMR: amr})
-	s.IdP.Store.PutProfile(&idp.Profile{Sub: u.Sub, Username: u.Username, Name: u.Name, Email: u.Address, EmailVerified: true})
+	sub := s.oidcSub(u)
+	s.IdP.Store.PutSession(&idp.Session{SID: sid, Sub: sub, Account: u.Sub, UserAgent: r.UserAgent(), IP: s.clientIP(r), AuthTime: now, Created: now, LastSeen: now, AMR: amr})
+	s.IdP.Store.PutProfile(&idp.Profile{Sub: sub, Account: u.Sub, Username: u.Username, Name: u.Name, Email: u.Address, EmailVerified: true})
 }
 
 // ssoSession returns the valid SSO session of the browser (portal cookie + server-side record).
@@ -67,7 +68,7 @@ func (s *Server) ssoSession(r *http.Request) (*core.User, *idp.Session) {
 		s.registerSSO(r, u, sid)
 		ss = s.IdP.Store.Session(sid)
 	}
-	if ss == nil || ss.Sub != u.Sub {
+	if ss == nil || ss.Account != u.Sub {
 		return nil, nil
 	}
 	return u, ss
@@ -139,7 +140,7 @@ func (s *Server) completeIdP(w http.ResponseWriter, r *http.Request, ar *idp.Aut
 		s.notice(w, r, 500, "linkerror", "error", "shield-alert", "", nil)
 		return
 	}
-	if !s.IdP.Store.CompleteAuthRequest(ar.ID, u.Sub, ss.SID, ss.AMR, ss.AuthTime) {
+	if !s.IdP.Store.CompleteAuthRequest(ar.ID, ss.Sub, ss.SID, ss.AMR, ss.AuthTime) {
 		s.notice(w, r, 400, "linkerror", "error", "shield-alert", "", nil)
 		return
 	}
@@ -168,7 +169,7 @@ func (s *Server) appsClientRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cid := r.PostFormValue("client")
-	s.IdP.RevokeClient(u.Sub, cid)
+	s.IdP.RevokeClient(s.oidcSub(u), cid)
 	s.Svc.Audit.Log("self", u.Sub, "oidc_client_revoke", "ok", map[string]string{"client": cid})
 	s.appsView(w, r, u, 200, labStr(s.lab(r, "apps"), "revoked"))
 }
@@ -179,7 +180,7 @@ func (s *Server) sessionRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sid := r.PostFormValue("sid")
-	if ss := s.IdP.Store.Session(sid); ss != nil && ss.Sub == u.Sub {
+	if ss := s.IdP.Store.Session(sid); ss != nil && ss.Account == u.Sub {
 		s.Svc.Store.DropSession(u.Sub, sid)
 		s.IdP.EndSession(sid)
 		s.Svc.Audit.Log("self", u.Sub, "session_revoke", "ok", nil)
@@ -204,11 +205,11 @@ func (s *Server) sessionsOthers(w http.ResponseWriter, r *http.Request) {
 			s.Svc.Store.DropSession(u.Sub, ss.ID)
 		}
 	}
-	s.IdP.EndSessionsOf(u.Sub, cur)
+	s.IdP.EndSessionsOf(s.oidcSub(u), cur)
 	if cs := s.IdP.Store.Session(cur); cs != nil { // and the applications of the current session
 		for cid := range cs.Clients {
 			s.IdP.Store.RemoveClientFromSession(cur, cid)
-			s.IdP.BackchannelLogout(cid, u.Sub, cur)
+			s.IdP.BackchannelLogout(cid, cs.Sub, cur)
 		}
 	}
 	s.Svc.Audit.Log("self", u.Sub, "sign_out_others", "ok", nil)
@@ -232,7 +233,20 @@ func (s *Server) signOutEverywhere(u *core.User) {
 	s.Svc.Store.Revoke(u.Address)
 	s.Svc.Store.DropSessions(u.Sub)
 	if s.IdP != nil {
-		s.IdP.EndSessionsOf(u.Sub, "")
+		s.IdP.EndSessionsOf(s.oidcSub(u), "")
 	}
 	s.Svc.Audit.Log("self", u.Sub, "sign_out_everywhere", "ok", nil)
+}
+
+// oidcSub is the subject the issuer puts in tokens: Stalwart's OIDC subject (numeric account id) when known.
+func (s *Server) oidcSub(u *core.User) string {
+	if u.OIDCSub != "" {
+		return u.OIDCSub
+	}
+	if s.IdP != nil {
+		if v := s.IdP.Store.SubjectOf(u.Sub); v != "" {
+			return v
+		}
+	}
+	return u.Sub
 }

@@ -43,7 +43,7 @@ func (s *Server) ssoRows(sub, current string) ([]SSOApp, []SSOSession) {
 	}
 	var sess []SSOSession
 	for _, ss := range s.IdP.Store.SessionsOf(sub) {
-		if !s.Svc.Store.HasSession(sub, ss.SID) {
+		if !s.Svc.Store.HasSession(ss.Account, ss.SID) {
 			continue
 		}
 		var names []string

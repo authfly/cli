@@ -78,7 +78,7 @@ func newEnv(t *testing.T) *env {
 
 // signIn creates a portal (= SSO) session as a password sign-in would, returning the cookie.
 func (e *env) signIn() *http.Cookie {
-	u := &core.User{Sub: "2", Address: "wmaster@cab.yself.link", Username: "wmaster", Name: "W Master", Method: "password"}
+	u := &core.User{Sub: "c", OIDCSub: "2", Address: "wmaster@cab.yself.link", Username: "wmaster", Name: "W Master", Method: "password"}
 	w := httptest.NewRecorder()
 	e.s.signIn(w, httptest.NewRequest("POST", "/auth/sign-in", nil), u)
 	for _, c := range w.Result().Cookies() {
@@ -326,5 +326,19 @@ func TestIdPStorePersists(t *testing.T) {
 	ks, _ := idp.LoadKeySet([]string{filepath.Join(e.dir, "k.pem")}, false)
 	if ks.Active().ID() != e.s.IdP.Keys.Active().ID() {
 		t.Fatal("key must persist")
+	}
+}
+
+func TestIdPIDTokenVerifiesWithRPVerifier(t *testing.T) {
+	e := newEnv(t)
+	ck := e.signIn()
+	a := e.exchange("app-a", "sa", "https://a.test/cb", e.authorize("app-a", "https://a.test/cb", ck, nil))
+	sw := &core.Stalwart{BaseURL: e.ts.URL}
+	c, err := sw.VerifyIDToken(context.Background(), a["id_token"].(string), "app-a", "n1")
+	if err != nil || c["sub"] != "2" {
+		t.Fatalf("rp verifier: %v %v", err, c)
+	}
+	if _, err := sw.VerifyIDToken(context.Background(), a["id_token"].(string), "app-b", "n1"); err == nil {
+		t.Fatal("wrong audience accepted")
 	}
 }

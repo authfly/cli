@@ -320,7 +320,7 @@ func (s *Server) appsView(w http.ResponseWriter, r *http.Request, u *core.User, 
 	if s.IdP != nil {
 		cur := s.sessionID(r)
 		s.IdP.Store.Touch(cur)
-		apps, sess := s.ssoRows(u.Sub, cur)
+		apps, sess := s.ssoRows(s.oidcSub(u), cur)
 		s.renderPortal(w, r, status, s.text(r, "apps", "title"), "/account/apps", PortalSSO(s.text(r, "apps", "title"), s.text(r, "apps", "text"), s.csrf(w, r), info, lab, apps, sess))
 		return
 	}
