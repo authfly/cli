@@ -84,9 +84,12 @@ func PortalSSO(title, lead, csrf, info string, labels map[string]any, apps []SSO
 			nest(text.Text(text.TextProps{Class: "font-semibold"}), textNode(a.Name)),
 			muted(labStr(labels, "scopes")+": "+a.Scopes),
 			nest(text.Text(text.TextProps{Class: af.TextHint}), textNode(labStr(labels, "first")+" "+a.First+" · "+labStr(labels, "last")+" "+a.Last)),
-		), nest(af.Form("/account/apps/client/revoke", "", nil), many(
-			af.Hidden("csrf", csrf), af.Hidden("client", a.ClientID),
-			outlineSubmit("revoke-"+a.ClientID, labStr(labels, "revoke")),
+		), nest(af.Stack("2", "end", "", "max-w-xs", nil), many(
+			nest(af.Form("/account/apps/client/revoke", "", nil), many(
+				af.Hidden("csrf", csrf), af.Hidden("client", a.ClientID),
+				outlineSubmit("revoke-"+a.ClientID, labStr(labels, "revoke")),
+			)),
+			nest(text.Text(text.TextProps{Class: af.TextHint + " text-right", Attrs: af.A("data-testid", "revoke-hint")}), textNode(labStr(labels, "revokeHint"))),
 		)), "app-"+a.ClientID))
 	}
 	if len(apps) == 0 {

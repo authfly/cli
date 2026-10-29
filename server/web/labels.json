@@ -240,7 +240,7 @@
     "labels": {
       "empty": "You are not signed in to any app.",
       "revoke": "Revoke",
-      "revoked": "The app was signed out and its access revoked.",
+      "revoked": "The app was signed out and lost access. You'll need your password to sign in to it again.",
       "client": "App",
       "scopes": "Access",
       "last": "Last sign-in",
@@ -257,7 +257,8 @@
       "othersEnded": "All other sessions and apps were signed out.",
       "everywhere": "Sign out everywhere",
       "noSessions": "No active sessions.",
-      "appsIn": "Apps"
+      "appsIn": "Apps",
+      "revokeHint": "The app loses access. You'll need your password to sign in to it again."
     }
   },
   "privacy": {
