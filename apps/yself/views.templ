@@ -1,0 +1,537 @@
+package main
+
+import (
+	"strconv"
+
+	af "github.com/authfly/authkit/packages/ui/templ/authfly"
+	"github.com/authfly/authkit/packages/ui/templ/ui/box"
+	"github.com/authfly/authkit/packages/ui/templ/ui/button"
+	"github.com/authfly/authkit/packages/ui/templ/ui/checkbox"
+	"github.com/authfly/authkit/packages/ui/templ/ui/disclosure"
+	"github.com/authfly/authkit/packages/ui/templ/ui/form"
+	"github.com/authfly/authkit/packages/ui/templ/ui/image"
+	"github.com/authfly/authkit/packages/ui/templ/ui/input"
+	"github.com/authfly/authkit/packages/ui/templ/ui/label"
+	"github.com/authfly/authkit/packages/ui/templ/ui/link"
+	"github.com/authfly/authkit/packages/ui/templ/ui/radio"
+	selectx "github.com/authfly/authkit/packages/ui/templ/ui/select"
+	"github.com/authfly/authkit/packages/ui/templ/ui/text"
+	"github.com/authfly/authkit/packages/ui/templ/ui/textarea"
+	"github.com/authfly/cli/server/rpui"
+)
+
+// ---------- app shell ----------
+
+templ headerActions(c Chrome) {
+	if c.Signed {
+		@af.Group("2", "center", "", "", nil) {
+			@button.Button(button.ButtonProps{Href: "/me", Class: af.ButtonSkin("outline"), Attrs: af.A("data-testid", "nav-edit")}) {
+				@af.LucideIcon("pencil", "sm")
+				@text.Text(text.TextProps{Tag: "span", Class: "hidden sm:inline"}) {
+					{ c.T["edit"] }
+				}
+			}
+			@af.Form("/auth/logout", "", nil) {
+				@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("ghost", "w-10 px-0"), AriaLabel: c.T["signout"], Attrs: af.A("data-testid", "signout", "title", c.T["signout"])}) {
+					@af.LucideIcon("log-out", "sm")
+				}
+			}
+		}
+	} else {
+		@button.Button(button.ButtonProps{Href: "/auth/login", Class: af.ButtonSkin("default"), Attrs: af.A("data-testid", "nav-signin")}) {
+			@af.LucideIcon("log-in", "sm")
+			{ c.T["signin"] }
+		}
+	}
+}
+
+templ Shell(c Chrome) {
+	@rpui.Document(c.Meta) {
+		@link.Link(link.LinkProps{Href: "#main", Class: "sr-only focus:not-sr-only"}) {
+			{ c.T["skip"] }
+		}
+		@rpui.Header("/", "at-sign", "YSELF", c.Lang, c.Path, c.T["theme"], headerActions(c))
+		@box.Box(box.BoxProps{Tag: "main", Class: "w-full", Attrs: af.A("id", "main")}) {
+			{ children... }
+		}
+	}
+}
+
+// ---------- landing ----------
+
+templ feature(icon, title, lead string) {
+	@af.Card("max-w-none mx-0", af.A("data-testid", "feature")) {
+		@af.IconBadge(icon, "")
+		@af.Stack("2", "", "", "", nil) {
+			@af.Title(3, "", "", title)
+			@text.Text(text.TextProps{Class: af.TextMuted}) {
+				{ lead }
+			}
+		}
+	}
+}
+
+templ step(n, s string) {
+	@af.Group("4", "start", "", "", nil) {
+		@text.Text(text.TextProps{Tag: "span", Class: "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"}) {
+			{ n }
+		}
+		@text.Text(text.TextProps{Class: "text-base text-foreground"}) {
+			{ s }
+		}
+	}
+}
+
+templ ctaButtons(c Chrome, t T, p *Profile, accounts string) {
+	@box.Box(box.BoxProps{Class: "flex flex-wrap items-center justify-center gap-4"}) {
+		if c.Signed {
+			@button.Button(button.ButtonProps{Href: "/me", Class: af.ButtonSkin("default", "h-12 px-6 text-base"), Attrs: af.A("data-testid", "cta-edit")}) {
+				@af.LucideIcon("pencil", "sm")
+				{ t["edit"] }
+			}
+			if p != nil {
+				@button.Button(button.ButtonProps{Href: "/" + p.Handle, Class: af.ButtonSkin("outline", "h-12 px-6 text-base"), Attrs: af.A("data-testid", "cta-view")}) {
+					{ "yself.link/" + p.Handle }
+				}
+			}
+		} else {
+			@button.Button(button.ButtonProps{Href: "/auth/login", Class: af.ButtonSkin("default", "h-12 px-6 text-base"), Attrs: af.A("data-testid", "cta-signin")}) {
+				@af.LucideIcon("log-in", "sm")
+				{ t["signin"] }
+			}
+			@button.Button(button.ButtonProps{Href: accounts + "/auth/sign-up", Class: af.ButtonSkin("outline", "h-12 px-6 text-base"), Attrs: af.A("data-testid", "cta-signup")}) {
+				{ t["signup"] }
+			}
+		}
+	}
+}
+
+templ Landing(c Chrome, t T, p *Profile, accounts string) {
+	@Shell(c) {
+		@box.Box(box.BoxProps{Tag: "section", Class: "w-full px-4 py-16 md:py-24", Attrs: af.A("aria-labelledby", "hero-title", "data-testid", "hero")}) {
+			@af.Stack("6", "center", "", "mx-auto max-w-3xl text-center", nil) {
+				@af.Badge("outline", "", t["hero.kicker"])
+				@text.Text(text.TextProps{Tag: "h1", Class: "text-4xl font-bold tracking-tight text-foreground md:text-5xl", Attrs: af.A("id", "hero-title")}) {
+					{ t["hero.title"] }
+				}
+				@text.Text(text.TextProps{Class: "text-lg text-muted-foreground"}) {
+					{ t["hero.lead"] }
+				}
+				@ctaButtons(c, t, p, accounts)
+				@link.Link(link.LinkProps{Href: "/wmaster", Class: af.LinkSkin("text-sm text-muted-foreground"), Attrs: af.A("data-testid", "example")}) {
+					{ t["hero.example"] + ": yself.link/wmaster" }
+					@af.LucideIcon("arrow-right", "sm")
+				}
+			}
+		}
+		@box.Box(box.BoxProps{Tag: "section", Class: "w-full bg-muted px-4 py-16", Attrs: af.A("aria-label", t["f2.t"])}) {
+			@box.Box(box.BoxProps{Class: "mx-auto grid w-full max-w-6xl gap-6 md:grid-cols-3"}) {
+				@feature("shield-check", t["f1.t"], t["f1.d"])
+				@feature("link", t["f2.t"], t["f2.d"])
+				@feature("palette", t["f3.t"], t["f3.d"])
+			}
+		}
+		@box.Box(box.BoxProps{Tag: "section", Class: "w-full px-4 py-16", Attrs: af.A("aria-labelledby", "how-title")}) {
+			@af.Stack("8", "", "", "mx-auto max-w-2xl", nil) {
+				@text.Text(text.TextProps{Tag: "h2", Class: "text-3xl font-bold tracking-tight text-foreground", Attrs: af.A("id", "how-title")}) {
+					{ t["how.t"] }
+				}
+				@af.Stack("4", "", "", "", nil) {
+					@step("1", t["how.1"])
+					@step("2", t["how.2"])
+					@step("3", t["how.3"])
+				}
+			}
+		}
+		@box.Box(box.BoxProps{Tag: "section", Class: "w-full px-4 pb-24", Attrs: af.A("aria-labelledby", "cta-title")}) {
+			@af.Stack("6", "center", "", "mx-auto max-w-3xl rounded-2xl bg-card p-8 text-center shadow-sm md:p-12", nil) {
+				@text.Text(text.TextProps{Tag: "h2", Class: "text-2xl font-bold text-foreground", Attrs: af.A("id", "cta-title")}) {
+					{ t["cta.t"] }
+				}
+				@text.Text(text.TextProps{Class: af.TextMuted}) {
+					{ t["cta.d"] }
+				}
+				@ctaButtons(c, t, p, accounts)
+			}
+		}
+	}
+}
+
+templ LoginFailed(c Chrome, t T, msg string) {
+	@Shell(c) {
+		@box.Box(box.BoxProps{Class: "px-4 py-16"}) {
+			@af.Card("", af.A("data-testid", "login-failed")) {
+				@af.WidgetHead("lf", t["login.failed"], "", "", "")
+				@af.Alert("destructive", "circle-alert", "lf-error", "authfly-error", msg)
+				@button.Button(button.ButtonProps{Href: "/auth/login", Class: af.ButtonSkin("default", "w-full")}) {
+					{ t["login.retry"] }
+				}
+			}
+		}
+	}
+}
+
+templ NotFound(c Chrome, t T) {
+	@Shell(c) {
+		@box.Box(box.BoxProps{Class: "px-4 py-16"}) {
+			@af.Card("", af.A("data-testid", "not-found")) {
+				@af.IconBadge("search-x", "")
+				@af.WidgetHead("nf", t["nf.title"], t["nf.lead"], "", "")
+				@button.Button(button.ButtonProps{Href: "/", Class: af.ButtonSkin("default", "w-full")}) {
+					{ t["nf.home"] }
+				}
+			}
+		}
+	}
+}
+
+// ---------- the profile (public page + preview) ----------
+
+templ avatarView(p *Profile) {
+	if p.Avatar != "" {
+		@image.Image(image.ImageProps{Src: "/avatars/" + p.Avatar, Alt: nonEmpty(p.Name, p.Handle), Width: "96", Height: "96", Class: avatarCls(p), Decoding: "async"})
+	} else {
+		@text.Text(text.TextProps{Tag: "span", Class: "inline-flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-border bg-secondary text-3xl font-bold text-secondary-foreground", Attrs: af.A("aria-hidden", "true", "data-testid", "initials")}) {
+			{ initials(p.Name, p.Handle) }
+		}
+	}
+}
+
+templ ProfileView(t T, p *Profile, links []Link, headingTag string) {
+	@af.Stack("6", "center", "", "mx-auto w-full max-w-md text-center", af.A("data-testid", "profile")) {
+		@avatarView(p)
+		@af.Stack("2", "center", "", "min-w-0", nil) {
+			@text.Text(text.TextProps{Tag: headingTag, Class: "text-2xl font-bold", Attrs: af.A("data-testid", "profile-name")}) {
+				{ nonEmpty(p.Name, p.Handle) }
+			}
+			@text.Text(text.TextProps{Tag: "span", Class: "text-sm opacity-75"}) {
+				{ "@" + p.Handle }
+			}
+			if p.Bio != "" {
+				@text.Text(text.TextProps{Class: "max-w-md text-base", Attrs: af.A("data-testid", "profile-bio")}) {
+					{ p.Bio }
+				}
+			}
+		}
+		@af.Stack("4", "", "", "w-full", af.A("data-testid", "profile-links")) {
+			for _, l := range links {
+				if l.Enabled {
+					@link.Link(link.LinkProps{Href: l.URL, Rel: "noopener nofollow ugc", Class: linkBtnCls(p), Attrs: af.A("data-testid", "profile-link")}) {
+						if l.Icon != "" {
+							@af.LucideIcon(l.Icon, "sm")
+						}
+						@text.Text(text.TextProps{Tag: "span", Class: "truncate"}) {
+							{ l.Title }
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ PublicPage(m rpui.Meta, t T, p *Profile, links []Link) {
+	@rpui.Document(m) {
+		@box.Box(box.BoxProps{Tag: "main", Class: "flex w-full flex-col items-center gap-12 px-4 py-12"}) {
+			@ProfileView(t, p, links, "h1")
+			@link.Link(link.LinkProps{Href: "/", Class: "inline-flex items-center gap-2 text-xs opacity-75 hover:underline", Attrs: af.A("data-testid", "made-with")}) {
+				@af.LucideIcon("at-sign", "sm")
+				{ t["pub.made"] }
+			}
+		}
+	}
+}
+
+// ---------- editor ----------
+
+templ section(id, icon, title, hint string) {
+	@af.Card("max-w-none mx-0", af.A("id", id, "data-testid", "ed-"+id, "aria-labelledby", id+"-title")) {
+		@af.Stack("2", "", "", "", nil) {
+			@af.Group("2", "center", "", "", nil) {
+				@af.LucideIcon(icon, "md")
+				@af.Title(2, id+"-title", "", title)
+			}
+			if hint != "" {
+				@text.Text(text.TextProps{Class: af.TextMuted}) {
+					{ hint }
+				}
+			}
+		}
+		{ children... }
+	}
+}
+
+func errFor(vm *EditorVM, field string) string {
+	if vm.ErrField == field {
+		return vm.Err
+	}
+	return ""
+}
+
+func sp(s string) *string { return &s }
+
+templ textInput(id, name, value, lbl, hint, errMsg, autocomplete string, required bool, maxlen string) {
+	@af.Field(af.FieldProps{Label: lbl, HtmlFor: id, Hint: hint, Error: errMsg}, func(f af.FieldControl) templ.Component {
+		return input.Input(input.InputProps{Type: "text", ID: id, Name: name, Value: sp(value), Required: required, Class: af.InputSkin(), AriaDescribedBy: f.Describe(), AriaInvalid: f.Invalid,
+			Attrs: af.A("autocomplete", autocomplete, "maxlength", maxlen)})
+	})
+}
+
+templ choice(name, value, current, lbl string) {
+	@label.Label(label.LabelProps{For: name + "-" + value, Class: "flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium hover:bg-accent"}) {
+		@radio.Radio(radio.RadioProps{ID: name + "-" + value, Name: name, Value: sp(value), Checked: value == current, Class: af.CheckboxSkin()})
+		{ lbl }
+	}
+}
+
+templ choices(legend, name, current string, values []string, t T) {
+	@box.Box(box.BoxProps{Tag: "fieldset", Class: "grid gap-2", Attrs: af.A("data-testid", "choice-"+name)}) {
+		@box.Box(box.BoxProps{Tag: "legend", Class: af.TextSubtitle + " pb-2"}) {
+			{ legend }
+		}
+		@box.Box(box.BoxProps{Class: "flex flex-wrap gap-2"}) {
+			for _, v := range values {
+				@choice(name, v, current, t[name+"."+v])
+			}
+		}
+	}
+}
+
+func iconOptions(t T) []selectx.SelectOptionItem {
+	out := make([]selectx.SelectOptionItem, 0, len(icons))
+	for _, i := range icons {
+		lbl := i
+		if i == "" {
+			lbl = t["icon.none"]
+		}
+		out = append(out, selectx.SelectOptionItem{Value: i, Label: lbl})
+	}
+	return out
+}
+
+templ linkFields(prefix string, t T, title, url, icon string, enabled bool, errMsg string) {
+	@box.Box(box.BoxProps{Class: "grid w-full gap-4 sm:grid-cols-2"}) {
+		@textInput(prefix+"-title", "title", title, t["ed.linkTitle"], "", "", "off", true, "60")
+		@af.Field(af.FieldProps{Label: t["ed.linkURL"], HtmlFor: prefix + "-url", Error: errMsg}, func(f af.FieldControl) templ.Component {
+			return input.Input(input.InputProps{Type: "text", ID: prefix + "-url", Name: "url", Value: sp(url), Required: true, Placeholder: "https://", Class: af.InputSkin(), AriaDescribedBy: f.Describe(), AriaInvalid: f.Invalid,
+				Attrs: af.A("inputmode", "url", "autocomplete", "url", "maxlength", "2048")})
+		})
+	}
+	@box.Box(box.BoxProps{Class: "grid w-full gap-4 sm:grid-cols-2"}) {
+		@af.Field(af.FieldProps{Label: t["ed.linkIcon"], HtmlFor: prefix + "-icon"}, func(f af.FieldControl) templ.Component {
+			return selectx.Select(selectx.SelectProps{ID: prefix + "-icon", Name: "icon", Value: icon, Options: iconOptions(t), Class: af.InputSkin()})
+		})
+		@af.Group("2", "center", "", "sm:pt-8", nil) {
+			@checkbox.Checkbox(checkbox.CheckboxProps{ID: prefix + "-enabled", Name: "enabled", Value: sp("1"), Checked: enabled, Class: af.CheckboxSkin()})
+			@label.Label(label.LabelProps{For: prefix + "-enabled", Class: af.LabelSkin("font-normal")}) {
+				{ t["ed.linkEnabled"] }
+			}
+		}
+	}
+}
+
+templ hidden(csrf string) {
+	@af.Hidden("csrf", csrf)
+}
+
+templ iconSubmit(icon, lbl, testid string, disabled bool) {
+	@button.Button(button.ButtonProps{Type: "submit", Disabled: disabled, Class: af.ButtonSkin("outline", "w-10 px-0"), AriaLabel: lbl, Attrs: af.A("title", lbl, "data-testid", testid)}) {
+		@af.LucideIcon(icon, "sm")
+	}
+}
+
+templ linkRow(vm *EditorVM, l Link, i, n int) {
+	@box.Box(box.BoxProps{Class: "grid w-full gap-4 rounded-lg border border-border p-4", Attrs: af.A("data-testid", "ed-link", "id", "link-"+strconv.FormatInt(l.ID, 10))}) {
+		@af.Group("2", "center", "between", "w-full flex-wrap", nil) {
+			@af.Group("2", "center", "", "min-w-0", nil) {
+				if l.Icon != "" {
+					@af.LucideIcon(l.Icon, "sm")
+				}
+				@text.Text(text.TextProps{Tag: "span", Class: "truncate font-semibold"}) {
+					{ l.Title }
+				}
+				if !l.Enabled {
+					@af.Badge("secondary", "hidden-badge", vm.C.T["ed.hidden"])
+				}
+			}
+			@af.Group("2", "center", "", "", nil) {
+				@af.Form("/me/links/"+strconv.FormatInt(l.ID, 10)+"/move", "", nil) {
+					@hidden(vm.CSRF)
+					@af.Hidden("dir", "up")
+					@iconSubmit("arrow-up", vm.C.T["ed.up"], "move-up", i == 0)
+				}
+				@af.Form("/me/links/"+strconv.FormatInt(l.ID, 10)+"/move", "", nil) {
+					@hidden(vm.CSRF)
+					@af.Hidden("dir", "down")
+					@iconSubmit("arrow-down", vm.C.T["ed.down"], "move-down", i == n-1)
+				}
+			}
+		}
+		@disclosure.Disclosure(disclosure.DisclosureProps{Open: vm.BadLink == l.ID && vm.BadLink != 0, Class: "w-full"}) {
+			@disclosure.Summary(disclosure.SummaryProps{Class: "text-sm text-muted-foreground"}) {
+				{ l.URL }
+			}
+			@af.Stack("4", "", "", "pt-4", nil) {
+				@af.Form("/me/links/"+strconv.FormatInt(l.ID, 10), "", af.A("data-testid", "edit-link-form")) {
+					@hidden(vm.CSRF)
+					@linkFields("l"+strconv.FormatInt(l.ID, 10), vm.C.T, l.Title, l.URL, l.Icon, l.Enabled, map[bool]string{true: vm.Err, false: ""}[vm.BadLink == l.ID && vm.BadLink != 0])
+					@box.Box(box.BoxProps{Class: "flex"}) {
+						@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("default"), Attrs: af.A("data-testid", "save-link")}) {
+							{ vm.C.T["ed.save"] }
+						}
+					}
+				}
+				@disclosure.Disclosure(disclosure.DisclosureProps{Class: "w-fit"}) {
+					@disclosure.Summary(disclosure.SummaryProps{Class: af.ButtonSkin("outline", "list-none text-destructive inset-ring-destructive")}) {
+						@af.LucideIcon("trash", "sm")
+						{ vm.C.T["ed.delete"] }
+					}
+					@af.Stack("2", "start", "", "mt-4 rounded-md bg-muted p-4", nil) {
+						@text.Text(text.TextProps{Class: "text-sm"}) {
+							{ vm.C.T["ed.deleteQ"] }
+						}
+						@af.Form("/me/links/"+strconv.FormatInt(l.ID, 10)+"/delete", "", nil) {
+							@hidden(vm.CSRF)
+							@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("outline", "text-destructive inset-ring-destructive"), Attrs: af.A("data-testid", "delete-link")}) {
+								{ vm.C.T["ed.delete"] }
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+templ Editor(vm *EditorVM) {
+	@Shell(vm.C) {
+		@box.Box(box.BoxProps{Class: "mx-auto w-full max-w-6xl px-4 py-8"}) {
+			@af.Stack("8", "", "", "", nil) {
+				@af.Stack("2", "", "", "", nil) {
+					@af.Title(1, "ed-title", "", vm.C.T["ed.title"])
+					@text.Text(text.TextProps{Class: af.TextMuted}) {
+						{ vm.C.T["ed.lead"] }
+					}
+					@af.Group("2", "center", "", "flex-wrap pt-2", af.A("data-testid", "public-url")) {
+						@text.Text(text.TextProps{Tag: "span", Class: af.TextMuted}) {
+							{ vm.C.T["ed.public"] + ":" }
+						}
+						@link.Link(link.LinkProps{Href: "/" + vm.P.Handle, Class: af.LinkSkin("text-sm")}) {
+							{ vm.Public }
+							@af.LucideIcon("external-link", "sm")
+						}
+					}
+				}
+				if vm.Flash != "" {
+					@af.Alert("success", "circle-check", "", "authfly-info", vm.Flash)
+				}
+				if vm.Err != "" {
+					@af.Alert("destructive", "circle-alert", "ed-error", "authfly-error", vm.Err)
+				}
+				@box.Box(box.BoxProps{Class: "grid w-full items-start gap-8 lg:grid-cols-2"}) {
+					@af.Stack("8", "", "", "min-w-0", nil) {
+						@section("profile", "circle-user", vm.C.T["ed.profile"], "") {
+							@af.Form("/me/profile", "", af.A("data-testid", "profile-form")) {
+								@hidden(vm.CSRF)
+								@textInput("ed-handle", "handle", vm.FormHandle, vm.C.T["ed.handle"], vm.C.T["ed.handleHint"], errFor(vm, "handle"), "username", true, "30")
+								@textInput("ed-name", "name", vm.FormName, vm.C.T["ed.name"], "", "", "name", false, "60")
+								@af.Field(af.FieldProps{Label: vm.C.T["ed.bio"], HtmlFor: "ed-bio", Hint: vm.C.T["ed.bioHint"]}, func(f af.FieldControl) templ.Component {
+									return textarea.Textarea(textarea.TextareaProps{ID: "ed-bio", Name: "bio", Value: vm.FormBio, Rows: "3", Class: af.InputSkin("h-auto py-2"), AriaDescribedBy: f.Describe(), Attrs: af.A("maxlength", "160")})
+								})
+								@choices(vm.C.T["ed.themeL"], "theme", vm.P.Theme, themes, vm.C.T)
+								@choices(vm.C.T["ed.buttonsL"], "buttons", vm.P.Buttons, buttonStyles, vm.C.T)
+								@choices(vm.C.T["ed.shapeL"], "shape", vm.P.Shape, shapes, vm.C.T)
+								@box.Box(box.BoxProps{Class: "flex"}) {
+									@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("default"), Attrs: af.A("data-testid", "save-profile")}) {
+										@af.LucideIcon("save", "sm")
+										{ vm.C.T["ed.save"] }
+									}
+								}
+							}
+						}
+						@section("avatar", "image", vm.C.T["ed.avatar"], vm.C.T["ed.avatarHint"]) {
+							@af.Group("4", "center", "", "flex-wrap", nil) {
+								@avatarView(vm.P)
+								@form.Form(form.FormProps{Action: "/me/avatar", Method: "post", Enctype: "multipart/form-data", Class: "grid min-w-0 gap-4", Attrs: af.A("data-testid", "avatar-form")}) {
+									@hidden(vm.CSRF)
+									@af.Field(af.FieldProps{Label: vm.C.T["ed.avatarFile"], HtmlFor: "ed-avatar", Error: errFor(vm, "avatar")}, func(f af.FieldControl) templ.Component {
+										return input.Input(input.InputProps{Type: "file", ID: "ed-avatar", Name: "avatar", Required: true, Class: af.InputSkin("h-auto py-2"), AriaDescribedBy: f.Describe(), AriaInvalid: f.Invalid,
+											Attrs: af.A("accept", "image/jpeg,image/png,image/gif,image/webp")})
+									})
+									@box.Box(box.BoxProps{Class: "flex flex-wrap gap-2"}) {
+										@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("outline"), Attrs: af.A("data-testid", "upload")}) {
+											@af.LucideIcon("cloud-upload", "sm")
+											{ vm.C.T["ed.upload"] }
+										}
+									}
+								}
+							}
+							if vm.P.Avatar != "" {
+								@disclosure.Disclosure(disclosure.DisclosureProps{Class: "w-fit"}) {
+									@disclosure.Summary(disclosure.SummaryProps{Class: af.ButtonSkin("ghost", "list-none text-destructive")}) {
+										{ vm.C.T["ed.avatarRemove"] }
+									}
+									@af.Stack("2", "start", "", "mt-4 rounded-md bg-muted p-4", nil) {
+										@text.Text(text.TextProps{Class: "text-sm"}) {
+											{ vm.C.T["ed.avatarRemoveQ"] }
+										}
+										@af.Form("/me/avatar/delete", "", nil) {
+											@hidden(vm.CSRF)
+											@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("outline", "text-destructive inset-ring-destructive"), Attrs: af.A("data-testid", "remove-avatar")}) {
+												{ vm.C.T["ed.avatarRemove"] }
+											}
+										}
+									}
+								}
+							}
+						}
+						@section("links", "link", vm.C.T["ed.links"], vm.C.T["ed.linksHint"]) {
+							@af.Stack("4", "", "", "w-full", nil) {
+								for i, l := range vm.Links {
+									@linkRow(vm, l, i, len(vm.Links))
+								}
+								if len(vm.Links) == 0 {
+									@af.Group("2", "center", "", "rounded-md bg-muted p-4 text-sm text-muted-foreground", af.A("data-testid", "empty")) {
+										@af.LucideIcon("link", "sm")
+										{ vm.C.T["ed.linksEmpty"] }
+									}
+								}
+							}
+							@af.Stack("4", "", "", "w-full rounded-lg bg-muted p-4", af.A("id", "add-link")) {
+								@af.Title(3, "add-link-title", "", vm.C.T["ed.addLink"])
+								@af.Form("/me/links", "", af.A("data-testid", "add-link-form")) {
+									@hidden(vm.CSRF)
+									@linkFields("new", vm.C.T, vm.NewTitle, vm.NewURL, vm.NewIcon, true, map[bool]string{true: vm.Err, false: ""}[vm.ErrField == "link" && vm.BadLink == 0])
+									@box.Box(box.BoxProps{Class: "flex"}) {
+										@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("default"), Attrs: af.A("data-testid", "add-link")}) {
+											@af.LucideIcon("plus", "sm")
+											{ vm.C.T["ed.add"] }
+										}
+									}
+								}
+							}
+						}
+					}
+					@box.Box(box.BoxProps{Tag: "aside", Class: "min-w-0 lg:sticky lg:top-8", Attrs: af.A("aria-labelledby", "preview-title", "data-testid", "preview")}) {
+						@af.Stack("4", "", "", "", nil) {
+							@af.Stack("2", "", "", "", nil) {
+								@af.Group("2", "center", "", "", nil) {
+									@af.LucideIcon("eye", "md")
+									@af.Title(2, "preview-title", "", vm.C.T["ed.preview"])
+								}
+								@text.Text(text.TextProps{Class: af.TextMuted}) {
+									{ vm.C.T["ed.previewHint"] }
+								}
+							}
+							@box.Box(box.BoxProps{Class: themeScope(vm.P.Theme) + " w-full overflow-hidden rounded-2xl border-4 border-border"}) {
+								@box.Box(box.BoxProps{Class: "w-full px-4 py-12 " + surfaceCls(vm.P.Theme)}) {
+									@ProfileView(vm.C.T, vm.P, vm.Links, "p")
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

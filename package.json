@@ -6,12 +6,13 @@
     "apps/demo-react"
   ],
   "scripts": {
-    "css": "tailwindcss -i server/web/app.css -o server/web/assets/app.css --minify",
+    "css": "tailwindcss -i server/web/app.css -o server/web/assets/app.css --minify && tailwindcss -i server/rpui/app.css -o server/rpui/assets/app.css --minify",
     "lint:px": "ui8px lint",
     "deps": "bash tools/deps.sh",
     "build": "bash tools/deps.sh && go build ./... && go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate -path server/web",
     "test": "bash tools/deps.sh && go vet ./... && go test ./... && npx ui8px@latest lint",
-    "e2e": "bash tools/e2e-deploy.sh"
+    "e2e": "bash tools/e2e-deploy.sh",
+    "css:rp": "tailwindcss -i server/rpui/app.css -o server/rpui/assets/app.css --minify"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.0",

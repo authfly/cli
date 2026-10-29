@@ -1,0 +1,10 @@
+/* Styles for the Authfly relying-party apps (examples/rp, apps/yself): the authkit theme (shadcn tokens, dark class)
+   scanned over the UI8Kit 3 templ primitives, the Authfly templ layer and the apps' views. Build: bun run css:rp */
+@import "../../.deps/authkit/packages/ui/react/src/styles/theme.css";
+@source "../../.deps/authkit/packages/ui/templ/ui";
+@source "../../.deps/authkit/packages/ui/templ/authfly";
+@source "./";
+@source "../../examples/rp";
+@source "../../apps/yself";
+
+body { min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }

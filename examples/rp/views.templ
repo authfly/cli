@@ -1,0 +1,76 @@
+package main
+
+import (
+	af "github.com/authfly/authkit/packages/ui/templ/authfly"
+	"github.com/authfly/authkit/packages/ui/templ/ui/box"
+	"github.com/authfly/authkit/packages/ui/templ/ui/button"
+	"github.com/authfly/authkit/packages/ui/templ/ui/text"
+	"github.com/authfly/cli/server/rp"
+	"github.com/authfly/cli/server/rpui"
+)
+
+templ Page(m rpui.Meta, title, locale, path string, t map[string]string, body templ.Component) {
+	@rpui.Document(m) {
+		@rpui.Header("/", "puzzle", title, locale, path, t["theme"], nil)
+		@box.Box(box.BoxProps{Tag: "main", Class: "w-full px-4 py-12"}) {
+			@body
+		}
+	}
+}
+
+templ SignedOut(t map[string]string, title string) {
+	@af.Card("", af.A("data-testid", "rp-signed-out")) {
+		@af.WidgetHead("rp", title, t["tagline"], "", "")
+		@button.Button(button.ButtonProps{Href: "/auth/login", Class: af.ButtonSkin("default", "w-full"), Attrs: af.A("data-testid", "signin")}) {
+			@af.LucideIcon("log-in", "sm")
+			{ t["signin"] }
+		}
+	}
+}
+
+templ Failed(t map[string]string, msg string) {
+	@af.Card("", af.A("data-testid", "rp-error")) {
+		@af.WidgetHead("rp", t["error"], "", "", "")
+		@af.Alert("destructive", "circle-alert", "rp-error", "rp-error-msg", msg)
+		@button.Button(button.ButtonProps{Href: "/auth/login", Class: af.ButtonSkin("default", "w-full")}) {
+			{ t["retry"] }
+		}
+	}
+}
+
+templ kv(k, v string) {
+	@af.Stack("0", "start", "", "min-w-0", nil) {
+		@text.Text(text.TextProps{Tag: "span", Class: af.TextMuted}) {
+			{ k }
+		}
+		@text.Text(text.TextProps{Tag: "span", Class: "font-semibold"}) {
+			{ v }
+		}
+	}
+}
+
+templ SignedIn(t map[string]string, s *rp.Session) {
+	@af.Card("", af.A("data-testid", "rp-signed-in")) {
+		@af.Group("4", "center", "", "", nil) {
+			@af.IconBadge("circle-check", "")
+			@af.Title(1, "rp-title", "", t["hello"])
+		}
+		@af.Stack("4", "", "", "", af.A("data-testid", "claims")) {
+			@kv(t["name"], s.Name)
+			@kv(t["email"], s.Email)
+			@kv(t["sub"], s.Sub)
+		}
+		@af.Form("/auth/logout", "", nil) {
+			@button.Button(button.ButtonProps{Type: "submit", Class: af.ButtonSkin("outline", "w-full"), Attrs: af.A("data-testid", "signout")}) {
+				@af.LucideIcon("log-out", "sm")
+				{ t["signout"] }
+			}
+		}
+		@text.Text(text.TextProps{Class: af.TextHint}) {
+			{ t["hint"] }
+		}
+		@button.Button(button.ButtonProps{Href: "https://accounts.yself.link/account", Class: af.ButtonSkin("ghost", "w-full")}) {
+			{ t["account"] }
+		}
+	}
+}

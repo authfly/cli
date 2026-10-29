@@ -1,0 +1,110 @@
+package rpui
+
+import (
+	af "github.com/authfly/authkit/packages/ui/templ/authfly"
+	"github.com/authfly/authkit/packages/ui/templ/ui/box"
+	"github.com/authfly/authkit/packages/ui/templ/ui/button"
+	"github.com/authfly/authkit/packages/ui/templ/ui/link"
+	"github.com/authfly/authkit/packages/ui/templ/ui/text"
+)
+
+// Meta is the document head: title, language, description and Open Graph tags.
+type Meta struct {
+	Title, Lang, Description, URL, Image, Robots string
+	// HTMLClass forces a theme class on <html> (public profiles); NoThemeScript skips theme.js.
+	HTMLClass     string
+	BodyClass     string // default bg-background text-foreground
+	NoThemeScript bool
+}
+
+// Document is the HTML skeleton: ui8kit has no primitive for the document root, so this is the one place with
+// document tags. Everything in body is UI8Kit 3 primitives and the Authfly templ layer.
+templ Document(m Meta) {
+	<!DOCTYPE html>
+	<html
+		lang={ m.Lang }
+		if m.HTMLClass != "" {
+			class={ m.HTMLClass }
+		}
+	>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ m.Title }</title>
+			if m.Description != "" {
+				<meta name="description" content={ m.Description }/>
+				<meta property="og:description" content={ m.Description }/>
+			}
+			<meta property="og:title" content={ m.Title }/>
+			<meta property="og:type" content="profile"/>
+			if m.URL != "" {
+				<meta property="og:url" content={ m.URL }/>
+				<link rel="canonical" href={ m.URL }/>
+			}
+			if m.Image != "" {
+				<meta property="og:image" content={ m.Image }/>
+				<meta name="twitter:card" content="summary"/>
+			}
+			if m.Robots != "" {
+				<meta name="robots" content={ m.Robots }/>
+			}
+			<link rel="stylesheet" href={ "/assets/app.css?v=" + Version }/>
+			if !m.NoThemeScript {
+				<script src={ "/assets/theme.js?v=" + Version }></script>
+			}
+		</head>
+		<body class={ bodyCls(m.BodyClass) }>
+			{ children... }
+		</body>
+	</html>
+}
+
+// LangSwitch links to ?lang=en|ru on the current path; the current language is plain text.
+templ LangSwitch(locale, path string) {
+	@af.Group("2", "center", "", "", af.A("data-testid", "lang")) {
+		for _, l := range []string{"en", "ru"} {
+			if locale != l {
+				@link.Link(link.LinkProps{Href: path + "?lang=" + l, Class: af.LinkSkin("text-sm"), Attrs: af.A("hreflang", l)}) {
+					{ upper(l) }
+				}
+			} else {
+				@text.Text(text.TextProps{Tag: "span", Class: "text-sm font-semibold"}) {
+					{ upper(l) }
+				}
+			}
+		}
+	}
+}
+
+// ThemeToggle: the Button primitive wired by assets/theme.js ([data-ui8kit="theme-toggle"], aria-pressed).
+templ ThemeToggle(label string) {
+	@button.Button(button.ButtonProps{Type: "button", Class: af.ButtonSkin("ghost", "w-10 px-0"), AriaLabel: label, AriaPressed: "false", Attrs: templ.Attributes{"data-ui8kit": "theme-toggle", "data-testid": "theme-toggle"}}) {
+		@text.Text(text.TextProps{Tag: "span", Class: "dark:hidden"}) {
+			@af.LucideIcon("moon", "md")
+		}
+		@text.Text(text.TextProps{Tag: "span", Class: "hidden dark:inline"}) {
+			@af.LucideIcon("sun", "md")
+		}
+	}
+}
+
+// Header is the app bar: brand on the left, language, theme and the app's own actions on the right.
+templ Header(brandHref, brandIcon, brand, locale, path, themeLabel string, actions templ.Component) {
+	@box.Box(box.BoxProps{Tag: "header", Class: "w-full bg-card shadow-sm"}) {
+		@box.Box(box.BoxProps{Class: "mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4"}) {
+			@link.Link(link.LinkProps{Href: brandHref, Class: "flex items-center gap-2 font-semibold", Attrs: af.A("data-testid", "brand")}) {
+				@af.LucideIcon(brandIcon, "md")
+				@text.Text(text.TextProps{Tag: "span"}) {
+					{ brand }
+				}
+			}
+			@af.Group("4", "center", "", "", nil) {
+				@LangSwitch(locale, path)
+				@ThemeToggle(themeLabel)
+				if actions != nil {
+					@actions
+				}
+			}
+		}
+	}
+}
