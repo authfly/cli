@@ -101,6 +101,7 @@ var rateLimited = map[string]bool{
 	"POST /api/v1/sign-up":  true,
 	"POST /api/v1/forgot":   true,
 	"POST /oauth/authorize": true,
+	"POST /idp/login":       true,
 }
 
 func (l *RateLimiter) maxKeys() int {

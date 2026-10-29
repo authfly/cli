@@ -15,6 +15,7 @@ import (
 type mfaPending struct {
 	Identifier, Password string
 	OAuth                bool
+	AuthReq              string // pending server/idp authorization request
 	Until                time.Time
 }
 
@@ -33,6 +34,23 @@ func (s *Server) beginMFA(w http.ResponseWriter, identifier, password string, oa
 	s.mfa[id] = mfaPending{Identifier: identifier, Password: password, OAuth: oauth, Until: now.Add(5 * time.Minute)}
 	s.mfaMu.Unlock()
 	s.setCookie(w, cookieMFA, id, 5*time.Minute)
+}
+
+func (s *Server) setMFAAuthReq(_ *http.Request, _ http.ResponseWriter, id string) {
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
+	var newest string
+	var t time.Time
+	for k, p := range s.mfa {
+		if p.Until.After(t) {
+			newest, t = k, p.Until
+		}
+	}
+	if newest != "" {
+		p := s.mfa[newest]
+		p.AuthReq = id
+		s.mfa[newest] = p
+	}
 }
 
 func (s *Server) takeMFA(r *http.Request) (mfaPending, bool) {
@@ -281,10 +299,8 @@ func (s *Server) securityEverywhere(w http.ResponseWriter, r *http.Request) {
 		s.securityView(w, r, u, 403, "", "Your session expired. Try again.")
 		return
 	}
-	s.Svc.Store.Revoke(u.Address)
-	s.Svc.Store.DropSessions(u.Sub)
+	s.signOutEverywhere(u)
 	s.clearCookie(w, cookieSession)
-	s.Svc.Audit.Log("self", u.Sub, "sign_out_everywhere", "ok", nil)
 	s.notice(w, r, 200, "signout", "success", "log-out", "", map[string]any{
 		"cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
 		"title": labStr(s.lab(r, "security"), "signedOut"),
@@ -300,8 +316,15 @@ func (s *Server) appsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) appsView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info string) {
-	grants, _ := s.Svc.SW.ListOAuthGrants(r.Context(), u.Sub)
 	lab := s.lab(r, "apps")
+	if s.IdP != nil {
+		cur := s.sessionID(r)
+		s.IdP.Store.Touch(cur)
+		apps, sess := s.ssoRows(u.Sub, cur)
+		s.renderPortal(w, r, status, s.text(r, "apps", "title"), "/account/apps", PortalSSO(s.text(r, "apps", "title"), s.text(r, "apps", "text"), s.csrf(w, r), info, lab, apps, sess))
+		return
+	}
+	grants, _ := s.Svc.SW.ListOAuthGrants(r.Context(), u.Sub)
 	s.renderPortal(w, r, status, s.text(r, "apps", "title"), "/account/apps",
 		PortalApps(s.text(r, "apps", "title"), s.text(r, "apps", "text"), s.csrf(w, r), info, labStr(lab, "empty"), grants, labStr(lab, "revoke")))
 }
@@ -391,6 +414,12 @@ func (s *Server) mfaPost(w http.ResponseWriter, r *http.Request) {
 	}
 	s.clearCookie(w, cookieMFA)
 	code := r.PostFormValue("code")
+	if p.AuthReq != "" && s.IdP != nil {
+		if ar := s.IdP.Store.AuthRequest(p.AuthReq); ar != nil {
+			s.idpPassword(w, r, ar, p.Identifier, p.Password, code)
+			return
+		}
+	}
 	if p.OAuth {
 		s.finishOAuth(w, r, p.Identifier, p.Password, code)
 		return

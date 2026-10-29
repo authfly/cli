@@ -181,7 +181,7 @@
     "home": "Home",
     "personal": "Personal info",
     "security": "Security",
-    "apps": "Connected sites",
+    "apps": "Apps",
     "privacy": "Data & privacy",
     "signout": "Sign out",
     "language": "Language"
@@ -235,15 +235,29 @@
     }
   },
   "apps": {
-    "title": "Connected sites",
-    "text": "Sites that can sign you in with this account. Revoke to drop their grant.",
+    "title": "Apps",
+    "text": "Apps where you are signed in with this account, and your active sessions.",
     "labels": {
-      "empty": "No connected sites yet.",
+      "empty": "You are not signed in to any app.",
       "revoke": "Revoke",
-      "revoked": "Access revoked.",
-      "client": "Site",
+      "revoked": "The app was signed out and its access revoked.",
+      "client": "App",
       "scopes": "Access",
-      "last": "Last used"
+      "last": "Last sign-in",
+      "first": "First sign-in",
+      "appsTitle": "Signed-in apps",
+      "sessionsTitle": "Active sessions",
+      "current": "This device",
+      "created": "Started",
+      "lastSeen": "Last seen",
+      "ip": "IP",
+      "end": "Sign out",
+      "sessionEnded": "The session was ended.",
+      "others": "Sign out of all other sessions and apps",
+      "othersEnded": "All other sessions and apps were signed out.",
+      "everywhere": "Sign out everywhere",
+      "noSessions": "No active sessions.",
+      "appsIn": "Apps"
     }
   },
   "privacy": {

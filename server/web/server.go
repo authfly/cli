@@ -19,6 +19,7 @@ import (
 	blocks "github.com/authfly/authkit/packages/ui/templ/authfly"
 	"github.com/authfly/cli/server/core"
 	"github.com/authfly/cli/server/ext"
+	"github.com/authfly/cli/server/idp"
 )
 
 //go:embed labels.json
@@ -47,6 +48,8 @@ type Server struct {
 	mfaMu   sync.Mutex
 	mfa     map[string]mfaPending
 	Limiter *RateLimiter
+	// IdP, when set, makes Authfly the OpenID provider (server/idp); nil keeps the legacy Stalwart-issuer proxy.
+	IdP *idp.Provider
 }
 
 func New(svc *core.Service, reg ext.Registry, clients []Client, secure bool) *Server {
@@ -102,11 +105,15 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /account/privacy", s.privacyPage)
 	m.HandleFunc("GET /account/privacy/export", s.privacyExport)
 	m.HandleFunc("POST /account/privacy/erase", s.privacyErase)
-	m.HandleFunc("GET /oauth/authorize", s.authorize)
-	m.HandleFunc("POST /oauth/authorize", s.authorizePost)
-	m.HandleFunc("POST /oauth/consent", s.consentPost)
 	s.api(m)
-	s.oidcProxy(m)
+	if s.IdP != nil {
+		s.idpRoutes(m)
+	} else { // rollback path: Stalwart stays the issuer behind the proxy (AUTHFLY_IDP=off)
+		m.HandleFunc("GET /oauth/authorize", s.authorize)
+		m.HandleFunc("POST /oauth/authorize", s.authorizePost)
+		m.HandleFunc("POST /oauth/consent", s.consentPost)
+		s.oidcProxy(m)
+	}
 	h := logRequests(m)
 	if s.Limiter != nil {
 		h = s.Limiter.Wrap(h)
@@ -188,7 +195,7 @@ func (s *Server) user(r *http.Request) *core.User {
 	return nil
 }
 
-func (s *Server) signIn(w http.ResponseWriter, r *http.Request, u *core.User) {
+func (s *Server) signIn(w http.ResponseWriter, r *http.Request, u *core.User) string {
 	sid := core.RandomString(12)
 	ua := ""
 	if r != nil {
@@ -196,6 +203,8 @@ func (s *Server) signIn(w http.ResponseWriter, r *http.Request, u *core.User) {
 	}
 	s.Svc.Store.PutSession(core.SessionRec{ID: sid, AccountID: u.Sub, UserAgent: ua})
 	s.setCookie(w, cookieSession, s.sessionToken(u, sid), 12*time.Hour)
+	s.registerSSO(r, u, sid)
+	return sid
 }
 
 // ---- rendering
@@ -454,6 +463,9 @@ func (s *Server) signOutPost(w http.ResponseWriter, r *http.Request) {
 	if u := s.user(r); u != nil {
 		if sid := s.sessionID(r); sid != "" {
 			s.Svc.Store.DropSession(u.Sub, sid)
+			if s.IdP != nil { // the SSO session ends here: back-channel logout to every application in it
+				s.IdP.EndSession(sid)
+			}
 		}
 		s.Svc.Audit.Log("self", u.Sub, "sign_out", "ok", nil)
 	}

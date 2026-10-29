@@ -1,6 +1,8 @@
 // Command rp is a minimal OpenID Connect relying party for an Authfly-fronted Stalwart issuer: Authorization Code
 // + PKCE S256 + state + nonce, a confidential client (client_secret_post), a server-side session behind an
-// HttpOnly/Secure/SameSite=Lax cookie, the signed-in user on /me, and RP-initiated logout via end_session_endpoint.
+// HttpOnly/Secure/SameSite=Lax cookie, the signed-in user on /me, and RP-initiated logout via end_session_endpoint
+// (ends this application's session only; the SSO session on the issuer stays), and OIDC Back-Channel Logout 1.0
+// on POST /auth/backchannel-logout (sessions keyed by the OP's sid).
 // It is the yself.link relying party (deployed in web/site behind Caddy) and a reference for other relying parties.
 //
 //	RP_ISSUER=https://accounts.yself.link RP_PUBLIC_URL=https://yself.link RP_CLIENT_ID=yself-link \
@@ -32,8 +34,8 @@ const (
 )
 
 type session struct {
-	Sub, Name, Email, IDToken string
-	Expires                   time.Time
+	Sub, Name, Email, IDToken, SID string
+	Expires                        time.Time
 }
 
 type tx struct {
@@ -46,8 +48,11 @@ type app struct {
 	op                               *core.Stalwart
 	disco                            map[string]any
 	mu                               sync.Mutex
-	sessions                         map[string]*session
+	sessions                         map[string]*session        // local session id -> session
+	bySID                            map[string]map[string]bool // OP sid -> local session ids (back-channel logout)
+	jtis                             map[string]time.Time
 	txs                              map[string]*tx
+	title, scope                     string
 }
 
 func env(k, d string) string {
@@ -67,7 +72,8 @@ func token() string {
 
 func main() {
 	a := &app{issuer: strings.TrimRight(env("RP_ISSUER", "https://accounts.yself.link"), "/"), public: strings.TrimRight(env("RP_PUBLIC_URL", "https://yself.link"), "/"),
-		clientID: env("RP_CLIENT_ID", "yself-link"), sessions: map[string]*session{}, txs: map[string]*tx{}}
+		clientID: env("RP_CLIENT_ID", "yself-link"), sessions: map[string]*session{}, bySID: map[string]map[string]bool{}, jtis: map[string]time.Time{},
+		txs: map[string]*tx{}, title: env("RP_TITLE", "yself.link"), scope: env("RP_SCOPE", "openid profile email")}
 	if f := os.Getenv("RP_CLIENT_SECRET_FILE"); f != "" {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -86,6 +92,7 @@ func main() {
 	m.HandleFunc("GET /auth/login", a.login)
 	m.HandleFunc("GET /auth/callback", a.callback)
 	m.HandleFunc("POST /auth/logout", a.logout)
+	m.HandleFunc("POST /auth/backchannel-logout", a.backchannel)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	addr := env("RP_ADDR", ":8080")
 	log.Printf("rp: %s client %s issuer %s on %s", a.public, a.clientID, a.issuer, addr)
@@ -116,7 +123,12 @@ func (a *app) gc() {
 		a.mu.Lock()
 		for k, s := range a.sessions {
 			if now.After(s.Expires) {
-				delete(a.sessions, k)
+				a.dropLocked(k)
+			}
+		}
+		for k, t := range a.jtis {
+			if now.Sub(t) > 10*time.Minute {
+				delete(a.jtis, k)
 			}
 		}
 		for k, t := range a.txs {
@@ -158,7 +170,7 @@ func (a *app) login(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	setCookie(w, cookieTx, id, txTTL)
 	q := url.Values{"response_type": {"code"}, "client_id": {a.clientID}, "redirect_uri": {a.public + "/auth/callback"},
-		"scope": {"openid"}, "state": {t.State}, "nonce": {t.Nonce}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}}
+		"scope": {a.scope}, "state": {t.State}, "nonce": {t.Nonce}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}}
 	if l := lang(r); l == "ru" {
 		q.Set("ui_locales", "ru")
 	}
@@ -203,7 +215,7 @@ func (a *app) callback(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, "invalid ID token")
 		return
 	}
-	s := &session{Sub: str(claims["sub"]), Name: str(claims["name"]), Email: str(claims["email"]), IDToken: tok.IDToken, Expires: time.Now().Add(sessionTTL)}
+	s := &session{Sub: str(claims["sub"]), Name: str(claims["name"]), Email: str(claims["email"]), IDToken: tok.IDToken, SID: str(claims["sid"]), Expires: time.Now().Add(sessionTTL)}
 	if info, err := a.op.UserInfo(ctx, tok.AccessToken); err == nil {
 		if info["sub"] == nil || str(info["sub"]) == s.Sub { // OIDC Core §5.3.2
 			s.Name = first(str(info["name"]), s.Name, str(info["preferred_username"]))
@@ -212,12 +224,18 @@ func (a *app) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	if old, _ := a.current(r); old != "" { // fresh session id on login
 		a.mu.Lock()
-		delete(a.sessions, old)
+		a.dropLocked(old)
 		a.mu.Unlock()
 	}
 	sid := token()
 	a.mu.Lock()
 	a.sessions[sid] = s
+	if s.SID != "" {
+		if a.bySID[s.SID] == nil {
+			a.bySID[s.SID] = map[string]bool{}
+		}
+		a.bySID[s.SID][sid] = true
+	}
 	a.mu.Unlock()
 	setCookie(w, cookieSession, sid, sessionTTL)
 	http.Redirect(w, r, t.Next, http.StatusSeeOther)
@@ -235,7 +253,7 @@ func (a *app) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.mu.Lock()
-	delete(a.sessions, sid)
+	a.dropLocked(sid)
 	a.mu.Unlock()
 	end := a.str("end_session_endpoint")
 	if end == "" {
@@ -246,9 +264,53 @@ func (a *app) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, end+"?"+q.Encode(), http.StatusSeeOther)
 }
 
+func (a *app) dropLocked(local string) {
+	if s := a.sessions[local]; s != nil && s.SID != "" {
+		delete(a.bySID[s.SID], local)
+		if len(a.bySID[s.SID]) == 0 {
+			delete(a.bySID, s.SID)
+		}
+	}
+	delete(a.sessions, local)
+}
+
+// backchannel is the OIDC Back-Channel Logout 1.0 endpoint (backchannel_logout_uri): the OP POSTs a signed
+// logout_token; every local session of that OP sid (or, without sid, of that sub) is destroyed.
+func (a *app) backchannel(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	c, err := a.op.VerifyLogoutToken(ctx, r.PostFormValue("logout_token"), a.clientID)
+	if err != nil {
+		log.Printf("backchannel logout: %v", err)
+		http.Error(w, `{"error":"invalid_request"}`, http.StatusBadRequest)
+		return
+	}
+	sid, sub, jti := str(c["sid"]), str(c["sub"]), str(c["jti"])
+	n := 0
+	a.mu.Lock()
+	if jti != "" {
+		if _, seen := a.jtis[jti]; seen {
+			a.mu.Unlock()
+			http.Error(w, `{"error":"invalid_request"}`, http.StatusBadRequest)
+			return
+		}
+		a.jtis[jti] = time.Now()
+	}
+	for local, s := range a.sessions {
+		if (sid != "" && s.SID == sid) || (sid == "" && sub != "" && s.Sub == sub) {
+			a.dropLocked(local)
+			n++
+		}
+	}
+	a.mu.Unlock()
+	log.Printf("backchannel logout: %d session(s) ended", n)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (a *app) home(w http.ResponseWriter, r *http.Request) {
 	_, s := a.current(r)
-	render(w, r, s, "")
+	a.render(w, r, s, "")
 }
 
 func (a *app) me(w http.ResponseWriter, r *http.Request) {
@@ -263,12 +325,12 @@ func (a *app) me(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"sub": s.Sub, "name": s.Name, "email": s.Email})
 		return
 	}
-	render(w, r, s, "")
+	a.render(w, r, s, "")
 }
 
 func (a *app) fail(w http.ResponseWriter, r *http.Request, msg string) {
 	w.WriteHeader(http.StatusBadRequest)
-	render(w, r, nil, msg)
+	a.render(w, r, nil, msg)
 }
 
 func str(v any) string { s, _ := v.(string); return s }
@@ -322,12 +384,17 @@ dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:8px 16px}dt{color:va
 {{else}}<h1>{{.T.title}}</h1><p>{{.T.tagline}}</p><a class="btn" href="/auth/login">{{.T.signin}}</a>{{end}}
 </div></main></body></html>`))
 
-func render(w http.ResponseWriter, r *http.Request, s *session, errMsg string) {
+func (a *app) render(w http.ResponseWriter, r *http.Request, s *session, errMsg string) {
 	l := lang(r)
+	t := map[string]string{}
+	for k, v := range i18n[l] {
+		t[k] = v
+	}
+	t["title"] = a.title
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https:; frame-ancestors 'none'")
-	if err := page.Execute(w, map[string]any{"Lang": l, "T": i18n[l], "S": s, "Err": errMsg}); err != nil {
+	if err := page.Execute(w, map[string]any{"Lang": l, "T": t, "S": s, "Err": errMsg}); err != nil {
 		log.Printf("render: %v", err)
 	}
 }

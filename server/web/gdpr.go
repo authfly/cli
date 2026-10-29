@@ -53,9 +53,7 @@ func (s *Server) meGDPR(h func(string, func(*http.Request, map[string]string) (i
 		return 200, map[string]any{"events": s.Svc.Audit.Query(u.Sub, 200)}
 	}))
 	h("POST /api/v1/me/sign-out-everywhere", auth(func(r *http.Request, _ map[string]string, u *core.User) (int, any) {
-		s.Svc.Store.Revoke(u.Address)
-		s.Svc.Store.DropSessions(u.Sub)
-		s.Svc.Audit.Log("self", u.Sub, "sign_out_everywhere", "ok", nil)
+		s.signOutEverywhere(u)
 		return 200, map[string]any{"revoked": true}
 	}))
 	// Erasure needs the password again (a stolen session alone must not delete an account).

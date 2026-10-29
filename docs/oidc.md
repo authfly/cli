@@ -49,3 +49,27 @@ const { user } = await auth.callback(new URL(req.url).searchParams, pending);
 - **Magic link and SSO**: Stalwart issues codes only for a password it can check. A user signed in to Authfly by magic link is asked for the password once when an app starts SSO. Magic links sign in to Authfly itself and to apps that use the Authfly session or JSON API.
 - **Stalwart's own login page**: set `loginVia: "stalwart"` in the Node adapter to skip Authfly and use Stalwart's `/login` page instead.
 - **Discovery rewrite**: Authfly drops `device_authorization_endpoint`, `registration_endpoint`, `introspection_endpoint`, `client_id_metadata_document_supported`, and the `device_code` grant from `grant_types_supported`. `authorization_endpoint` is Authfly's `/oauth/authorize`.
+
+## Authfly as the OpenID provider (0.6.0, `AUTHFLY_IDP=on`)
+
+Since 0.6.0 Authfly can be the issuer itself (`server/idp`, zitadel/oidc v3 `op`): discovery, `/oauth/authorize`
+(PKCE S256), `/auth/token` (code, refresh with rotation), `/auth/userinfo`, `/auth/jwks.json` (own ES256 KeySet,
+first key signs, all are published), `/auth/revoke`, `/auth/introspect`, `/auth/logout` (end_session). Paths are the
+ones the Stalwart proxy published, so relying parties keep working. Stalwart stays the credential store: passwords
+(+TOTP) are verified through `POST /api/auth`; `sub` is the Stalwart account id.
+
+- SSO session = the portal session (`authfly_session`, HttpOnly, Secure, SameSite=Lax, host-only) with a server-side
+  record (`AUTHFLY_IDP_STORE`, JSON) listing the clients signed in through it. `prompt=none` (`login_required`),
+  `prompt=login`, `max_age` are honoured. ID tokens carry `sid`.
+- Logout semantics: RP-initiated logout (`end_session` with `id_token_hint`) ends **that application only** (its
+  tokens for the sid are revoked, it is removed from the session; the SSO session and other apps stay). Signing out on
+  the issuer (`/auth/sign-out`, cabinet "sign out everywhere"/"other sessions", ending one session) deletes the SSO
+  session, revokes its tokens and sends an OIDC Back-Channel Logout 1.0 `logout_token` (`sid`, `events`, no nonce)
+  to every application of that session. Revoking an app in the cabinet revokes its tokens and grant and logs it out
+  over the back channel.
+- Clients (`AUTHFLY_CLIENTS_FILE`): `id`, `name`, `redirect_uris`, `post_logout_redirect_uris`,
+  `backchannel_logout_uri`, `secret_sha256` (hex SHA-256 of the client secret; the secret itself is never stored).
+- Env: `AUTHFLY_IDP=on|off` (off = legacy Stalwart issuer proxy, rollback), `AUTHFLY_IDP_KEYS` (comma-separated PEM
+  P-256 keys, first is active), `AUTHFLY_IDP_KEYGEN=true` (create the first key if missing), `AUTHFLY_IDP_STORE`.
+- `examples/rp` implements `POST /auth/backchannel-logout` (signature, iss, aud, iat, events, sid/sub, no nonce,
+  jti replay) and keys its sessions by the OP `sid`.

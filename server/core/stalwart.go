@@ -429,6 +429,73 @@ func (s *Stalwart) VerifyIDToken(ctx context.Context, idToken, audience, nonce s
 	return c, nil
 }
 
+// VerifyLogoutToken validates an OIDC Back-Channel Logout 1.0 logout_token (§2.6): ES256 signature from the
+// issuer JWKS, iss, aud, iat (not in the future, at most 5 min old), the backchannel-logout event, sid or sub
+// present, and no nonce. It returns the claims.
+func (s *Stalwart) VerifyLogoutToken(ctx context.Context, tok, audience string) (map[string]any, error) {
+	parts := strings.Split(tok, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("logout_token: malformed")
+	}
+	var hdr struct{ Alg, Kid string }
+	hb, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	_ = json.Unmarshal(hb, &hdr)
+	if hdr.Alg != "ES256" {
+		return nil, fmt.Errorf("logout_token: alg %s", hdr.Alg)
+	}
+	key, err := s.key(ctx, hdr.Kid)
+	if err != nil {
+		return nil, err
+	}
+	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(sig) != 64 {
+		return nil, errors.New("logout_token: bad signature encoding")
+	}
+	h := sha256.Sum256([]byte(parts[0] + "." + parts[1]))
+	if !ecdsa.Verify(key, h[:], new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:])) {
+		return nil, errors.New("logout_token: bad signature")
+	}
+	pb, _ := base64.RawURLEncoding.DecodeString(parts[1])
+	var c map[string]any
+	if err := json.Unmarshal(pb, &c); err != nil {
+		return nil, err
+	}
+	d, err := s.Discovery(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if c["iss"] != d.Issuer {
+		return nil, fmt.Errorf("logout_token: issuer %v", c["iss"])
+	}
+	audOK := c["aud"] == audience
+	if l, ok := c["aud"].([]any); ok {
+		for _, a := range l {
+			audOK = audOK || a == audience
+		}
+	}
+	if !audOK {
+		return nil, fmt.Errorf("logout_token: audience %v", c["aud"])
+	}
+	now := time.Now().Unix()
+	if iat, _ := c["iat"].(float64); int64(iat) > now+60 || int64(iat) < now-300 {
+		return nil, errors.New("logout_token: iat out of range")
+	}
+	if exp, ok := c["exp"].(float64); ok && int64(exp) < now {
+		return nil, errors.New("logout_token: expired")
+	}
+	ev, _ := c["events"].(map[string]any)
+	if _, ok := ev["http://schemas.openid.net/event/backchannel-logout"]; !ok {
+		return nil, errors.New("logout_token: missing backchannel-logout event")
+	}
+	if _, ok := c["nonce"]; ok {
+		return nil, errors.New("logout_token: nonce not allowed")
+	}
+	if c["sid"] == nil && c["sub"] == nil {
+		return nil, errors.New("logout_token: sid or sub required")
+	}
+	return c, nil
+}
+
 func (s *Stalwart) key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
 	s.mu.Lock()
 	k := s.jwks[kid]

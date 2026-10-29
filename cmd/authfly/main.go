@@ -3,8 +3,10 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/authfly/cli/server/idp"
 	"golang.org/x/crypto/acme/autocert"
 	"log"
 	"net/http"
@@ -139,6 +141,29 @@ func main() {
 	}
 	srv := web.New(svc, reg, clients, strings.HasPrefix(svc.Cfg.PublicURL, "https://"))
 	srv.Limiter = web.NewRateLimiter(0, 0, web.ParseTrustedProxies(env("AUTHFLY_TRUSTED_PROXIES", "127.0.0.1,::1")))
+	if env("AUTHFLY_IDP", "off") == "on" { // Authfly is the OpenID provider (own ES256 keys); off = Stalwart issuer proxy (rollback)
+		var cc []idp.ClientConfig
+		if c := env("AUTHFLY_CLIENTS", ""); c != "" {
+			if err := json.Unmarshal([]byte(c), &cc); err != nil {
+				log.Fatalf("AUTHFLY_CLIENTS: %v", err)
+			}
+		}
+		st, err := idp.OpenStore(env("AUTHFLY_IDP_STORE", strings.TrimSuffix(storePath, ".json")+"-idp.json"))
+		if err != nil {
+			log.Fatalf("idp store: %v", err)
+		}
+		ks, err := idp.LoadKeySet(strings.Split(env("AUTHFLY_IDP_KEYS", strings.TrimSuffix(storePath, ".json")+"-idp-es256.pem"), ","), env("AUTHFLY_IDP_KEYGEN", "false") == "true")
+		if err != nil {
+			log.Fatalf("idp keys: %v", err)
+		}
+		p, err := idp.New(idp.Options{Issuer: svc.Cfg.PublicURL, Store: st, Keys: ks, Clients: cc, CryptoKey: sha256.Sum256([]byte("authfly-idp:" + secret)),
+			Insecure: !strings.HasPrefix(svc.Cfg.PublicURL, "https://")})
+		if err != nil {
+			log.Fatalf("idp: %v", err)
+		}
+		srv.IdP = p
+		log.Printf("authfly: OpenID provider on (issuer %s, %d clients, key %s)", p.Issuer, len(p.Clients), ks.Active().ID())
+	}
 	addr := env("AUTHFLY_ADDR", ":4000")
 	log.Printf("authfly listening on %s (public %s, user %s org %s, publicSignup %t, stalwart %s)", addr, svc.Cfg.PublicURL, svc.Cfg.UserDomain(), svc.Cfg.OrgDomain(), svc.Cfg.PublicSignup, sw.BaseURL)
 	if a := env("AUTHFLY_ADMIN_ADDR", ""); a != "" { // internal admin API for the console: never publish this port
