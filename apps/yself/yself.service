@@ -1,0 +1,28 @@
+[Unit]
+Description=YSELF on yself.link (authfly/cli apps/yself): landing, public pages, editor; OIDC RP of accounts.yself.link
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=rp
+Environment=RP_ISSUER=https://accounts.yself.link RP_PUBLIC_URL=https://yself.link RP_CLIENT_ID=yself-link RP_ADDR=10.10.10.16:8080
+Environment=RP_CLIENT_SECRET_FILE=/etc/rp/client-secret YSELF_DATA=/var/lib/yself YSELF_TRUSTED_PROXY=10.10.10.10
+Environment=AUTHFLY_RESERVED_NAMES_FILE=/etc/yself/reserved-names.txt
+ExecStart=/usr/local/bin/yself
+Restart=on-failure
+StateDirectory=yself
+StateDirectoryMode=0750
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/etc/rp /etc/yself
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

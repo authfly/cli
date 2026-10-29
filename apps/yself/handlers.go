@@ -296,10 +296,13 @@ func randName() string {
 }
 
 func (a *app) uploadAvatar(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxAvatarBytes+64<<10)
-	if err := r.ParseMultipartForm(1 << 20); err != nil {
-		if s := a.c.Current(r); s != nil {
-			a.fail(w, r, s, http.StatusRequestEntityTooLarge, "avatar.big", "avatar")
+	if cur := a.c.Current(r); cur == nil { // no body parsing for anonymous requests
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	} else {
+		r.Body = http.MaxBytesReader(w, r.Body, maxAvatarBytes+64<<10)
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			a.fail(w, r, cur, http.StatusRequestEntityTooLarge, "avatar.big", "avatar")
 			return
 		}
 	}
