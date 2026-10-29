@@ -87,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("POST /auth/reset", s.resetPost)
 	m.HandleFunc("GET /auth/sign-out", s.signOutPage)
 	m.HandleFunc("POST /auth/sign-out", s.signOutPost)
+	m.HandleFunc("GET /auth/signed-out", s.signedOutPage)
 	m.HandleFunc("GET /auth/social/{provider}", s.socialStub)
 	m.HandleFunc("GET /auth/2fa", s.mfaPage)
 	m.HandleFunc("POST /auth/2fa", s.mfaPost)

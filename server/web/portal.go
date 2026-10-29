@@ -136,7 +136,7 @@ func (s *Server) personalPage(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	s.personalView(w, r, u, 200, "", "")
+	s.personalView(w, r, u, 200, s.takeFlash(w, r, "personal"), "")
 }
 
 func (s *Server) personalView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info, errMsg string) {
@@ -171,7 +171,7 @@ func (s *Server) personalPost(w http.ResponseWriter, r *http.Request) {
 	}
 	s.signIn(w, r, u) // refresh name in the session cookie
 	s.Svc.Audit.Log("self", u.Sub, "profile_update", "ok", nil)
-	s.personalView(w, r, u, 200, labStr(s.lab(r, "personal"), "saved"), "")
+	s.prg(w, r, "/account/personal", "personal", "saved")
 }
 
 func (s *Server) securityPage(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +179,7 @@ func (s *Server) securityPage(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	s.securityView(w, r, u, 200, "", "")
+	s.securityView(w, r, u, 200, s.takeFlash(w, r, "security"), "")
 }
 
 func (s *Server) securityView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info, errMsg string) {
@@ -219,7 +219,7 @@ func (s *Server) securityPassword(w http.ResponseWriter, r *http.Request) {
 	s.Svc.Store.DropSessions(u.Sub)
 	s.signIn(w, r, u)
 	s.Svc.Audit.Log("self", u.Sub, "password_change", "ok", nil)
-	s.securityView(w, r, u, 200, labStr(s.lab(r, "security"), "changed"), "")
+	s.prg(w, r, "/account/security", "security", "changed")
 }
 
 func (s *Server) securityTOTP(w http.ResponseWriter, r *http.Request) {
@@ -238,7 +238,7 @@ func (s *Server) securityTOTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Svc.Audit.Log("self", u.Sub, "totp_disable", "ok", nil)
-		s.securityView(w, r, u, 200, labStr(s.lab(r, "security"), "totpOff"), "")
+		s.prg(w, r, "/account/security", "security", "totpOff")
 		return
 	}
 	otpauth, err := s.Svc.SW.EnableTOTP(r.Context(), u.Sub, u.Address, pw, code)
@@ -287,7 +287,7 @@ func (s *Server) securityAppRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Svc.Audit.Log("self", u.Sub, "app_password_revoke", "ok", nil)
-	s.securityView(w, r, u, 200, labStr(s.lab(r, "security"), "revoke"), "")
+	s.prg(w, r, "/account/security", "security", "revoke")
 }
 
 func (s *Server) securityEverywhere(w http.ResponseWriter, r *http.Request) {
@@ -301,10 +301,7 @@ func (s *Server) securityEverywhere(w http.ResponseWriter, r *http.Request) {
 	}
 	s.signOutEverywhere(u)
 	s.clearCookie(w, cookieSession)
-	s.notice(w, r, 200, "signout", "success", "log-out", "", map[string]any{
-		"cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
-		"title": labStr(s.lab(r, "security"), "signedOut"),
-	})
+	http.Redirect(w, r, "/auth/signed-out", http.StatusSeeOther)
 }
 
 func (s *Server) appsPage(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +309,7 @@ func (s *Server) appsPage(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	s.appsView(w, r, u, 200, "")
+	s.appsView(w, r, u, 200, s.takeFlash(w, r, "apps"))
 }
 
 func (s *Server) appsView(w http.ResponseWriter, r *http.Request, u *core.User, status int, info string) {
@@ -343,7 +340,7 @@ func (s *Server) appsRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Svc.Audit.Log("self", u.Sub, "oauth_grant_revoke", "ok", nil)
-	s.appsView(w, r, u, 200, labStr(s.lab(r, "apps"), "revoked"))
+	s.prg(w, r, "/account/apps", "apps", "revoked")
 }
 
 func (s *Server) privacyPage(w http.ResponseWriter, r *http.Request) {
@@ -478,4 +475,34 @@ func (s *Server) showConsent(w http.ResponseWriter, r *http.Request, or *oauthRe
 		Action: "/oauth/consent", Csrf: s.csrf(w, r),
 		Client: s.Clients[or.ClientID].Name, Account: account, Scopes: scopes, Labels: s.lab(r, "consent"),
 	}))
+}
+
+const cookieFlash = "authfly_flash"
+
+// prg ends a successful cabinet POST with Post/Redirect/Get: a one-time flash (page.key) and 303 to the GET page,
+// so reloading the page never offers to resubmit the form.
+func (s *Server) prg(w http.ResponseWriter, r *http.Request, path, page, key string) {
+	s.setCookie(w, cookieFlash, page+"."+key, time.Minute)
+	http.Redirect(w, r, path, http.StatusSeeOther)
+}
+
+// takeFlash returns (and clears) the flash message for page, localized.
+func (s *Server) takeFlash(w http.ResponseWriter, r *http.Request, page string) string {
+	c, err := r.Cookie(cookieFlash)
+	if err != nil || c.Value == "" {
+		return ""
+	}
+	s.clearCookie(w, cookieFlash)
+	p, k, ok := strings.Cut(c.Value, ".")
+	if !ok || p != page {
+		return ""
+	}
+	return labStr(s.lab(r, page), k)
+}
+
+func (s *Server) signedOutPage(w http.ResponseWriter, r *http.Request) {
+	s.notice(w, r, 200, "signout", "success", "log-out", "", map[string]any{
+		"cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
+		"title": labStr(s.lab(r, "security"), "signedOut"),
+	})
 }

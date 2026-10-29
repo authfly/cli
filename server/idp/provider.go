@@ -70,7 +70,7 @@ type Options struct {
 }
 
 func New(o Options) (*Provider, error) {
-	p := &Provider{Issuer: strings.TrimRight(o.Issuer, "/"), Store: o.Store, Keys: o.Keys, Clients: map[string]*Client{}, HTTP: &http.Client{Timeout: 5 * time.Second}}
+	p := &Provider{Issuer: strings.TrimRight(o.Issuer, "/"), Store: o.Store, Keys: o.Keys, Clients: map[string]*Client{}, HTTP: &http.Client{Timeout: 2 * time.Second}}
 	for _, c := range o.Clients {
 		if c.SecretSHA256 == "" && c.SecretFile != "" {
 			if b, err := readFile(c.SecretFile); err == nil {
@@ -165,10 +165,36 @@ func (p *Provider) EndSession(sid string) {
 	if ss == nil {
 		return
 	}
+	var jobs [][3]string
 	for cid := range ss.Clients {
-		p.BackchannelLogout(cid, ss.Sub, sid)
+		jobs = append(jobs, [3]string{cid, ss.Sub, sid})
+	}
+	p.sendAll(jobs)
+}
+
+// sendAll delivers back-channel logouts in parallel; the caller waits at most backchannelWait (each POST has its
+// own short timeout), so a slow or dead relying party never blocks or fails the user's request.
+func (p *Provider) sendAll(jobs [][3]string) {
+	if len(jobs) == 0 {
+		return
+	}
+	done := make(chan struct{}, len(jobs))
+	for _, j := range jobs {
+		go func() { p.BackchannelLogout(j[0], j[1], j[2]); done <- struct{}{} }()
+	}
+	t := time.NewTimer(backchannelWait)
+	defer t.Stop()
+	for range jobs {
+		select {
+		case <-done:
+		case <-t.C:
+			log.Printf("idp: back-channel logout still running after %s, not waiting", backchannelWait)
+			return
+		}
 	}
 }
+
+const backchannelWait = 3 * time.Second
 
 // EndSessionsOf ends every SSO session of a user except keep ("" = all).
 func (p *Provider) EndSessionsOf(sub, keep string) {
@@ -181,9 +207,11 @@ func (p *Provider) EndSessionsOf(sub, keep string) {
 
 // RevokeClient revokes one application for the user (tokens, consent) and logs it out over the back channel.
 func (p *Provider) RevokeClient(sub, client string) {
+	var jobs [][3]string
 	for _, sid := range p.Store.RevokeClient(sub, client) {
-		p.BackchannelLogout(client, sub, sid)
+		jobs = append(jobs, [3]string{client, sub, sid})
 	}
+	p.sendAll(jobs)
 }
 
 // LogoutToken builds an OIDC Back-Channel Logout 1.0 logout_token (§2.4): iss, aud, iat, exp, jti, sub, sid,

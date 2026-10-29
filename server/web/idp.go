@@ -176,7 +176,7 @@ func (s *Server) appsClientRevoke(w http.ResponseWriter, r *http.Request) {
 	cid := r.PostFormValue("client")
 	s.IdP.RevokeClient(s.oidcSub(u), cid)
 	s.Svc.Audit.Log("self", u.Sub, "oidc_client_revoke", "ok", map[string]string{"client": cid})
-	s.appsView(w, r, u, 200, labStr(s.lab(r, "apps"), "revoked"))
+	s.prg(w, r, "/account/apps", "apps", "revoked")
 }
 
 func (s *Server) sessionRevoke(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +195,7 @@ func (s *Server) sessionRevoke(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/auth/sign-in", http.StatusSeeOther)
 		return
 	}
-	s.appsView(w, r, u, 200, labStr(s.lab(r, "apps"), "sessionEnded"))
+	s.prg(w, r, "/account/apps", "apps", "sessionEnded")
 }
 
 // sessionsOthers: sign out of all other sessions and of every application, keeping only this accounts session.
@@ -218,7 +218,7 @@ func (s *Server) sessionsOthers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.Svc.Audit.Log("self", u.Sub, "sign_out_others", "ok", nil)
-	s.appsView(w, r, u, 200, labStr(s.lab(r, "apps"), "othersEnded"))
+	s.prg(w, r, "/account/apps", "apps", "othersEnded")
 }
 
 func (s *Server) sessionsEverywhere(w http.ResponseWriter, r *http.Request) {
@@ -228,10 +228,7 @@ func (s *Server) sessionsEverywhere(w http.ResponseWriter, r *http.Request) {
 	}
 	s.signOutEverywhere(u)
 	s.clearCookie(w, cookieSession)
-	s.notice(w, r, 200, "signout", "success", "log-out", "", map[string]any{
-		"cta": s.text(r, "signin", "title"), "ctaHref": "/auth/sign-in", "secondary": "", "secondaryHref": "",
-		"title": labStr(s.lab(r, "security"), "signedOut"),
-	})
+	http.Redirect(w, r, "/auth/signed-out", http.StatusSeeOther)
 }
 
 func (s *Server) signOutEverywhere(u *core.User) {

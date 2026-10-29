@@ -290,7 +290,7 @@ func TestIdPRevokeSingleApp(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: cookieCSRF, Value: "x"})
 	res, _ := e.hc.Do(req)
 	res.Body.Close()
-	if res.StatusCode != 200 || e.sink.n("app-b") != 1 || e.sink.n("app-a") != 0 {
+	if res.StatusCode != 303 || res.Header.Get("Location") != "/account/apps" || e.sink.n("app-b") != 1 || e.sink.n("app-a") != 0 {
 		t.Fatalf("revoke: %d a=%d b=%d", res.StatusCode, e.sink.n("app-a"), e.sink.n("app-b"))
 	}
 	if refresh(e, "app-b", "sb", b) == 200 || refresh(e, "app-a", "sa", a) != 200 {
