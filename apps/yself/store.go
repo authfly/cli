@@ -2,12 +2,15 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/authfly/cli/server/rp"
 )
 
 // Profile is one public page: yself.link/<handle>.
@@ -52,6 +55,11 @@ CREATE TABLE IF NOT EXISTS links (
 	enabled INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS links_sub ON links(sub, pos);
+CREATE TABLE IF NOT EXISTS sessions (
+	key TEXT PRIMARY KEY,
+	data TEXT NOT NULL,
+	expires INTEGER NOT NULL
+);
 `
 
 func OpenStore(path string) (*Store, error) {
@@ -196,4 +204,44 @@ func (s *Store) MoveLink(sub string, id int64, dir int) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// rp.SessionStore: browser sessions survive restarts and deploys (key = SHA-256 of the cookie value).
+
+func (s *Store) LoadSessions() (map[string]*rp.Session, error) {
+	now := time.Now().Unix()
+	if _, err := s.db.Exec("DELETE FROM sessions WHERE expires <= ?", now); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query("SELECT key, data FROM sessions")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]*rp.Session{}
+	for rows.Next() {
+		var k, d string
+		if err := rows.Scan(&k, &d); err != nil {
+			return nil, err
+		}
+		var ss rp.Session
+		if json.Unmarshal([]byte(d), &ss) == nil {
+			out[k] = &ss
+		}
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SaveSession(key string, ss *rp.Session) error {
+	d, err := json.Marshal(ss)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec("INSERT OR REPLACE INTO sessions (key, data, expires) VALUES (?, ?, ?)", key, string(d), ss.Expires.Unix())
+	return err
+}
+
+func (s *Store) DeleteSession(key string) error {
+	_, err := s.db.Exec("DELETE FROM sessions WHERE key = ?", key)
+	return err
 }

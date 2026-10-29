@@ -208,9 +208,12 @@ func processAvatar(r io.Reader) ([]byte, error) {
 	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > maxAvatarPix {
 		return nil, errImageBig
 	}
-	src, _, err := image.Decode(bytes.NewReader(data))
+	src, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, errImage
+	}
+	if format == "jpeg" {
+		src = orient(src, jpegOrientation(data)) // phone photos: rotate before crop, the tag itself is dropped
 	}
 	b := src.Bounds()
 	side := min(b.Dx(), b.Dy())

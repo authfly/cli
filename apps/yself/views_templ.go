@@ -3622,7 +3622,7 @@ func Editor(vm *EditorVM) templ.Component {
 									}
 									return nil
 								})
-								templ_7745c5c3_Err = box.Box(box.BoxProps{Class: themeScope(vm.P.Theme) + " w-full overflow-hidden rounded-2xl border-4 border-border"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var191), templ_7745c5c3_Buffer)
+								templ_7745c5c3_Err = box.Box(box.BoxProps{Class: "w-full overflow-hidden rounded-2xl border-4 border-border", Attrs: af.A("data-theme", previewTheme(vm.P.Theme), "data-testid", "preview-frame")}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var191), templ_7745c5c3_Buffer)
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}

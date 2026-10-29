@@ -22,7 +22,7 @@ func testApp(t *testing.T) (*app, *http.Cookie, *rp.Session) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.c = rp.NewOffline("https://yself.link")
+	a.c = rp.NewOffline("https://yself.link", a.st)
 	s := &rp.Session{Sub: "2", Name: "Web Master", Email: "wmaster@yself.link"}
 	return a, &http.Cookie{Name: rp.CookieSession, Value: a.c.AddSession(s)}, s
 }
@@ -164,4 +164,43 @@ func TestCleanURL(t *testing.T) {
 			t.Errorf("%q accepted", in)
 		}
 	}
+}
+
+func TestOrientation(t *testing.T) {
+	// 4x2 image, orientation 6 (rotate 90° CW) -> 2x4, top-left pixel comes from bottom-left of the source
+	src := image.NewRGBA(image.Rect(0, 0, 4, 2))
+	src.Set(0, 1, color.RGBA{255, 0, 0, 255})
+	o := orient(src, 6)
+	if o.Bounds().Dx() != 2 || o.Bounds().Dy() != 4 {
+		t.Fatalf("bounds %v", o.Bounds())
+	}
+	if r, _, _, _ := o.At(0, 0).RGBA(); r>>8 != 255 {
+		t.Fatalf("pixel not rotated")
+	}
+	// minimal JPEG prefix with an EXIF APP1 (big-endian TIFF, one IFD entry Orientation=6)
+	tiff := []byte{'M', 'M', 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0}
+	app1 := append([]byte("Exif\x00\x00"), tiff...)
+	j := append([]byte{0xFF, 0xD8, 0xFF, 0xE1, byte((len(app1) + 2) >> 8), byte(len(app1) + 2)}, app1...)
+	j = append(j, 0xFF, 0xD9)
+	if got := jpegOrientation(j); got != 6 {
+		t.Fatalf("orientation %d", got)
+	}
+	if jpegOrientation([]byte("garbage")) != 1 {
+		t.Fatal("garbage")
+	}
+}
+
+func TestSessionPersist(t *testing.T) {
+	a, c, _ := testApp(t)
+	ss, err := a.st.LoadSessions()
+	if err != nil || len(ss) != 1 {
+		t.Fatalf("persisted %d %v", len(ss), err)
+	}
+	for k := range ss {
+		if k == c.Value {
+			t.Fatal("cookie value stored as key")
+		}
+	}
+	b := rp.NewOffline("https://yself.link", nil)
+	_ = b
 }

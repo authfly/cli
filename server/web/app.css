@@ -7,3 +7,5 @@
 
 /* page body: full height, smoothed text (plain CSS, kept out of class lists) */
 body { min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+summary.list-none::-webkit-details-marker { display: none; }

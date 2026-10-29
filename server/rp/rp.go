@@ -7,6 +7,7 @@ package rp
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -43,8 +44,22 @@ type tx struct {
 // Config configures a Client.
 type Config struct {
 	Issuer, PublicURL, ClientID, SecretFile, Scope string
+	// Store persists sessions across restarts (nil = memory only). Keys are SHA-256 of the cookie value.
+	Store SessionStore
 	// Fail renders a sign-in failure page (status already written by the caller is 400).
 	Fail func(w http.ResponseWriter, r *http.Request, msg string)
+}
+
+// SessionStore persists sessions. Load returns every unexpired session by key; keys are hashes, never cookie values.
+type SessionStore interface {
+	LoadSessions() (map[string]*Session, error)
+	SaveSession(key string, s *Session) error
+	DeleteSession(key string) error
+}
+
+func key(cookie string) string {
+	h := sha256.Sum256([]byte(cookie))
+	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
 // Client is the relying party: its sessions and the login/callback/logout/back-channel handlers.
@@ -53,6 +68,7 @@ type Client struct {
 	op                                      *core.Stalwart
 	disco                                   map[string]any
 	fail                                    func(w http.ResponseWriter, r *http.Request, msg string)
+	store                                   SessionStore
 	mu                                      sync.Mutex
 	sessions                                map[string]*Session
 	bySID                                   map[string]map[string]bool
@@ -72,7 +88,7 @@ func Token() string {
 // New loads the issuer discovery document (its issuer must equal cfg.Issuer, OIDC Discovery §4.3).
 func New(cfg Config) (*Client, error) {
 	c := &Client{Issuer: strings.TrimRight(cfg.Issuer, "/"), Public: strings.TrimRight(cfg.PublicURL, "/"), ClientID: cfg.ClientID, Scope: cfg.Scope,
-		fail: cfg.Fail, sessions: map[string]*Session{}, bySID: map[string]map[string]bool{}, jtis: map[string]time.Time{}, txs: map[string]*tx{}}
+		fail: cfg.Fail, store: cfg.Store, sessions: map[string]*Session{}, bySID: map[string]map[string]bool{}, jtis: map[string]time.Time{}, txs: map[string]*tx{}}
 	if c.Scope == "" {
 		c.Scope = "openid profile email"
 	}
@@ -94,6 +110,15 @@ func New(cfg Config) (*Client, error) {
 	}
 	if c.disco["issuer"] != c.Issuer {
 		return nil, fmt.Errorf("discovery issuer %v != %s", c.disco["issuer"], c.Issuer)
+	}
+	if c.store != nil {
+		ss, err := c.store.LoadSessions()
+		if err != nil {
+			return nil, fmt.Errorf("sessions: %w", err)
+		}
+		for k, s := range ss {
+			c.indexLocked(k, s)
+		}
 	}
 	go c.gc()
 	return c, nil
@@ -149,8 +174,8 @@ func (c *Client) current(r *http.Request) (string, *Session) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, k := range r.CookiesNamed(CookieSession) { // a client may send several (e.g. a parent-domain cookie)
-		if s := c.sessions[k.Value]; s != nil && time.Now().Before(s.Expires) {
-			return k.Value, s
+		if s := c.sessions[key(k.Value)]; s != nil && time.Now().Before(s.Expires) {
+			return key(k.Value), s
 		}
 	}
 	return "", nil
@@ -257,17 +282,12 @@ func (c *Client) callback(w http.ResponseWriter, r *http.Request) {
 		c.dropLocked(old)
 		c.mu.Unlock()
 	}
-	sid := Token()
+	cookie := Token()
 	c.mu.Lock()
-	c.sessions[sid] = s
-	if s.SID != "" {
-		if c.bySID[s.SID] == nil {
-			c.bySID[s.SID] = map[string]bool{}
-		}
-		c.bySID[s.SID][sid] = true
-	}
+	c.indexLocked(key(cookie), s)
 	c.mu.Unlock()
-	setCookie(w, CookieSession, sid, SessionTTL)
+	c.persist(key(cookie), s)
+	setCookie(w, CookieSession, cookie, SessionTTL)
 	http.Redirect(w, r, t.Next, http.StatusSeeOther)
 }
 
@@ -294,7 +314,30 @@ func (c *Client) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, end+"?"+q.Encode(), http.StatusSeeOther)
 }
 
+func (c *Client) indexLocked(k string, s *Session) {
+	c.sessions[k] = s
+	if s.SID != "" {
+		if c.bySID[s.SID] == nil {
+			c.bySID[s.SID] = map[string]bool{}
+		}
+		c.bySID[s.SID][k] = true
+	}
+}
+
+func (c *Client) persist(k string, s *Session) {
+	if c.store != nil {
+		if err := c.store.SaveSession(k, s); err != nil {
+			log.Printf("rp: save session: %v", err)
+		}
+	}
+}
+
 func (c *Client) dropLocked(local string) {
+	if c.store != nil {
+		if err := c.store.DeleteSession(local); err != nil {
+			log.Printf("rp: delete session: %v", err)
+		}
+	}
 	if s := c.sessions[local]; s != nil && s.SID != "" {
 		delete(c.bySID[s.SID], local)
 		if len(c.bySID[s.SID]) == 0 {
@@ -362,13 +405,13 @@ func Lang(r *http.Request) string {
 }
 
 // NewOffline is a Client without an issuer (tests, local previews): sessions are added with AddSession.
-func NewOffline(public string) *Client {
-	return &Client{Public: strings.TrimRight(public, "/"), disco: map[string]any{}, sessions: map[string]*Session{}, bySID: map[string]map[string]bool{}, jtis: map[string]time.Time{}, txs: map[string]*tx{}}
+func NewOffline(public string, store SessionStore) *Client {
+	return &Client{store: store, Public: strings.TrimRight(public, "/"), disco: map[string]any{}, sessions: map[string]*Session{}, bySID: map[string]map[string]bool{}, jtis: map[string]time.Time{}, txs: map[string]*tx{}}
 }
 
 // AddSession stores s and returns the session cookie value.
 func (c *Client) AddSession(s *Session) string {
-	id := Token()
+	cookie := Token()
 	if s.CSRF == "" {
 		s.CSRF = Token()
 	}
@@ -376,7 +419,8 @@ func (c *Client) AddSession(s *Session) string {
 		s.Expires = time.Now().Add(SessionTTL)
 	}
 	c.mu.Lock()
-	c.sessions[id] = s
+	c.indexLocked(key(cookie), s)
 	c.mu.Unlock()
-	return id
+	c.persist(key(cookie), s)
+	return cookie
 }

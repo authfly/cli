@@ -523,7 +523,7 @@ templ Editor(vm *EditorVM) {
 									{ vm.C.T["ed.previewHint"] }
 								}
 							}
-							@box.Box(box.BoxProps{Class: themeScope(vm.P.Theme) + " w-full overflow-hidden rounded-2xl border-4 border-border"}) {
+							@box.Box(box.BoxProps{Class: "w-full overflow-hidden rounded-2xl border-4 border-border", Attrs: af.A("data-theme", previewTheme(vm.P.Theme), "data-testid", "preview-frame")}) {
 								@box.Box(box.BoxProps{Class: "w-full px-4 py-12 " + surfaceCls(vm.P.Theme)}) {
 									@ProfileView(vm.C.T, vm.P, vm.Links, "p")
 								}

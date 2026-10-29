@@ -51,7 +51,7 @@ func main() {
 		log.Fatal(err)
 	}
 	c, err := rp.New(rp.Config{Issuer: a.accounts, PublicURL: a.public, ClientID: env("RP_CLIENT_ID", "yself-link"),
-		SecretFile: os.Getenv("RP_CLIENT_SECRET_FILE"), Scope: env("RP_SCOPE", "openid profile email"), Fail: a.loginFailed})
+		SecretFile: os.Getenv("RP_CLIENT_SECRET_FILE"), Scope: env("RP_SCOPE", "openid profile email"), Fail: a.loginFailed, Store: a.st})
 	if err != nil {
 		log.Fatalf("rp: %v", err)
 	}

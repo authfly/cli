@@ -12,11 +12,12 @@ func surfaceCls(theme string) string {
 	return "bg-background text-foreground" // light, dark (dark = the .dark token set on <html> or the preview frame)
 }
 
-func themeScope(theme string) string {
+// previewTheme scopes the preview frame's tokens (data-theme) so a light page previews light inside a dark editor.
+func previewTheme(theme string) string {
 	if theme == "dark" {
 		return "dark"
 	}
-	return ""
+	return "light"
 }
 
 func shapeCls(shape string) string {
