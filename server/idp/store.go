@@ -39,7 +39,7 @@ type Grant struct {
 // Profile is the userinfo snapshot taken at sign-in from Stalwart (admin JMAP).
 type Profile struct {
 	Sub, Account, Username, Name, Email string
-	EmailVerified              bool
+	EmailVerified                       bool
 }
 
 // Token is an opaque access token (its id is the bearer value).

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"time"
@@ -105,8 +106,32 @@ func New(o Options) (*Provider, error) {
 	return p, nil
 }
 
-// Handler serves the protocol endpoints.
-func (p *Provider) Handler() http.Handler { return p.OP }
+// Handler serves the protocol endpoints. Discovery is trimmed to what is actually served: code flow only
+// (no implicit, no jwt-bearer, no device flow).
+func (p *Provider) Handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/.well-known/") {
+			p.OP.ServeHTTP(w, r)
+			return
+		}
+		rec := httptest.NewRecorder()
+		p.OP.ServeHTTP(rec, r)
+		var d map[string]any
+		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &d) != nil {
+			w.WriteHeader(rec.Code)
+			_, _ = w.Write(rec.Body.Bytes())
+			return
+		}
+		delete(d, "device_authorization_endpoint")
+		d["grant_types_supported"] = []string{"authorization_code", "refresh_token"}
+		d["response_types_supported"] = []string{"code"}
+		d["code_challenge_methods_supported"] = []string{"S256"}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		_ = json.NewEncoder(w).Encode(d)
+	})
+}
 
 // CallbackURL is where the login UI sends the browser after CompleteAuthRequest.
 func (p *Provider) CallbackURL(ctx context.Context, id string) string {
