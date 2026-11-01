@@ -10,7 +10,7 @@
     "lint:px": "ui8px lint",
     "deps": "bash tools/deps.sh",
     "build": "bash tools/deps.sh && go build ./... && go run github.com/a-h/templ/cmd/templ@v0.3.1070 generate -path server/web",
-    "test": "bash tools/deps.sh && go vet ./... && go test ./... && npx ui8px@latest lint",
+    "test": "bash tools/deps.sh && go vet ./... && go test ./... && npx ui8px@0.2.5 lint",
     "e2e": "bash tools/e2e-deploy.sh",
     "css:rp": "tailwindcss -i server/rpui/app.css -o server/rpui/assets/app.css --minify"
   },
