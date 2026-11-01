@@ -7,7 +7,7 @@ One place per artifact. Edit only the **source**; everything else is generated, 
 | Artifact | Source (edit here) | Derived / published | Sync |
 |---|---|---|---|
 | CLI, hosted pages, `authfly` npm, GitHub Release, `channel.json` | `authfly/cli` | npm `authfly`, `@authfly/cli-*` | `tools/release*.sh` (owner only) |
-| Authfly Console | `authfly/stalwart` (private) | Console binary in the CLI release | built by `cli/tools/release.sh` from the pinned commit |
+| Authfly Console | `authfly/stalwart` | Console binary in the CLI release | built by `cli/tools/release.sh` from the pinned commit |
 | Widgets, 9 runtimes (React, Vue 3, Svelte 5, Solid, Web Components, templ, Twig, Latte, Jinja2) | `authfly/authkit` `packages/ui/*` | `authfly/twig`, `authfly/latte` (Composer mirrors) | `authkit/.github/workflows/mirror.yml` (= `tools/split.sh`) |
 | Contract `@authfly/core`, providers, server SDKs | `authfly/authfly` | npm `@authfly/*`, `authfly/sdk-php` (Composer mirror) | `authfly/.github/workflows/mirror.yml` (= `tools/split.sh`) |
 | Website | `authfly/website` | — | — |
@@ -25,7 +25,7 @@ CI job `mirror-drift` (authkit, authfly) fails when a mirror tree differs from i
 - **cli ↔ stalwart cycle (known, kept):** stalwart builds on cli's `server/core`; cli needs stalwart only to build the
   Console at release time. Bump order: stalwart (`--bump cli`, `--bump authkit`) → cli (`--bump stalwart`). After that
   stalwart's cli pin is one commit behind cli `main` by design; it must still be on `main` (`--check`).
-- Public CI of cli skips the private stalwart (`DEPS_SKIP=stalwart`).
+- `DEPS_SKIP="name ..."` skips pins (not used in CI: all repos are public).
 
 ## Version policy
 

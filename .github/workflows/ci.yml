@@ -7,8 +7,6 @@ permissions: { contents: read }
 jobs:
   check:
     runs-on: ubuntu-latest
-    env:
-      DEPS_SKIP: stalwart   # private repo, needed only by tools/release*.sh (the Console build)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
