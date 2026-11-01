@@ -33,7 +33,7 @@ bash tools/e2e-cross.sh               # cross-repo e2e: deploy via CLI → widge
 
 ## License
 
-MIT, © Auth Fly
+Apache-2.0, © Authfly
 
 ## UI (UI8Kit 3)
 

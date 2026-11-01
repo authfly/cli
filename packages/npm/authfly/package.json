@@ -2,7 +2,7 @@
   "name": "authfly",
   "version": "0.4.1",
   "description": "Self-hosted auth + secure personal-data storage (Authfly + Stalwart): npx authfly init / deploy / doctor",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/authfly/cli",
   "repository": { "type": "git", "url": "git+https://github.com/authfly/cli.git", "directory": "packages/npm/authfly" },
   "bin": { "authfly": "bin/authfly.js" },

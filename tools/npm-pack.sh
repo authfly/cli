@@ -14,7 +14,7 @@ for p in linux/amd64/linux-x64 linux/arm64/linux-arm64 darwin/amd64/darwin-x64 d
   (cd "$root" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags="-s -w -X main.Version=$v" -o "$d/bin/$exe" ./cmd/authfly)
   os=${np%-*}; cpu=${np#*-}
   cat > "$d/package.json" <<JSON
-{ "name": "@authfly/cli-$np", "version": "$v", "description": "authfly binary for $np (used by the authfly package)", "license": "MIT",
+{ "name": "@authfly/cli-$np", "version": "$v", "description": "authfly binary for $np (used by the authfly package)", "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/authfly/cli.git" }, "os": ["$os"], "cpu": ["$cpu"], "files": ["bin"] }
 JSON
   sums[$np]=$(sha256sum "$d/bin/$exe" | cut -d' ' -f1)
