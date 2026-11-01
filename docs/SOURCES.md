@@ -9,6 +9,8 @@ One place per artifact. Edit only the **source**; everything else is generated, 
 | CLI, hosted pages, `authfly` npm, GitHub Release, `channel.json` | `authfly/cli` | npm `authfly`, `@authfly/cli-*` | `tools/release*.sh` (owner only) |
 | Authfly Console | `authfly/stalwart` | Console binary in the CLI release | built by `cli/tools/release.sh` from the pinned commit |
 | Widgets, 9 runtimes (React, Vue 3, Svelte 5, Solid, Web Components, templ, Twig, Latte, Jinja2) | `authfly/authkit` `packages/ui/*` | `authfly/twig`, `authfly/latte` (Composer mirrors) | `authkit/.github/workflows/mirror.yml` (= `tools/split.sh`) |
+| Authfly code generation (shared skin/types/icons, widget specs → 9 targets, brand registry manifests) | `authfly/codegen` | generated files committed in `authkit` (checked by `tools/codegen.sh all --check`) | — |
+| Authfly brand registry (built) | `authfly/authkit` `packages/registry` via `authfly/codegen` | `ui8kit/site` `r/authfly/<rt>/` → https://registry.buildy.tw/authfly/<rt>/index.json | `tools/codegen.sh publish <site>` (manual, owner-approved) |
 | Contract `@authfly/core`, providers, server SDKs | `authfly/authfly` | npm `@authfly/*`, `authfly/sdk-php` (Composer mirror) | `authfly/.github/workflows/mirror.yml` (= `tools/split.sh`) |
 | Website | `authfly/website` | — | — |
 | Browser SDK (legacy) | `authfly/authkit-ts` | — | not developed since 2026-04 |
@@ -20,6 +22,7 @@ CI job `mirror-drift` (authkit, authfly) fails when a mirror tree differs from i
 
 - `cli/deps.lock`: authkit, authfly (build + tests), stalwart (release only: the Console build).
 - `stalwart/deps.lock`: cli (Go JMAP client `server/core`), authkit (templ widgets).
+- `authkit/deps.lock`: codegen (the generators; widget specs live there, generated code is committed in authkit).
 - **Rule:** `cli` and `stalwart` pin **the same authkit commit**. Every pin must be a commit on the dependency's `main`.
   Checked by `tools/deps.sh --check` in CI (stalwart compares its authkit pin with cli's `deps.lock`).
 - **cli ↔ stalwart cycle (known, kept):** stalwart builds on cli's `server/core`; cli needs stalwart only to build the
@@ -41,7 +44,7 @@ CI job `mirror-drift` (authkit, authfly) fails when a mirror tree differs from i
 ## Release order
 
 1. `authfly/authfly`: contract/SDK changes merged, CI green; tag the contract line if it changed; mirror synced (sdk-php).
-2. `authfly/authkit`: CI green (ui8px lint + HTML/ARIA gates over 9 runtimes); twig/latte mirrors synced (`mirror-drift` green).
+2. `authfly/codegen` → `authfly/authkit`: codegen change merged (its CI checks authkit main), authkit `tools/deps.sh --bump codegen` + `tools/codegen.sh all`; CI green (ui8px lint + HTML/ARIA gates over 9 runtimes); twig/latte mirrors synced (`mirror-drift` green).
 3. `authfly/stalwart`: `tools/deps.sh --bump authkit` (+ `--bump cli` if server/core changed), CI green.
 4. `authfly/cli`: `--bump authkit` (same commit as stalwart), `--bump authfly`, `--bump stalwart`; CI green; changelog.
 5. Owner: version decision, tag, npm + GitHub Release from the **same** binaries, `channel.json` signature (YubiKey).
