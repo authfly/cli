@@ -23,6 +23,8 @@
 # Images are pinned by the registry digest of their multi-arch index, which only exists after a push: --prepare pushes
 # them (harmless: nobody pulls them without a signed channel), the dry run pins host-arch images by local image ID.
 # --attach/--publish never rebuild: they ship exactly what --prepare wrote (SHA256SUMS is re-checked).
+# --publish tags v<version> on the commit --prepare built (dist/release/<v>/COMMIT) and creates the release with
+# --verify-tag, so the tag never lands on a later main. tools/npm-pack.sh packs the same binaries.
 # Defaults: --registry ghcr.io/authfly, --base-url https://github.com/authfly/cli/releases/download/v<version>,
 #           --previous https://github.com/authfly/cli/releases/latest/download/channel.json (missing = new channel).
 # The CLI's default channel is https://github.com/authfly/cli/releases/latest/download/channel.json, so the newest
@@ -59,6 +61,14 @@ fi
 
 build() {
 rm -rf "$out"; mkdir -p "$out"
+# The release tag is created at --publish on exactly this commit (gh release create --verify-tag), so --prepare
+# needs a clean tree; the dry run records the commit too (with -dirty when the tree has changes).
+c=$(git rev-parse HEAD)
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  [ $mode = prepare ] && die "the working tree has uncommitted changes: --prepare builds from a commit"
+  c=$c-dirty
+fi
+echo "$c" > "$out/COMMIT"
 echo "== binaries ($v)"
 for p in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
   goos=${p%/*}; goarch=${p#*/}; exe=authfly-$goos-$goarch; [ "$goos" = windows ] && exe=$exe.exe
@@ -140,7 +150,7 @@ PY
 if [ $mode = dry-run ] || [ $mode = prepare ]; then
   build
   sum=$(sha256sum "$out/channel.json" | cut -d' ' -f1)
-  echo "$sum  channel.json" > "$out/channel.json.sha256"
+  { echo "$sum  channel.json"; (cd "$out" && sha256sum COMMIT); } > "$out/channel.json.sha256"
   echo
   if [ $mode = dry-run ]; then
     echo "dry run: nothing was pushed or uploaded. channel.json pins the images by local image ID (this host only)."
@@ -194,5 +204,14 @@ for i in $images; do
   [[ $i == *@sha256:* ]] || die "$i is not pinned by registry digest"
   $DOCKER buildx imagetools inspect "${i%%:*}@${i#*@}" >/dev/null || die "$i is not in the registry"
 done
+commit=$(cat "$out/COMMIT")
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || die "$out/COMMIT is $commit: --prepare from a clean checkout"
+echo "== tag v$v -> $commit"
+remote=$(git ls-remote origin "refs/tags/v$v" | cut -f1)
+if [ -z "$remote" ]; then
+  git tag "v$v" "$commit" && git push origin "refs/tags/v$v"
+else
+  [ "$(git rev-parse "$remote^{commit}" 2>/dev/null || echo "$remote")" = "$commit" ] || die "tag v$v already exists on origin and is not $commit"
+fi
 echo "== gh release create v$v"
-gh release create "v$v" --repo authfly/cli --title "authfly $v" --notes "authfly $v. Channel: channel.json (+ channel.json.sig, SSHSIG namespace authfly-channel); images: $images" $assets
+gh release create "v$v" --repo authfly/cli --verify-tag --title "authfly $v" --notes "authfly $v. Channel: channel.json (+ channel.json.sig, SSHSIG namespace authfly-channel); images: $images" $assets

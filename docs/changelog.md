@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2 — 2026-11-02 (cli release)
+
+- **UI8Kit middle layer on authfly/codegen**: every authkit widget (sign-in, sign-up, request, notice, consent,
+  account) and the shared parts (Card / `widgetCardSkin()`, Alert with tone `warning`, Badge, Title, LucideIcon,
+  layout, Field, Hidden, form-error context) are generated for React, Vue, Svelte, Solid, Web Components, templ,
+  Twig, Latte and Jinja2. Pins: authkit 4b531fd (codegen f08a693), authfly a20cff6, stalwart 783fbf1; brand
+  registry republished to ui8kit/site 3add9ae.
+- **Release tooling**: `--publish` tags `v<version>` on the commit `--prepare` built and creates the release with
+  `gh release create --verify-tag`; `tools/npm-pack.sh` packs the release binaries (dist/release/<v>, SHA256SUMS
+  checked) instead of rebuilding, so npm and the GitHub release ship identical files.
+
 ## 2026-10-30 — UI8Kit 3 everywhere, cabinet UX, YSELF pages
 
 - **accounts.yself.link cabinet**: sidebar navigation with icons and the signed-in user (wrapped row on phones),
