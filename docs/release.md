@@ -141,17 +141,20 @@ go run ./tools/channelverify verify channel.json channel.json.sig        # what 
 
 ```sh
 bash tools/deps.sh && bun run test                       # pins in deps.lock, green tests
-bash tools/release-public.sh 0.4.1 --dry-run             # inspect dist/release/0.4.1/
+bash tools/release-public.sh 0.4.2 --dry-run             # inspect dist/release/0.4.2/
 echo "$GHCR_TOKEN" | docker login ghcr.io -u <user> --password-stdin   # token with write:packages
-bash tools/release-public.sh 0.4.1 --prepare             # buildx push (amd64+arm64), channel.json, signing command
+bash tools/release-public.sh 0.4.2 --prepare             # buildx push (amd64+arm64), channel.json, signing command
 # maintainer: sign channel.json with the YubiKey (above), copy channel.json.sig back
-bash tools/release-public.sh 0.4.1 --publish --sig /path/to/channel.json.sig   # verify, gh release create v0.4.1
-docker buildx imagetools inspect ghcr.io/authfly/authfly:0.4.1   # index with linux/amd64 + linux/arm64
+bash tools/release-public.sh 0.4.2 --publish --sig /path/to/channel.json.sig   # verify, gh release create v0.4.2
+docker buildx imagetools inspect ghcr.io/authfly/authfly:0.4.2   # index with linux/amd64 + linux/arm64
 ```
 
 After the first push, make the `authfly` and `console` packages on ghcr.io **public** (package settings), or
-`docker pull` by digest fails on servers without credentials. Then publish the npm packages (`tools/npm-pack.sh`):
-the GitHub release first, because a new CLI refuses the channel of an older release that has no `channel.json.sig`.
+`docker pull` by digest fails on servers without credentials. Then publish the npm packages: `bash tools/npm-pack.sh <v>` packs the binaries of `dist/release/<v>/` (the
+same files as the GitHub release) into `dist/npm/*.tgz`; run `npm publish --access public` for each
+`@authfly/cli-*` tarball first, then `authfly-<v>.tgz`. The GitHub release goes first, because a new CLI refuses the
+channel of an older release that has no `channel.json.sig`. Finally tag the `authfly/twig` and `authfly/latte`
+mirrors with the same `v<v>` (`docs/SOURCES.md`, release order).
 
 ## Test without publishing
 
@@ -161,19 +164,19 @@ registry:
 
 ```sh
 docker run -d --name afreg -p 127.0.0.1:5000:5000 registry:2
-bash tools/release-public.sh 0.4.1 --registry localhost:5000/authfly --prepare \
-  --base-url http://127.0.0.1:8097/authfly/cli/releases/download/v0.4.1
+bash tools/release-public.sh 0.4.2 --registry localhost:5000/authfly --prepare \
+  --base-url http://127.0.0.1:8097/authfly/cli/releases/download/v0.4.2
 ssh-keygen -q -t ed25519 -N '' -f /tmp/e2e-key
-ssh-keygen -Y sign -f /tmp/e2e-key -n authfly-channel dist/release/0.4.1/channel.json   # -> channel.json.sig
-mv dist/release/0.4.1/channel.json.sig /tmp/e2e.sig
+ssh-keygen -Y sign -f /tmp/e2e-key -n authfly-channel dist/release/0.4.2/channel.json   # -> channel.json.sig
+mv dist/release/0.4.2/channel.json.sig /tmp/e2e.sig
 export AUTHFLY_E2E_TRUSTED_KEY="$(cat /tmp/e2e-key.pub)"
-GOFLAGS=-tags=authfly_e2ekeys bash tools/release-public.sh 0.4.1 --attach --sig /tmp/e2e.sig
+GOFLAGS=-tags=authfly_e2ekeys bash tools/release-public.sh 0.4.2 --attach --sig /tmp/e2e.sig
 go build -tags authfly_e2ekeys -o /tmp/authfly-e2e ./cmd/authfly           # test CLI (never shipped)
 mkdir -p /tmp/ghsrv/authfly/cli/releases/download /tmp/ghsrv/authfly/cli/releases/latest
-ln -s "$PWD/dist/release/0.4.1" /tmp/ghsrv/authfly/cli/releases/download/v0.4.1
-ln -s "$PWD/dist/release/0.4.1" /tmp/ghsrv/authfly/cli/releases/latest/download
+ln -s "$PWD/dist/release/0.4.2" /tmp/ghsrv/authfly/cli/releases/download/v0.4.2
+ln -s "$PWD/dist/release/0.4.2" /tmp/ghsrv/authfly/cli/releases/latest/download
 python3 -m http.server 8097 --bind 127.0.0.1 -d /tmp/ghsrv &
-docker buildx imagetools inspect localhost:5000/authfly/authfly:0.4.1       # linux/amd64 + linux/arm64
+docker buildx imagetools inspect localhost:5000/authfly/authfly:0.4.2       # linux/amd64 + linux/arm64
 /tmp/authfly-e2e init ... --channel http://127.0.0.1:8097/authfly/cli/releases/latest/download/channel.json
 sudo -E /tmp/authfly-e2e deploy && bash tools/e2e-deploy.sh <deploy dir>  # flow / security / gdpr
 ```
