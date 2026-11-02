@@ -26,8 +26,12 @@ CI job `mirror-drift` (authkit, authfly) fails when a mirror tree differs from i
 - **Rule:** `cli` and `stalwart` pin **the same authkit commit**. Every pin must be a commit on the dependency's `main`.
   Checked by `tools/deps.sh --check` in CI (stalwart compares its authkit pin with cli's `deps.lock`).
 - **cli ↔ stalwart cycle (known, kept):** stalwart builds on cli's `server/core`; cli needs stalwart only to build the
-  Console at release time. Bump order: stalwart (`--bump cli`, `--bump authkit`) → cli (`--bump stalwart`). After that
-  stalwart's cli pin is one commit behind cli `main` by design; it must still be on `main` (`--check`).
+  Console at release time. Bump order (stalwart's CI requires its authkit pin = the one in cli's `deps.lock` on `main`):
+  1. cli `--bump authkit` (+ `--bump authfly`), CI green, `main`;
+  2. stalwart `--bump authkit` + `--bump cli` (now the cli commit from step 1), CI green, `main`;
+  3. cli `--bump stalwart`, CI green, `main`.
+  After step 3 stalwart's cli pin is one commit behind cli `main` (the step-3 commit) by design: bumping it again would
+  start the cycle over. It must still be a commit on `main` (`--check` reports `1 behind`).
 - `DEPS_SKIP="name ..."` skips pins (not used in CI: all repos are public).
 
 ## Version policy
@@ -45,10 +49,11 @@ CI job `mirror-drift` (authkit, authfly) fails when a mirror tree differs from i
 
 1. `authfly/authfly`: contract/SDK changes merged, CI green; tag the contract line if it changed; mirror synced (sdk-php).
 2. `authfly/codegen` → `authfly/authkit`: codegen change merged (its CI checks authkit main), authkit `tools/deps.sh --bump codegen` + `tools/codegen.sh all`; CI green (ui8px lint + HTML/ARIA gates over 9 runtimes); twig/latte mirrors synced (`mirror-drift` green).
-3. `authfly/stalwart`: `tools/deps.sh --bump authkit` (+ `--bump cli` if server/core changed), CI green.
-4. `authfly/cli`: `--bump authkit` (same commit as stalwart), `--bump authfly`, `--bump stalwart`; CI green; changelog.
-5. Owner: version decision, tag, npm + GitHub Release from the **same** binaries, `channel.json` signature (YubiKey).
-6. Tag twig/latte mirrors with the same version. Publication only on the owner's "публикуй".
+3. `authfly/cli`: `--bump authkit`, `--bump authfly`; CI green.
+4. `authfly/stalwart`: `tools/deps.sh --bump authkit` (same commit as cli) + `--bump cli`; CI green.
+5. `authfly/cli`: `--bump stalwart`; CI green; changelog (stalwart's cli pin is now one behind, see Pins).
+6. Owner: version decision, tag, npm + GitHub Release from the **same** binaries, `channel.json` signature (YubiKey).
+7. Tag twig/latte mirrors with the same version. Publication only on the owner's "публикуй".
 
 ## Branches and CI
 
