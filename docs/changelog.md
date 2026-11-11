@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-11 — default locale option
+
+- **`AUTHFLY_DEFAULT_LOCALE=ru|en`** (accounts) and **`RP_DEFAULT_LOCALE=ru|en`** (yself and any app on `server/rp`,
+  via `rp.DefaultLang`): a fixed language for visitors who have not chosen one. Order: `?lang=` (RP) → language
+  cookie → the default → `Accept-Language` (only when no default is set) → `en`. With a default set, the RP's
+  `ui_locales=en` also seeds the accounts cookie, so an explicit English choice in an RP carries to sign-in.
+  Unset (default) keeps the previous behaviour. Used by the RU deployment (yself.ru.net) with `ru`.
+
 ## 0.4.2 — 2026-11-02 (cli release)
 
 - **UI8Kit middle layer on authfly/codegen**: every authkit widget (sign-in, sign-up, request, notice, consent,

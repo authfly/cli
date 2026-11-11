@@ -390,13 +390,20 @@ func first(v ...string) string {
 	return ""
 }
 
-// Lang: ?lang=ru|en, then the lang cookie, then Accept-Language.
+// DefaultLang is "ru" or "en" to fix the language of users who have not chosen one (e.g. from RP_DEFAULT_LOCALE);
+// Accept-Language is then not consulted. Empty (default): Accept-Language, else en.
+var DefaultLang string
+
+// Lang: ?lang=ru|en, then the lang cookie, then DefaultLang when set, else Accept-Language.
 func Lang(r *http.Request) string {
 	if l := r.URL.Query().Get("lang"); l == "ru" || l == "en" {
 		return l
 	}
 	if k, err := r.Cookie("lang"); err == nil && (k.Value == "ru" || k.Value == "en") {
 		return k.Value
+	}
+	if DefaultLang == "ru" || DefaultLang == "en" {
+		return DefaultLang
 	}
 	if strings.HasPrefix(strings.ToLower(r.Header.Get("Accept-Language")), "ru") {
 		return "ru"

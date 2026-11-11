@@ -26,6 +26,7 @@ off; create an invite with `authfly invite create`.
 | `AUTHFLY_CLIENTS` | `[]` | JSON array of relying parties `{id,name,redirect_uris}`. |
 | `AUTHFLY_REQUIRE_VERIFIED` | `true` | Refuse password sign-in until the address is verified. |
 | `AUTHFLY_PRODUCT` | `Authfly` | Product name in chrome and mail. |
+| `AUTHFLY_DEFAULT_LOCALE` | empty | `ru` or `en`: page language for users who have not switched (the `authfly_lang` cookie still wins); `Accept-Language` is then ignored. Empty: `Accept-Language`, else `en`. RPs: `RP_DEFAULT_LOCALE` (yself, `rp.DefaultLang`). |
 | `STALWART_URL` | `http://localhost:8080` | Internal Stalwart HTTP (`http://10.10.10.124:8088` here). |
 | `STALWART_ADMIN` / `_FILE` | `admin:admin` | Bootstrap / management credential. |
 | `STALWART_ADMIN_TOKEN` | empty | API token instead of basic auth. |

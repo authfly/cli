@@ -27,11 +27,22 @@ func (s *Server) lang(r *http.Request) string {
 	if c, err := r.Cookie(cookieLang); err == nil && (c.Value == "ru" || c.Value == "en") {
 		return c.Value
 	}
+	// AUTHFLY_DEFAULT_LOCALE: a fixed default for users who have not switched; the browser language does not override it
+	if d := s.defaultLocale(); d != "" {
+		return d
+	}
 	al := strings.ToLower(r.Header.Get("Accept-Language"))
 	if strings.HasPrefix(al, "ru") {
 		return "ru"
 	}
 	return "en"
+}
+
+func (s *Server) defaultLocale() string {
+	if s.Svc == nil {
+		return ""
+	}
+	return s.Svc.Cfg.DefaultLocale
 }
 
 func (s *Server) pack(lang string) map[string]map[string]any {

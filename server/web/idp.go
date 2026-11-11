@@ -82,10 +82,10 @@ func (s *Server) idpLogin(w http.ResponseWriter, r *http.Request) {
 		s.notice(w, r, 400, "linkerror", "error", "shield-alert", "unknown or expired sign-in request", map[string]any{"title": "Invalid request"})
 		return
 	}
-	if slices.Contains(ar.UILocales, "ru") {
+	if l := uiLocale(ar.UILocales, s.defaultLocale() != ""); l != "" {
 		if _, err := r.Cookie(cookieLang); err != nil {
-			s.setCookie(w, cookieLang, "ru", 365*24*time.Hour)
-			r.AddCookie(&http.Cookie{Name: cookieLang, Value: "ru"})
+			s.setCookie(w, cookieLang, l, 365*24*time.Hour)
+			r.AddCookie(&http.Cookie{Name: cookieLang, Value: l})
 		}
 	}
 	u, ss := s.ssoSession(r)
@@ -264,4 +264,16 @@ func (s *Server) oidcSub(u *core.User) string {
 		}
 	}
 	return u.Sub
+}
+
+// uiLocale picks the sign-in language an RP asked for with ui_locales: "ru" always; "en" only when a default
+// locale is configured (otherwise en is already the fallback and Accept-Language keeps working as before).
+func uiLocale(locales []string, withDefault bool) string {
+	if slices.Contains(locales, "ru") {
+		return "ru"
+	}
+	if withDefault && slices.Contains(locales, "en") {
+		return "en"
+	}
+	return ""
 }

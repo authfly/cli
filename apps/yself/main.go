@@ -71,6 +71,10 @@ func newApp() (*app, error) {
 		return nil, err
 	}
 	loadReserved(os.Getenv("AUTHFLY_RESERVED_NAMES_FILE"))
+	// RP_DEFAULT_LOCALE=ru|en: language for visitors who have not switched (?lang= / cookie); Accept-Language is then ignored
+	if l := strings.ToLower(os.Getenv("RP_DEFAULT_LOCALE")); l == "ru" || l == "en" {
+		rp.DefaultLang = l
+	}
 	st, err := OpenStore(filepath.Join(a.data, "yself.db"))
 	if err != nil {
 		return nil, err

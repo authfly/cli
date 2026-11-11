@@ -20,11 +20,24 @@ type Config struct {
 	RequireVerified bool   // refuse password sign-in until the address is verified
 	PublicSignup    bool   // when false (default), sign-up needs a single-use invite
 	ProductName     string
+	DefaultLocale   string   // "ru" or "en": language when the user has not chosen one (cookie); Accept-Language is then ignored. Empty: Accept-Language, else en
 	Methods         []string // password, magic; empty means both (tests / default)
 	MagicTTL        time.Duration
 	ResetTTL        time.Duration
 	VerifyTTL       time.Duration
 	AuditRetention  time.Duration // audit entries older than this are pruned (0: keep)
+}
+
+// ParseLocale returns "ru" or "en" for a supported locale value (case-insensitive, region suffix ignored), else "".
+func ParseLocale(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if i := strings.IndexAny(v, "-_"); i > 0 {
+		v = v[:i]
+	}
+	if v == "ru" || v == "en" {
+		return v
+	}
+	return ""
 }
 
 // Service is the Authfly core every adapter calls.
